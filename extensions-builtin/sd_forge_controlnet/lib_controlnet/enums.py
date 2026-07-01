@@ -1,6 +1,15 @@
 from enum import Enum
 
 
+class InputMode(Enum):
+    # Single image to a single ControlNet unit.
+    SIMPLE = "simple"
+    # Input is a directory. N generations. Each generation takes 1 input image from the directory.
+    BATCH = "batch"
+    # Upload multiple images via gallery. N generations.
+    MERGE = "merge"
+
+
 class HiResFixOption(Enum):
     BOTH = "Both"
     LOW_RES_ONLY = "Low res only"

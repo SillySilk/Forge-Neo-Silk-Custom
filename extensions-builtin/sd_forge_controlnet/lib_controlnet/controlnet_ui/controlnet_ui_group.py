@@ -100,9 +100,7 @@ class A1111Context:
             logger.debug(f"A1111 initialized {sum(c is not None for c in vars(self).values())}/{len(vars(self).keys())}.")
 
 
-class ControlNetUiGroup:
-    GLOBAL_CONTROLNET_BATCH_DIR: str = ""
-
+class ControlNetUiGroup(object):
     refresh_symbol = "\U0001f504"  # 🔄
     switch_values_symbol = "\U000021c5"  # ⇅
     camera_symbol = "\U0001f4f7"  # 📷
@@ -204,6 +202,17 @@ class ControlNetUiGroup:
         self.image_upload_panel = None
         self.save_detected_map = None
         self.hr_option = None
+        self.batch_image_dir_state = None
+        self.output_dir_state = None
+        self.upload_tab = None
+        self.batch_tab = None
+        self.batch_image_dir = None
+        self.batch_mask_dir = None
+        self.merge_tab = None
+        self.batch_input_gallery = None
+        self.batch_mask_gallery = None
+        self.batch_mask_gallery_group = None
+        self.input_mode = None
 
         # Internal states for UI state pasting.
         self.prevent_next_n_module_update = 0
@@ -230,42 +239,71 @@ class ControlNetUiGroup:
         with gr.Group(visible=not self.is_img2img) as self.image_upload_panel:
             self.save_detected_map = gr.Checkbox(value=True, visible=False)
 
-            with gr.Row(elem_classes=["cnet-image-row"], equal_height=True):
-                with gr.Group(elem_classes=["cnet-input-image-group"]) as self.image_group:
-                    self.image = ForgeCanvas(elem_id=f"{elem_id_tabname}_{tabname}_input_image", elem_classes=["cnet-image"], height=384, contrast_scribbles=shared.opts.img2img_inpaint_mask_high_contrast, scribble_color=shared.opts.img2img_inpaint_mask_brush_color, scribble_color_fixed=True, scribble_alpha=shared.opts.img2img_inpaint_mask_scribble_alpha, scribble_alpha_fixed=True, scribble_softness_fixed=True, numpy=True)
-                    self.openpose_editor.render_upload()
+            with gr.Tabs(visible=True):
+                with gr.Tab(label="Single Image") as self.upload_tab:
+                    with gr.Row(elem_classes=["cnet-image-row"], equal_height=True):
+                        with gr.Group(elem_classes=["cnet-input-image-group"]) as self.image_group:
+                            self.image = ForgeCanvas(elem_id=f"{elem_id_tabname}_{tabname}_input_image", elem_classes=["cnet-image"], height=384, contrast_scribbles=shared.opts.img2img_inpaint_mask_high_contrast, scribble_color=shared.opts.img2img_inpaint_mask_brush_color, scribble_color_fixed=True, scribble_alpha=shared.opts.img2img_inpaint_mask_scribble_alpha, scribble_alpha_fixed=True, scribble_softness_fixed=True, numpy=True)
+                            self.openpose_editor.render_upload()
 
-                self.canvas_editor.render(elem_id_tabname, tabname)
+                        self.canvas_editor.render(elem_id_tabname, tabname)
 
-                with gr.Group(visible=False, elem_classes=["cnet-generated-image-group"]) as self.generated_image_group:
-                    self.generated_image = ForgeCanvas(elem_id=f"{elem_id_tabname}_{tabname}_generated_image", elem_classes=["cnet-image"], height=384, no_scribbles=True, no_upload=True, numpy=True)
+                        with gr.Group(visible=False, elem_classes=["cnet-generated-image-group"]) as self.generated_image_group:
+                            self.generated_image = ForgeCanvas(elem_id=f"{elem_id_tabname}_{tabname}_generated_image", elem_classes=["cnet-image"], height=384, no_scribbles=True, no_upload=True, numpy=True)
 
-                    with gr.Group(elem_classes=["cnet-generated-image-control-group"]):
-                        self.openpose_editor.render_edit()
-                        preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
-                        preview_download_button_js = f"""
-                            const image = document.querySelector('#{elem_id_tabname}_{tabname}_generated_image img.forge-image');
-                            const src = image.getAttribute('src');
-                            if (!src || !image.complete || image.naturalWidth === 0) return;
+                            with gr.Group(elem_classes=["cnet-generated-image-control-group"]):
+                                self.openpose_editor.render_edit()
+                                preview_check_elem_id = f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_preview_checkbox"
+                                preview_download_button_js = f"""
+                                    const image = document.querySelector('#{elem_id_tabname}_{tabname}_generated_image img.forge-image');
+                                    const src = image.getAttribute('src');
+                                    if (!src || !image.complete || image.naturalWidth === 0) return;
 
-                            const a = document.createElement('a');
-                            a.href = src; a.download = 'preview.jpg';
+                                    const a = document.createElement('a');
+                                    a.href = src; a.download = 'preview.jpg';
 
-                            document.body.appendChild(a);
-                            a.click(); a.remove();
-                        """
-                        preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
-                        gr.HTML(
-                            value=f'<a title="Download Preview" onclick="{preview_download_button_js}">Download</a>',
-                            elem_classes=["cnet-download-preview"],
+                                    document.body.appendChild(a);
+                                    a.click(); a.remove();
+                                """
+                                preview_close_button_js = f"document.querySelector('#{preview_check_elem_id} input[type=\\'checkbox\\']').click();"
+                                gr.HTML(
+                                    value=f'<a title="Download Preview" onclick="{preview_download_button_js}">Download</a>',
+                                    elem_classes=["cnet-download-preview"],
+                                )
+                                gr.HTML(
+                                    value=f"""<a title="Close Preview" onclick="{preview_close_button_js}">Close</a>""",
+                                    visible=True,
+                                    elem_classes=["cnet-close-preview"],
+                                )
+
+                        with gr.Group(visible=False, elem_classes=["cnet-mask-image-group"]) as self.mask_image_group:
+                            self.mask_image = ForgeCanvas(elem_id=f"{elem_id_tabname}_{tabname}_mask_image", elem_classes=["cnet-mask-image"], height=384, scribble_color="#FFFFFF", scribble_width=1, scribble_alpha_fixed=True, scribble_color_fixed=True, scribble_softness_fixed=True, numpy=True)
+
+                with gr.Tab(label="Batch Folder") as self.batch_tab:
+                    with gr.Row():
+                        self.batch_image_dir = gr.Textbox(
+                            label="Input Directory",
+                            placeholder="Input directory path to the control images.",
+                            elem_id=f"{elem_id_tabname}_{tabname}_batch_image_dir",
                         )
-                        gr.HTML(
-                            value=f'<a title="Close Preview" onclick="{preview_close_button_js}">Close</a>',
-                            elem_classes=["cnet-close-preview"],
+                        self.batch_mask_dir = gr.Textbox(
+                            label="Mask Directory",
+                            placeholder="Mask directory path to the control images.",
+                            elem_id=f"{elem_id_tabname}_{tabname}_batch_mask_dir",
+                            visible=False,
                         )
 
-                with gr.Group(visible=False, elem_classes=["cnet-mask-image-group"]) as self.mask_image_group:
-                    self.mask_image = ForgeCanvas(elem_id=f"{elem_id_tabname}_{tabname}_mask_image", elem_classes=["cnet-mask-image"], height=384, scribble_color="#FFFFFF", scribble_width=1, scribble_alpha_fixed=True, scribble_color_fixed=True, scribble_softness_fixed=True, numpy=True)
+                with gr.Tab(label="Batch Upload") as self.merge_tab:
+                    with gr.Row():
+                        with gr.Column():
+                            self.batch_input_gallery = gr.Gallery(
+                                columns=[4], rows=[2], object_fit="contain", height="auto", label="Images"
+                            )
+                        with gr.Group(visible=False, elem_classes=["cnet-mask-gallery-group"]) as self.batch_mask_gallery_group:
+                            with gr.Column():
+                                self.batch_mask_gallery = gr.Gallery(
+                                    columns=[4], rows=[2], object_fit="contain", height="auto", label="Masks"
+                                )
 
             with gr.Accordion(label="Open New Canvas", visible=False) as self.create_canvas:
                 self.canvas_width = gr.Slider(
@@ -366,8 +404,11 @@ class ControlNetUiGroup:
             )
 
         with gr.Row(elem_classes=["controlnet_preprocessor_model", "controlnet_row"]):
+            all_preprocessors = global_state.get_all_preprocessor_names()
+            all_models = global_state.get_all_controlnet_names()
+
             self.module = gr.Dropdown(
-                global_state.get_all_preprocessor_names(),
+                all_preprocessors,
                 label=f"Preprocessor",
                 value=self.default_unit.module,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_preprocessor_dropdown",
@@ -380,7 +421,7 @@ class ControlNetUiGroup:
                 tooltip=ControlNetUiGroup.tooltips[ControlNetUiGroup.trigger_symbol],
             )
             self.model = gr.Dropdown(
-                global_state.get_all_controlnet_names(),
+                all_models,
                 label=f"Model",
                 value=self.default_unit.model,
                 elem_id=f"{elem_id_tabname}_{tabname}_controlnet_model_dropdown",
@@ -471,8 +512,20 @@ class ControlNetUiGroup:
             visible=False,
         )
 
+        self.batch_image_dir_state = gr.State("")
+        self.output_dir_state = gr.State("")
+
+        # Import InputMode for state initialization
+        from lib_controlnet.enums import InputMode
+        self.input_mode = gr.State(InputMode.SIMPLE)
+
         unit_args = (
+            self.input_mode,
             self.use_preview_as_input,
+            self.batch_image_dir if hasattr(self, 'batch_image_dir') and self.batch_image_dir is not None else gr.State(""),
+            self.batch_mask_dir if hasattr(self, 'batch_mask_dir') and self.batch_mask_dir is not None else gr.State(""),
+            self.batch_input_gallery if hasattr(self, 'batch_input_gallery') and self.batch_input_gallery is not None else gr.State([]),
+            self.batch_mask_gallery if hasattr(self, 'batch_mask_gallery') and self.batch_mask_gallery is not None else gr.State([]),
             self.generated_image.background,
             self.mask_image.background,
             self.mask_image.foreground,
@@ -598,19 +651,23 @@ class ControlNetUiGroup:
         self.module.change(build_sliders, inputs=inputs, outputs=outputs, show_progress=False)
         self.pixel_perfect.change(build_sliders, inputs=inputs, outputs=outputs, show_progress=False)
 
-        def filter_selected(k: str):
-            logger.debug(f"Prevent update {self.prevent_next_n_module_update}")
-            logger.debug(f"Switch to control type {k}")
-
+        def filter_selected(k: str, current_module: str, current_model: str):
             filtered_preprocessor_list = global_state.get_filtered_preprocessor_names(k)
             filtered_controlnet_names = global_state.get_filtered_controlnet_names(k)
-            default_preprocessor = filtered_preprocessor_list[0]
-            default_controlnet_name = filtered_controlnet_names[0]
 
-            if k != "All":
-                if len(filtered_preprocessor_list) > 1:
+            # Preserve current values if they're valid (not "None") and in the filtered lists
+            if current_module != "None" and current_module in filtered_preprocessor_list:
+                default_preprocessor = current_module
+            else:
+                default_preprocessor = filtered_preprocessor_list[0]
+                if k != 'All' and len(filtered_preprocessor_list) > 1:
                     default_preprocessor = filtered_preprocessor_list[1]
-                if len(filtered_controlnet_names) > 1:
+
+            if current_model != "None" and current_model in filtered_controlnet_names:
+                default_controlnet_name = current_model
+            else:
+                default_controlnet_name = filtered_controlnet_names[0]
+                if k != 'All' and len(filtered_controlnet_names) > 1:
                     default_controlnet_name = filtered_controlnet_names[1]
 
             if self.prevent_next_n_module_update > 0:
@@ -627,7 +684,7 @@ class ControlNetUiGroup:
 
         self.type_filter.change(
             fn=filter_selected,
-            inputs=[self.type_filter],
+            inputs=[self.type_filter, self.module, self.model],
             outputs=[self.module, self.model],
             show_progress=False,
         )
@@ -837,22 +894,36 @@ class ControlNetUiGroup:
                 show_progress=False,
             )
 
-    @classmethod
-    def register_sync_batch_dir(cls):
-        def determine_batch_dir(batch_dir: str, fallback_dir: str) -> str:
-            ControlNetUiGroup.GLOBAL_CONTROLNET_BATCH_DIR = batch_dir if batch_dir else fallback_dir
+    def register_sync_batch_dir(self):
+        def determine_batch_dir(batch_dir, fallback_dir, fallback_fallback_dir):
+            if batch_dir:
+                return batch_dir
+            elif fallback_dir:
+                return fallback_dir
+            else:
+                return fallback_fallback_dir
 
         batch_dirs = [
             ControlNetUiGroup.global_batch_input_dir,
             ControlNetUiGroup.a1111_context.img2img_batch_input_dir,
         ]
-
-        for comp in batch_dirs:
-            comp.blur(
+        for batch_dir_comp in batch_dirs:
+            subscriber = getattr(batch_dir_comp, "blur", None)
+            if subscriber is None:
+                continue
+            subscriber(
                 fn=determine_batch_dir,
                 inputs=batch_dirs,
+                outputs=[self.batch_image_dir_state],
                 queue=False,
             )
+
+        ControlNetUiGroup.a1111_context.img2img_batch_output_dir.blur(
+            fn=lambda a: a,
+            inputs=[ControlNetUiGroup.a1111_context.img2img_batch_output_dir],
+            outputs=[self.output_dir_state],
+            queue=False,
+        )
 
     def register_clear_preview(self):
         def clear_preview(x):
@@ -906,6 +977,25 @@ class ControlNetUiGroup:
         if self.is_img2img:
             self.register_img2img_same_input()
 
+    def register_tab_mode_sync(self):
+        """Register tab switching to sync input_mode state."""
+        from lib_controlnet.enums import InputMode
+
+        # Only register if batch tabs exist
+        if not hasattr(self, 'upload_tab') or not hasattr(self, 'batch_tab') or not hasattr(self, 'merge_tab'):
+            return
+
+        if self.upload_tab is None or self.batch_tab is None or self.merge_tab is None:
+            return
+
+        simple_fn = lambda: InputMode.SIMPLE
+        batch_fn = lambda: InputMode.BATCH
+        merge_fn = lambda: InputMode.MERGE
+
+        self.upload_tab.select(fn=simple_fn, outputs=[self.input_mode], show_progress=False)
+        self.batch_tab.select(fn=batch_fn, outputs=[self.input_mode], show_progress=False)
+        self.merge_tab.select(fn=merge_fn, outputs=[self.input_mode], show_progress=False)
+
     def register_callbacks(self):
         """Register callbacks that involves A1111 context gradio components."""
         # Prevent infinite recursion.
@@ -917,6 +1007,7 @@ class ControlNetUiGroup:
         self.register_run_annotator()
         self.register_sync_batch_dir()
         self.register_shift_upload_mask()
+        self.register_tab_mode_sync()
         if self.is_img2img:
             self.register_shift_crop_input_image()
         else:

@@ -28,15 +28,34 @@
                 <button id="resetButton_forge_mixin" class="forge-btn" title="Reset [Ctrl + X]">🔄</button>
                 <button id="undoButton_forge_mixin" class="forge-btn" title="Undo [Ctrl + Z]">↩️</button>
                 <button id="redoButton_forge_mixin" class="forge-btn" title="Redo [Ctrl + Y]">↪️</button>
+                <span class="forge-toolbar-hint">Hold Ctrl + Click for straight line</span>
             </div>
             <div class="forge-toolbar-box-b">
-                <div class="forge-color-picker-block" title="Color Picker [E]" id="scribbleColorBlock_forge_mixin">
+                <div class="forge-color-picker-block" title="Fill Color [E]" id="scribbleColorBlock_forge_mixin">
                     <input type="color" id="scribbleColor_forge_mixin" class="forge-toolbar-color" value="#000000">
                 </div>
+                <div class="forge-color-picker-block" title="Stroke Color [Shift + E]" id="strokeColorBlock_forge_mixin">
+                    <input type="color" id="strokeColor_forge_mixin" class="forge-toolbar-color" value="#ffffff">
+                </div>
+                <button id="brushShapeButton_forge_mixin" class="forge-btn" title="Cycle Brush Shape: Circle/Rectangle/Triangle [B]" style="font-size: 20px; width: 40px; height: 40px;">○</button>
+                <button id="scatterButton_forge_mixin" class="forge-btn" title="Toggle Scatter Brush [N] — random offset & size per stamp" style="font-size: 16px; width: 40px; height: 40px;">⋯</button>
+                <div class="forge-shape-picker-container">
+                    <button id="shapePickerButton_forge_mixin" class="forge-btn" title="Select Custom Shape [G]" style="font-size: 18px; width: 40px; height: 40px;">▲</button>
+                    <div id="shapePalette_forge_mixin" class="forge-shape-palette" style="display: none;"></div>
+                </div>
+                <button id="shapeFillModeButton_forge_mixin" class="forge-btn" title="Toggle Fill/Outline Mode [H]" style="font-size: 20px; width: 40px; height: 40px;">■</button>
                 <div class="forge-range-row" title="adjust with [W] + [Scroll Wheel]"
                     id="scribbleWidthBlock_forge_mixin">
                     <div id="widthLabel_forge_mixin" class="forge-toolbar-label">Brush Width</div>
-                    <input type="range" id="scribbleWidth_forge_mixin" class="forge-toolbar-range" min="1" max="100"
+                    <input type="range" id="scribbleWidth_forge_mixin" class="forge-toolbar-range" min="1" max="250"
+                        value="25">
+                </div>
+                <button id="sizeLinkButton_forge_mixin" class="forge-btn" title="Link/Unlink Width and Height [L]" style="font-size: 20px; width: 40px; height: 40px;">🔗</button>
+                <button id="equalizeButton_forge_mixin" class="forge-btn" title="Equalize Width and Height [=]" style="font-size: 16px; width: 40px; height: 40px;">⊞</button>
+                <div class="forge-range-row" title="adjust with [Q] + [Scroll Wheel]&#10;Control vertical dimension independently"
+                    id="scribbleHeightBlock_forge_mixin">
+                    <div id="heightLabel_forge_mixin" class="forge-toolbar-label">Brush Height</div>
+                    <input type="range" id="scribbleHeight_forge_mixin" class="forge-toolbar-range" min="1" max="250"
                         value="25">
                 </div>
                 <div class="forge-range-row" title="adjust with [A] + [Scroll Wheel]&#10;function as eraser if 0"
@@ -49,6 +68,29 @@
                     id="scribbleSoftnessBlock_forge_mixin">
                     <div id="softnessLabel_forge_mixin" class="forge-toolbar-label">Brush Softness</div>
                     <input type="range" id="scribbleSoftness_forge_mixin" class="forge-toolbar-range" min="0" max="100"
+                        value="0">
+                </div>
+                <div class="forge-range-row" title="adjust with [D] + [Scroll Wheel]"
+                    id="scribbleRotationBlock_forge_mixin">
+                    <div id="rotationLabel_forge_mixin" class="forge-toolbar-label" style="cursor: pointer;">Brush Rotation</div>
+                    <input type="range" id="scribbleRotation_forge_mixin" class="forge-toolbar-range" min="0" max="360"
+                        value="0" step="5" list="rotationSnaps_forge_mixin">
+                    <datalist id="rotationSnaps_forge_mixin">
+                        <option value="0"></option>
+                        <option value="45"></option>
+                        <option value="90"></option>
+                        <option value="135"></option>
+                        <option value="180"></option>
+                        <option value="225"></option>
+                        <option value="270"></option>
+                        <option value="315"></option>
+                        <option value="360"></option>
+                    </datalist>
+                </div>
+                <div class="forge-range-row" title="Stroke/outline width for shapes"
+                    id="strokeWidthBlock_forge_mixin">
+                    <div id="strokeWidthLabel_forge_mixin" class="forge-toolbar-label">Stroke Width</div>
+                    <input type="range" id="strokeWidth_forge_mixin" class="forge-toolbar-range" min="0" max="5"
                         value="0">
                 </div>
             </div>

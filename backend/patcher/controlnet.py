@@ -320,6 +320,7 @@ class ControlNet(ControlBase):
             if self.cond_hint is not None:
                 del self.cond_hint
             self.cond_hint = None
+            print(f"ControlNet: cond_hint_original shape: {self.cond_hint_original.shape}")
             self.cond_hint = image_resize.adaptive_resize(self.cond_hint_original, x_noisy.shape[3] * 8, x_noisy.shape[2] * 8, "nearest-exact", "center").to(dtype)
         if x_noisy.shape[0] != self.cond_hint.shape[0]:
             self.cond_hint = broadcast_image_to(self.cond_hint, x_noisy.shape[0], batched_number)

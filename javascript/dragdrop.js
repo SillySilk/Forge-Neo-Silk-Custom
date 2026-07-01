@@ -1,7 +1,13 @@
 // allows drag-and-drop files into prompt fields, and also pasting images from clipboard
 
 function isValidImageList(files) {
-    return files != null && files.length === 1 && files[0].type.startsWith("image");
+    // CUSTOM (Forge Neo): require non-empty single image of an explicit type.
+    return (
+        files &&
+        files?.length === 1 &&
+        files[0].size > 0 &&
+        ["image/png", "image/gif", "image/jpeg", "image/webp"].includes(files[0].type)
+    );
 }
 
 function dropReplaceImage(imgWrap, files) {

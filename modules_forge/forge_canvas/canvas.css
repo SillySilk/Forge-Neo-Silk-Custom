@@ -88,6 +88,17 @@
 
 .forge-toolbar-box-a {
     flex-wrap: wrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.forge-toolbar-hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-style: italic;
+    margin-left: 8px;
+    white-space: nowrap;
 }
 
 .forge-toolbar-box-b {
@@ -141,8 +152,26 @@
     margin-bottom: 4px;
 }
 
+.forge-label-input {
+    width: 4em;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 3px;
+    padding: 0 2px;
+    font-size: inherit;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.forge-label-input::-webkit-inner-spin-button,
+.forge-label-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .forge-scribble-indicator {
-    position: relative;
+    position: absolute;
     border-radius: 50%;
     border: 1px solid;
     pointer-events: none;
@@ -158,4 +187,98 @@
     width: 30%;
     height: 30%;
     transform: translate(-50%, -50%);
+}
+
+/* Shape Picker Styles */
+.forge-shape-picker-container {
+    position: relative;
+    display: inline-block;
+}
+
+.forge-shape-palette {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(30, 30, 30, 0.95);
+    border: 3px solid #7e7e7e;
+    border-radius: 6px;
+    padding: 12px;
+    z-index: 100;
+    max-height: 500px;
+    overflow-y: auto;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.forge-shape-category {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 8px 4px 4px 4px;
+    letter-spacing: 0.5px;
+}
+
+.forge-shape-category:first-child {
+    margin-top: 0;
+}
+
+.forge-shape-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 40px);
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.forge-shape-thumbnail {
+    width: 40px;
+    height: 40px;
+    background: rgba(70, 70, 70, 0.5);
+    border: 1px solid #5e5e5e;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.forge-shape-thumbnail:hover {
+    background: rgba(94, 94, 94, 0.8);
+    border-color: #7e7e7e;
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+.forge-shape-thumbnail.selected {
+    background: rgba(100, 150, 255, 0.3);
+    border-color: #6090ff;
+}
+
+.forge-shape-thumbnail canvas {
+    width: 30px;
+    height: 30px;
+}
+
+/* Scrollbar styling for shape palette */
+.forge-shape-palette::-webkit-scrollbar {
+    width: 14px;
+}
+
+.forge-shape-palette::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.forge-shape-palette::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 7px;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.forge-shape-palette::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.6);
 }

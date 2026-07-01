@@ -1,0 +1,3 @@
+[submodule "extensions/sd-forge-cleaner"]
+	path = extensions/sd-forge-cleaner
+	url = https://github.com/Digiearts/sd-forge-cleaner

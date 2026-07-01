@@ -220,6 +220,22 @@ def detect_unet_config(state_dict: dict, key_prefix: str) -> dict:
 
         return dit_config
 
+    if "{}adaLN_modulation.1.weight".format(key_prefix) in state_dict_keys:  # ERNIE-Image
+        dit_config = {}
+        dit_config["image_model"] = "ernie_image"
+        w = state_dict["{}x_embedder.proj.weight".format(key_prefix)]
+        dit_config["in_channels"]  = int(w.shape[1])
+        dit_config["hidden_size"]  = int(state_dict["{}adaLN_modulation.1.weight".format(key_prefix)].shape[1] // 6)
+        dit_config["num_layers"]   = count_blocks(state_dict_keys, "{}layers.".format(key_prefix) + "{}.")
+        dit_config["num_attention_heads"] = int(dit_config["hidden_size"] // 128)
+        dit_config["ffn_hidden_size"] = int(state_dict["{}layers.0.mlp.gate_proj.weight".format(key_prefix)].shape[0])
+        dit_config["out_channels"] = dit_config["in_channels"]
+        if "{}text_proj.weight".format(key_prefix) in state_dict_keys:
+            dit_config["text_in_dim"] = int(state_dict["{}text_proj.weight".format(key_prefix)].shape[1])
+        else:
+            dit_config["text_in_dim"] = dit_config["hidden_size"]
+        return dit_config
+
     if "{}txt_norm.weight".format(key_prefix) in state_dict_keys:  # Qwen Image
         _qweight: bool = "{}transformer_blocks.0.attn.to_qkv.qweight".format(key_prefix) in state_dict_keys
         dit_config = {"nunchaku": _qweight}

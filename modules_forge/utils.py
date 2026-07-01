@@ -81,10 +81,15 @@ def safer_memory(x: np.ndarray) -> np.ndarray:
 def resize_image_with_pad(input_image: np.ndarray, resolution: int, *, skip_hwc3: bool = False):
     img = input_image if skip_hwc3 else HWC3(input_image)
     H_raw, W_raw, _ = img.shape
-    k = float(resolution) / float(min(H_raw, W_raw))
+    # CUSTOM (Forge Neo): guard invalid resolution (<= 0, e.g. -1 meaning "keep
+    # original"); avoids division-by-zero / negative resize.
+    if resolution <= 0:
+        H_target, W_target, k = H_raw, W_raw, 1.0
+    else:
+        k = float(resolution) / float(min(H_raw, W_raw))
+        H_target = int(np.round(float(H_raw) * k))
+        W_target = int(np.round(float(W_raw) * k))
     interpolation = cv2.INTER_CUBIC if k > 1 else cv2.INTER_AREA
-    H_target = int(np.round(float(H_raw) * k))
-    W_target = int(np.round(float(W_raw) * k))
     img = cv2.resize(img, (W_target, H_target), interpolation=interpolation)
     H_pad, W_pad = pad64(H_target), pad64(W_target)
     img_padded = np.pad(img, [[0, H_pad], [0, W_pad], [0, 0]], mode="edge")

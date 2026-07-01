@@ -135,10 +135,10 @@ class VAE:
             self.memory_used_encode = lambda shape, dtype: (1767 * shape[2] * shape[3]) * memory_management.dtype_size(dtype)
             self.memory_used_decode = lambda shape, dtype: (2178 * shape[2] * shape[3] * 64) * memory_management.dtype_size(dtype)
 
-            if is_flux2:
+            if is_flux2 or is_mugen:
                 self.upscale_ratio = 16
                 self.downscale_ratio = 16
-                self.latent_channels = 128
+                self.latent_channels = 32 if is_mugen else 128
                 self.memory_used_decode = lambda shape, dtype: (2178 * shape[2] * shape[3] * 64) * memory_management.dtype_size(dtype) * 4.0
 
         else:
@@ -153,6 +153,8 @@ class VAE:
 
         self.output_channels = 3
         self.first_stage_model = model.eval()
+        if is_mugen:
+            self.first_stage_model.mugen = True
 
         self.device = device or memory_management.vae_device()
         offload_device = memory_management.vae_offload_device()
@@ -215,7 +217,7 @@ class VAE:
 
             for x in range(0, samples_in.shape[0], batch_number):
                 samples = samples_in[x : x + batch_number].to(device=self.device, dtype=self.vae_dtype)
-                out = self.process_output(self.first_stage_model.decode(samples).to(device=self.output_device, dtype=torch.float32, copy=True))
+                out = self.process_output(self.first_stage_model.decode(samples).to(device=self.output_device, dtype=torch.float32))
                 if pixel_samples is None:
                     pixel_samples = torch.empty((samples_in.shape[0],) + tuple(out.shape[1:]), device=self.output_device)
                 pixel_samples[x : x + batch_number] = out

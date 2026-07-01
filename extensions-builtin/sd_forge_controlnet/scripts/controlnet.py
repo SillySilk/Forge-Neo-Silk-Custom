@@ -46,10 +46,15 @@ class ControlNetCachedParameters:
         self.control_cond_for_hr_fix = None
         self.control_mask = None
         self.control_mask_for_hr_fix = None
+        # For batch mode: store full tensor and batch config
+        self.control_cond_full = None
+        self.control_cond_for_hr_fix_full = None
+        self.batch_size = None
+        self.num_images = None
 
 
 class ControlNetForForgeOfficial(scripts.Script):
-    sorting_priority = 10
+    sorting_priority = 5  # Run before most other scripts to ensure batch settings apply
 
     def title(self):
         return "ControlNet"
@@ -62,8 +67,9 @@ class ControlNetForForgeOfficial(scripts.Script):
         ui_groups = []
         controls = []
         max_models = shared.opts.data.get("control_net_unit_count", 3)
-        elem_id_tabname = f"{'img2img' if is_img2img else 'txt2img'}_controlnet"
-        default_unit = ControlNetUnit(enabled=False, module="None", model="None")
+        gen_type = "img2img" if is_img2img else "txt2img"
+        elem_id_tabname = gen_type + "_controlnet"
+        default_unit = ControlNetUnit()  # enabled, module and model will use dataclass defaults
 
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(open=False, label="ControlNet Integrated", elem_id="controlnet", elem_classes=["controlnet"]):
@@ -113,73 +119,87 @@ class ControlNetForForgeOfficial(scripts.Script):
             input_image = np.stack(input_image, axis=2)
         return input_image
 
-    def get_input_data(self, p, unit: ControlNetUnit, preprocessor, h, w):
+    def get_input_data(self, p, unit, preprocessor, h, w):
+        logger.info(f'ControlNet Input Mode: {unit.input_mode}')
         image_list = []
         resize_mode = external_code.resize_mode_from_value(unit.resize_mode)
 
-        a1111_i2i_image = getattr(p, "init_images", [None])[0]
-        a1111_i2i_mask = getattr(p, "image_mask", None)
+        # Batch Upload (MERGE) mode: Load images from gallery
+        if unit.input_mode == external_code.InputMode.MERGE:
+            if unit.batch_input_gallery is not None and len(unit.batch_input_gallery) > 0:
+                for idx, item in enumerate(unit.batch_input_gallery):
+                    # Gallery returns list/tuple where first element is the file path
+                    img_path = item[0] if isinstance(item, (list, tuple)) else item
+                    logger.info(f'Try to read image: {img_path}')
+                    img = np.ascontiguousarray(cv2.imread(img_path)[:, :, ::-1]).copy()
+                    mask = None
+                    if unit.batch_mask_gallery is not None and len(unit.batch_mask_gallery) > 0:
+                        if len(unit.batch_mask_gallery) >= len(unit.batch_input_gallery):
+                            mask_item = unit.batch_mask_gallery[idx]
+                            mask_path = mask_item[0] if isinstance(mask_item, (list, tuple)) else mask_item
+                        else:
+                            mask_item = unit.batch_mask_gallery[0]
+                            mask_path = mask_item[0] if isinstance(mask_item, (list, tuple)) else mask_item
+                        mask = np.ascontiguousarray(cv2.imread(mask_path)[:, :, ::-1]).copy()
+                    if img is not None:
+                        image_list.append([img, mask])
+            else:
+                logger.warning("Batch input gallery is empty or None")
 
-        using_a1111_data = False
+        # Batch Folder (BATCH) mode: Load images from directory
+        elif unit.input_mode == external_code.InputMode.BATCH:
+            import os
+            image_extensions = ['.jpg', '.jpeg', '.png', '.bmp']
+            # Strip whitespace from directory path
+            batch_dir = unit.batch_image_dir.strip() if unit.batch_image_dir else ""
+            if not batch_dir:
+                logger.warning("Batch folder path is empty")
+                return image_list, resize_mode
+            batch_image_files = shared.listfiles(batch_dir)
+            for idx, filename in enumerate(batch_image_files):
+                if any(filename.lower().endswith(ext) for ext in image_extensions):
+                    img_path = os.path.join(batch_dir, filename)
+                    logger.info(f'Try to read image: {img_path}')
+                    img = np.ascontiguousarray(cv2.imread(img_path)[:, :, ::-1]).copy()
+                    mask = None
+                    if unit.batch_mask_dir:
+                        batch_mask_dir = unit.batch_mask_dir.strip()
+                        batch_mask_files = shared.listfiles(batch_mask_dir)
+                        if len(batch_mask_files) >= len(batch_image_files):
+                            mask_path = batch_mask_files[idx]
+                        else:
+                            mask_path = batch_mask_files[0]
+                        mask_path = os.path.join(batch_mask_dir, mask_path)
+                        mask = np.ascontiguousarray(cv2.imread(mask_path)[:, :, ::-1]).copy()
+                    if img is not None:
+                        image_list.append([img, mask])
 
-        if isinstance(unit.image, dict):  # backwards compatibility
-            unit_image = unit.image.get("image", None)
-            unit_mask_image = unit.image.get("mask", None)
+        # Single Image (SIMPLE) mode: Original logic
         else:
-            unit_image = unit.image
-            unit_mask_image = unit.mask_image
+            a1111_i2i_image = getattr(p, "init_images", [None])[0]
+            a1111_i2i_mask = getattr(p, "image_mask", None)
 
-        unit_image_fg = unit.image_fg[:, :, 3] if unit.image_fg is not None else None
-        unit_mask_image_fg = unit.mask_image_fg[:, :, 3] if unit.mask_image_fg is not None else None
+            using_a1111_data = False
 
-        image: np.ndarray = None
+            if isinstance(unit.image, dict):  # backwards compatibility
+                unit_image = unit.image.get("image", None)
+                unit_mask_image = unit.image.get("mask", None)
+            else:
+                unit_image = unit.image
+                unit_mask_image = unit.mask_image
 
-        # ---------------- BATCH DIR OVERRIDE ----------------
-        batch_dir: os.PathLike = ControlNetUiGroup.GLOBAL_CONTROLNET_BATCH_DIR.strip()
-        src_path: os.PathLike = getattr(a1111_i2i_image, "filename", "").strip()
+            unit_image_fg = unit.image_fg[:, :, 3] if unit.image_fg is not None else None
+            unit_mask_image_fg = unit.mask_image_fg[:, :, 3] if unit.mask_image_fg is not None else None
 
-        if os.path.isdir(batch_dir):
-            matched_path: os.PathLike = None
-
-            control_files = list(
-                util.walk_files(
-                    batch_dir,
-                    allowed_extensions=(".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".avif"),
-                )
-            )
-
-            if os.path.isfile(src_path):
-                src_stem = os.path.splitext(os.path.basename(src_path))[0]
-                for fp in control_files:
-                    if os.path.splitext(os.path.basename(fp))[0] == src_stem:
-                        matched_path = fp
-                        break
-
-            if not matched_path and control_files:
-                if not hasattr(p, "_cnet_batch_dir_idx"):
-                    p._cnet_batch_dir_idx = {}
-
-                i = p._cnet_batch_dir_idx.pop(unit._idx, 0)
-                p._cnet_batch_dir_idx[unit._idx] = i + 1
-
-                matched_path = control_files[i % len(control_files)]
-
-            if matched_path:
-                try:
-                    img = Image.open(matched_path)
-                    image = HWC3(np.asarray(img))
-                    logger.info(f"[Batch Dir] (unit={unit._idx}, idx={i}) {os.path.basename(src_path)} <- {os.path.basename(matched_path)}")
-                    using_a1111_data = False
-                except Exception as e:
-                    logger.error(f'[Batch Dir] Failed to load "{matched_path}"\n{e}')
-                    image = None
-
-        # ---------------- Original Logics (if no batch dir) ----------------
-        if image is None:
             if unit.use_preview_as_input and unit.generated_image is not None:
                 image = unit.generated_image
             elif unit.image is None:
-                resize_mode = external_code.resize_mode_from_value(p.resize_mode)
+                # Use p.resize_mode if available (img2img), otherwise keep unit resize_mode
+                if hasattr(p, 'resize_mode'):
+                    resize_mode = external_code.resize_mode_from_value(p.resize_mode)
+                # Ensure image is in RGB mode before conversion to numpy array
+                if hasattr(a1111_i2i_image, 'convert'):
+                    a1111_i2i_image = a1111_i2i_image.convert('RGB')
                 image = HWC3(np.asarray(a1111_i2i_image))
                 using_a1111_data = True
             elif (unit_image < 5).all() and (unit_image_fg > 5).any():
@@ -187,29 +207,35 @@ class ControlNetForForgeOfficial(scripts.Script):
             else:
                 image = unit_image
 
-        if not isinstance(image, np.ndarray):
-            raise ValueError("controlnet is enabled but no input image is given")
+            if not isinstance(image, np.ndarray):
+                raise ValueError("controlnet is enabled but no input image is given")
 
-        image = HWC3(image)
+            image = HWC3(image)
 
-        if using_a1111_data:
-            mask = HWC3(np.asarray(a1111_i2i_mask)) if a1111_i2i_mask is not None else None
-        elif unit_mask_image_fg is not None and (unit_mask_image_fg > 5).any():
-            mask = unit_mask_image_fg
-        elif unit_mask_image is not None and (unit_mask_image > 5).any():
-            mask = unit_mask_image
-        elif unit_image_fg is not None and (unit_image_fg > 5).any():
-            mask = unit_image_fg
-        else:
-            mask = None
+            if using_a1111_data:
+                if a1111_i2i_mask is not None:
+                    # Ensure mask is in proper mode before conversion
+                    if hasattr(a1111_i2i_mask, 'convert'):
+                        a1111_i2i_mask = a1111_i2i_mask.convert('RGB')
+                    mask = HWC3(np.asarray(a1111_i2i_mask))
+                else:
+                    mask = None
+            elif unit_mask_image_fg is not None and (unit_mask_image_fg > 5).any():
+                mask = unit_mask_image_fg
+            elif unit_mask_image is not None and (unit_mask_image > 5).any():
+                mask = unit_mask_image
+            elif unit_image_fg is not None and (unit_image_fg > 5).any():
+                mask = unit_image_fg
+            else:
+                mask = None
 
-        image = self.try_crop_image_with_a1111_mask(p, unit, image, resize_mode, preprocessor)
+            image = self.try_crop_image_with_a1111_mask(p, unit, image, resize_mode, preprocessor)
 
-        if mask is not None:
-            mask = cv2.resize(HWC3(mask), (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
-            mask = self.try_crop_image_with_a1111_mask(p, unit, mask, resize_mode, preprocessor, _is_mask=True)
+            if mask is not None:
+                mask = cv2.resize(HWC3(mask), (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
+                mask = self.try_crop_image_with_a1111_mask(p, unit, mask, resize_mode, preprocessor, _is_mask=True)
 
-        image_list = [[image, mask]]
+            image_list = [[image, mask]]
 
         if resize_mode == external_code.ResizeMode.OUTER_FIT and preprocessor.expand_mask_when_resize_and_fill:
             new_image_list = []
@@ -303,16 +329,70 @@ class ControlNetForForgeOfficial(scripts.Script):
             if input_mask is not None:
                 control_masks.append(input_mask)
 
+            # Note: Removed early break to allow all batch images to be processed
+            # Previous code would stop after first image if preprocessor output wasn't standard image format
             if len(input_list) > 1 and not preprocessor_output_is_image:
-                logger.info("Batch wise input only support controlnet, control-lora, and t2i adapters!")
-                break
+                logger.warning('Non-image preprocessor output detected in batch mode. Processing all images anyway.')
+                # Continue processing remaining images instead of breaking
 
         if has_high_res_fix:
             hr_option = HiResFixOption.from_value(unit.hr_option)
         else:
             hr_option = HiResFixOption.BOTH
 
-        alignment_indices = [i % len(preprocessor_outputs) for i in range(p.batch_size)]
+        # Fixed: Proper batch handling - when multiple images are provided, use 1:1 mapping
+        # instead of repeating/cycling through images
+        if len(input_list) > 1:
+            # Batch mode: each preprocessed image should map to one generation
+            # Memory optimization: Split into sub-batches using n_iter for better memory management
+            import math
+
+            num_images = len(preprocessor_outputs)
+            original_batch_size = p.batch_size
+            original_n_iter = p.n_iter
+
+            # Optimal batch size for memory (adjust based on VRAM - 2 for 8GB, 4 for 12GB+)
+            optimal_batch_size = 2
+
+            # Calculate how to split the images
+            if num_images <= optimal_batch_size:
+                # Small batch: process all at once
+                p.batch_size = num_images
+                p.n_iter = 1
+                alignment_indices = list(range(num_images))
+                params.batch_size = None  # Not using iteration-based batching
+                params.num_images = None
+            else:
+                # Large batch: split into iterations for memory efficiency
+                p.batch_size = optimal_batch_size
+                p.n_iter = math.ceil(num_images / optimal_batch_size)
+                # Store batch config for later slicing per iteration
+                params.batch_size = optimal_batch_size
+                params.num_images = num_images
+                # For now, create alignment for all images (will be sliced per iteration later)
+                alignment_indices = list(range(num_images))
+
+                # CRITICAL FIX: Expand prompts/seeds to match new batch configuration
+                # When we change n_iter and batch_size, we need to ensure all_prompts, all_seeds, etc.
+                # have enough elements for Forge's iteration loop to slice correctly
+                total_needed = p.batch_size * p.n_iter
+                current_length = len(p.all_prompts)
+                if current_length < total_needed:
+                    # Replicate the prompts/seeds to fill the required slots
+                    repeat_factor = math.ceil(total_needed / current_length)
+                    p.all_prompts = (p.all_prompts * repeat_factor)[:total_needed]
+                    p.all_negative_prompts = (p.all_negative_prompts * repeat_factor)[:total_needed]
+                    p.all_seeds = (p.all_seeds * repeat_factor)[:total_needed]
+                    p.all_subseeds = (p.all_subseeds * repeat_factor)[:total_needed]
+                    logger.debug(f"Expanded prompts/seeds from {current_length} to {total_needed} for batch processing")
+
+            if original_batch_size != p.batch_size or original_n_iter != p.n_iter:
+                logger.info(f'Batch mode: Processing {num_images} images as {p.n_iter} iteration(s) of {p.batch_size} (memory optimized)')
+        else:
+            # Single image mode: repeat the same control for batch_size generations
+            alignment_indices = [i % len(preprocessor_outputs) for i in range(p.batch_size)]
+            params.batch_size = None
+            params.num_images = None
 
         def attach_extra_result_image(img: np.ndarray, is_high_res: bool = False):
             if not shared.opts.data.get("control_net_no_detectmap", False) and ((is_high_res and hr_option.high_res_enabled) or (not is_high_res and hr_option.low_res_enabled)) and unit.save_detected_map:
@@ -327,14 +407,42 @@ class ControlNetForForgeOfficial(scripts.Script):
                 attach_extra_result_image(external_code.visualize_inpaint_mask(control_cond))
                 params.control_cond.append(numpy_to_pytorch(control_cond).movedim(-1, 1))
 
-            params.control_cond = torch.cat(params.control_cond, dim=0)[alignment_indices].contiguous()
+            # Fixed: Add safety check for indexing
+            params.control_cond = torch.cat(params.control_cond, dim=0)
+
+            # Store full tensor for iteration-based batching
+            if params.num_images is not None:
+                params.control_cond_full = params.control_cond.contiguous()
+                # Don't slice yet - will be done per iteration in process_before_every_sampling
+            else:
+                # No iteration batching - use alignment as before
+                if len(alignment_indices) <= len(params.control_cond):
+                    params.control_cond = params.control_cond[alignment_indices].contiguous()
+                else:
+                    clipped = [i % len(params.control_cond) for i in alignment_indices]
+                    logger.warning(f"Batch size mismatch: {len(alignment_indices)} requested but only {len(params.control_cond)} control conditions available; wrapping indices")
+                    params.control_cond = params.control_cond[clipped].contiguous()
 
             if has_high_res_fix:
                 for preprocessor_output in preprocessor_outputs:
                     control_cond_for_hr_fix = crop_and_resize_image(preprocessor_output, resize_mode, hr_y, hr_x)
                     attach_extra_result_image(external_code.visualize_inpaint_mask(control_cond_for_hr_fix), is_high_res=True)
                     params.control_cond_for_hr_fix.append(numpy_to_pytorch(control_cond_for_hr_fix).movedim(-1, 1))
-                params.control_cond_for_hr_fix = torch.cat(params.control_cond_for_hr_fix, dim=0)[alignment_indices].contiguous()
+                # Fixed: Add safety check for high-res indexing
+                params.control_cond_for_hr_fix = torch.cat(params.control_cond_for_hr_fix, dim=0)
+
+                # Store full tensor for iteration-based batching
+                if params.num_images is not None:
+                    params.control_cond_for_hr_fix_full = params.control_cond_for_hr_fix.contiguous()
+                    # Don't slice yet - will be done per iteration in process_before_every_sampling
+                else:
+                    # No iteration batching - use alignment as before
+                    if len(alignment_indices) <= len(params.control_cond_for_hr_fix):
+                        params.control_cond_for_hr_fix = params.control_cond_for_hr_fix[alignment_indices].contiguous()
+                    else:
+                        clipped = [i % len(params.control_cond_for_hr_fix) for i in alignment_indices]
+                        logger.warning(f"High-res batch size mismatch: {len(alignment_indices)} requested but only {len(params.control_cond_for_hr_fix)} available; wrapping indices")
+                        params.control_cond_for_hr_fix = params.control_cond_for_hr_fix[clipped].contiguous()
             else:
                 params.control_cond_for_hr_fix = params.control_cond
         else:
@@ -402,6 +510,22 @@ class ControlNetForForgeOfficial(scripts.Script):
             logger.info(f"ControlNet Skipped Low-res pass.")
             return
 
+        # Fixed: Slice the appropriate portion of control tensor for this iteration
+        if params.num_images is not None and params.control_cond_full is not None:
+            iteration = getattr(p, 'iteration', 0)
+            start_idx = iteration * params.batch_size
+            end_idx = min(start_idx + params.batch_size, params.num_images)
+
+            logger.debug(f"DEBUG: p.iteration={iteration}, params.batch_size={params.batch_size}, params.num_images={params.num_images}")
+            logger.debug(f"DEBUG: control_cond_full.shape={params.control_cond_full.shape}, slicing [{start_idx}:{end_idx}]")
+
+            # Slice the tensors for this iteration
+            params.control_cond = params.control_cond_full[start_idx:end_idx].contiguous()
+            if params.control_cond_for_hr_fix_full is not None:
+                params.control_cond_for_hr_fix = params.control_cond_for_hr_fix_full[start_idx:end_idx].contiguous()
+
+            logger.info(f"Batch iteration {iteration + 1}: Using images {start_idx} to {end_idx - 1}")
+
         if is_hr_pass:
             cond = params.control_cond_for_hr_fix
             mask = params.control_mask_for_hr_fix
@@ -457,10 +581,17 @@ class ControlNetForForgeOfficial(scripts.Script):
         Checks and corrects negative parameters in ControlNetUnit 'unit'.
         Parameters 'processor_res', 'threshold_a', 'threshold_b' are reset to
         their default values if negative.
+        Also applies defaults for module and model if they are "None".
 
         Args:
             unit (ControlNetUnit): The ControlNetUnit instance to check.
         """
+        # CUSTOM (Forge Neo): leave preprocessor as "None" (no forced default) so it can be
+        # set in the UI; auto-load the Anima "everything" LLLite model when none is selected.
+        if unit.model == "None":
+            unit.model = "anima-lllite-any-test-like-v2"
+            logger.info(f"Applied default model: {unit.model}")
+
         preprocessor = global_state.get_preprocessor(unit.module)
 
         if unit.processor_res < 0:
@@ -490,7 +621,6 @@ class ControlNetForForgeOfficial(scripts.Script):
         enabled_units = self.get_enabled_units(args)
         Infotext.write_infotext(enabled_units, p)
         for i, unit in enumerate(enabled_units):
-            unit._idx = i
             self.bound_check_params(unit)
             params = ControlNetCachedParameters()
             self.process_unit_after_click_generate(p, unit, params, *args, **kwargs)
@@ -500,12 +630,20 @@ class ControlNetForForgeOfficial(scripts.Script):
     @torch.no_grad()
     def process_before_every_sampling(self, p, *args, **kwargs):
         for i, unit in enumerate(self.get_enabled_units(args)):
+            # Fixed: Handle case where params weren't cached due to earlier errors
+            if i not in self.current_params:
+                logger.warning(f"ControlNet unit {i} has no cached params (likely due to model load failure). Skipping.")
+                continue
             self.process_unit_before_every_sampling(p, unit, self.current_params[i], *args, **kwargs)
         return
 
     @torch.no_grad()
     def postprocess_batch_list(self, p, pp, *args, **kwargs):
         for i, unit in enumerate(self.get_enabled_units(args)):
+            # Fixed: Handle case where params weren't cached due to earlier errors
+            if i not in self.current_params:
+                logger.warning(f"ControlNet unit {i} has no cached params in postprocess. Skipping.")
+                continue
             self.process_unit_after_every_sampling(p, unit, self.current_params[i], pp, *args, **kwargs)
         return
 

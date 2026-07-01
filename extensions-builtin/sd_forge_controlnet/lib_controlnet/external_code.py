@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional, TypedDict
 
 import numpy as np
-from lib_controlnet.enums import HiResFixOption
+from lib_controlnet.enums import HiResFixOption, InputMode
 from lib_controlnet.logging import logger
 
 from modules.api import api
@@ -152,14 +152,19 @@ class GradioImageMaskPair(TypedDict):
 
 @dataclass
 class ControlNetUnit:
+    input_mode: InputMode = InputMode.SIMPLE
     use_preview_as_input: bool = False
+    batch_image_dir: str = ''
+    batch_mask_dir: str = ''
+    batch_input_gallery: list = None
+    batch_mask_gallery: list = None
     generated_image: Optional[np.ndarray] = None
     mask_image: Optional[GradioImageMaskPair] = None
     mask_image_fg: Optional[GradioImageMaskPair] = None
     hr_option: HiResFixOption | int | str = HiResFixOption.BOTH
     enabled: bool = True
-    module: str = "None"
-    model: str = "None"
+    module: str = "None"  # CUSTOM (Forge Neo): start with no preprocessor; set in UI as needed
+    model: str = "anima-lllite-any-test-like-v2"  # CUSTOM (Forge Neo): auto-load Anima "everything" LLLite
     weight: float = 1.0
     image: Optional[GradioImageMaskPair] = None
     image_fg: Optional[GradioImageMaskPair] = None

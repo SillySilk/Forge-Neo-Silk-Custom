@@ -1044,9 +1044,13 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                 if _is_video:
                     frames.append(x_sample)
 
+                # Use safe indexing for prompts/seeds to handle cases where batch_size was modified (e.g., Wan models)
+                seed_idx = min(i, len(p.seeds) - 1)
+                prompt_idx = min(i, len(p.prompts) - 1)
+
                 if p.restore_faces:
                     if save_samples and opts.save_images_before_face_restoration:
-                        images.save_image(Image.fromarray(x_sample), p.outpath_samples, "", p.seeds[i], p.prompts[i], opts.samples_format, info=infotext(i), p=p, suffix="-before-face-restoration")
+                        images.save_image(Image.fromarray(x_sample), p.outpath_samples, "", p.seeds[seed_idx], p.prompts[prompt_idx], opts.samples_format, info=infotext(prompt_idx), p=p, suffix="-before-face-restoration")
 
                     devices.torch_gc()
 
@@ -1077,7 +1081,7 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                 if p.color_corrections is not None and i < len(p.color_corrections):
                     if save_samples and opts.save_images_before_color_correction:
                         image_without_cc, _ = apply_overlay(image, p.paste_to, overlay_image)
-                        images.save_image(image_without_cc, p.outpath_samples, "", p.seeds[i], p.prompts[i], opts.samples_format, info=infotext(i), p=p, suffix="-before-color-correction")
+                        images.save_image(image_without_cc, p.outpath_samples, "", p.seeds[seed_idx], p.prompts[prompt_idx], opts.samples_format, info=infotext(prompt_idx), p=p, suffix="-before-color-correction")
                     image = apply_color_correction(p.color_corrections[i], image)
 
                 # If the intention is to show the output from the model
@@ -1094,9 +1098,9 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                     image = pp.image
 
                 if save_samples:
-                    images.save_image(image, p.outpath_samples, "", p.seeds[i], p.prompts[i], opts.samples_format, info=infotext(i), p=p)
+                    images.save_image(image, p.outpath_samples, "", p.seeds[seed_idx], p.prompts[prompt_idx], opts.samples_format, info=infotext(prompt_idx), p=p)
 
-                text = infotext(i)
+                text = infotext(prompt_idx)
                 infotexts.append(text)
                 if opts.enable_pnginfo:
                     image.info["parameters"] = text
@@ -1106,14 +1110,14 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                     if opts.return_mask or opts.save_mask:
                         image_mask = mask_for_overlay.convert("RGB")
                         if save_samples and opts.save_mask:
-                            images.save_image(image_mask, p.outpath_samples, "", p.seeds[i], p.prompts[i], opts.samples_format, info=infotext(i), p=p, suffix="-mask")
+                            images.save_image(image_mask, p.outpath_samples, "", p.seeds[seed_idx], p.prompts[prompt_idx], opts.samples_format, info=infotext(prompt_idx), p=p, suffix="-mask")
                         if opts.return_mask:
                             output_images.append(image_mask)
 
                     if opts.return_mask_composite or opts.save_mask_composite:
                         image_mask_composite = Image.composite(original_denoised_image.convert("RGBA").convert("RGBa"), Image.new("RGBa", image.size), images.resize_image(2, mask_for_overlay, image.width, image.height).convert("L")).convert("RGBA")
                         if save_samples and opts.save_mask_composite:
-                            images.save_image(image_mask_composite, p.outpath_samples, "", p.seeds[i], p.prompts[i], opts.samples_format, info=infotext(i), p=p, suffix="-mask-composite")
+                            images.save_image(image_mask_composite, p.outpath_samples, "", p.seeds[seed_idx], p.prompts[prompt_idx], opts.samples_format, info=infotext(prompt_idx), p=p, suffix="-mask-composite")
                         if opts.return_mask_composite:
                             output_images.append(image_mask_composite)
 
@@ -1201,7 +1205,7 @@ def old_hires_fix_first_pass_dimensions(width: int, height: int) -> tuple[int, i
 @dataclass(repr=False)
 class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     enable_hr: bool = False
-    denoising_strength: float = 0.75
+    denoising_strength: float = 0.60
     firstphase_width: int = 0
     firstphase_height: int = 0
     hr_scale: float = 2.0
@@ -1394,14 +1398,15 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         fp_additional_modules = getattr(shared.opts, "forge_additional_modules")
 
         reload = False
-        if hasattr(self, "hr_additional_modules") and "Use same choices" not in self.hr_additional_modules:
+        if hasattr(self, 'hr_additional_modules') and self.hr_additional_modules is not None and 'Use same choices' not in self.hr_additional_modules:
             modules_changed = main_entry.modules_change(self.hr_additional_modules, preset=None, save=False, refresh=False)
             if modules_changed:
                 reload = True
 
-        if self.hr_checkpoint_name and self.hr_checkpoint_name != "Use same checkpoint":
+        if self.hr_checkpoint_name and self.hr_checkpoint_name != 'Use same checkpoint':
             checkpoint_changed = main_entry.checkpoint_change(self.hr_checkpoint_name, preset=None, save=False, refresh=False)
             if checkpoint_changed:
+                self.firstpass_use_distilled_cfg_scale = self.sd_model.use_distilled_cfg_scale
                 reload = True
 
         if reload:
@@ -1647,7 +1652,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
 class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
     init_images: list = None
     resize_mode: int = 0
-    denoising_strength: float = 0.75
+    denoising_strength: float = 0.60
     image_cfg_scale: float = None
     mask: Any = None
     mask_blur: int = 4

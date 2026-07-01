@@ -9,13 +9,26 @@ __pycache__
 *.sft
 .DS_Store
 .vscode
+.claude/settings.local.json
+/.coverage*
+/.idea
+/ESRGAN/*
+/GFPGAN/*
+/SwinIR
+/SwinIR/*
 /.uv-cache
 /cache
 /config.json
 /config_states/
 /embeddings
-/extensions
+# Extensions are kept in a separate private repo — ignore the whole dir
+/extensions/
+/gfpgan/weights/*.pth
+/interrogate
+/log
+/model.ckpt
 /models/**/*
+/node_modules
 /output
 /outputs
 /params.txt
@@ -23,10 +36,31 @@ __pycache__
 /styles.csv
 /styles.csv.bak
 /sysinfo*.json
+/textual_inversion
 /tmp
+# /ui-config.json - personal UI state (may contain saved prompts); not tracked
 /ui-config.json
-/user.css
+# /user.css - Track custom CSS in this fork
 /venv
+/venv_broken
 /webui-user.bat
 /webui-user.sh
+coverage.xml
+huggingface_space_mirror/
 notification.mp3
+random_test.py
+trace.json
+extensions-builtin/sd_forge_controlnet/annotators/downloads/
+
+# local secrets
+civitai_token.txt
+
+# personal dev apparatus — kept out of the public base
+/.claude/
+/stylesheetfix/
+/docs/superpowers/
+/docs/model-research.md
+
+# stray local backups / archives — never publish
+/*.zip
+/config.json.bak*

@@ -19,6 +19,20 @@ logger = logging.getLogger("ControlNet")
 TARGET_ATTENTION_CLASS: Final[str] = "SelfCrossAttention"
 TARGET_MLP_CLASS: Final[str] = "GPT2FeedForward"
 
+
+def _class_in_mro(module: nn.Module, target_name: str) -> bool:
+    """Match the target class by name anywhere in the module's MRO.
+
+    Matching the exact ``__class__.__name__`` breaks when another extension
+    swaps the class in place via ``__class__`` reassignment to a *subclass*
+    (e.g. sd-forge-couple's RegionalSelfAttention / RegionalCrossAttention /
+    RegionalAnima). Those are still SelfCrossAttention subclasses, so we look
+    through the full hierarchy instead of comparing only the leaf name. Done by
+    name (not isinstance) to keep this extension free of backend imports.
+    """
+    return any(klass.__name__ == target_name for klass in type(module).__mro__)
+
+
 ATOMIC_SPECIFIERS: Final[tuple[str]] = (
     "self_attn_q_pre",
     "self_attn_kv_pre",
@@ -163,10 +177,28 @@ class LLLiteModuleDiT(nn.Module):
         self.current_step: int = 0
         self.is_first: bool = False
 
-    def apply_to(self):
+    def _orig_forward(self, t: torch.Tensor) -> torch.Tensor:
+        # Safety net: if this wrapper has been detached (org_forward is None)
+        # but a stale instance-level override is still installed on the target
+        # module, fall back to the plain nn.Linear computation instead of
+        # crashing with "'NoneType' object is not callable".
         if self.org_forward is None:
-            self.org_forward = self.org_module[0].forward
-            self.org_module[0].forward = self.forward
+            return nn.Linear.forward(self.org_module[0], t)
+        return self.org_forward(t)
+
+    def apply_to(self):
+        if self.org_forward is not None:
+            return  # already applied
+        current = self.org_module[0].forward
+        # Never wrap an already-installed LLLite wrapper: nesting leaves a
+        # dangling wrapper whose org_forward becomes None on teardown. Capture
+        # the TRUE original forward it saved instead, then take over.
+        prev = getattr(current, "__self__", None)
+        if isinstance(prev, LLLiteModuleDiT) and prev is not self:
+            self.org_forward = prev.org_forward
+        else:
+            self.org_forward = current
+        self.org_module[0].forward = self.forward
 
     def restore(self):
         if self.org_forward is not None:
@@ -179,7 +211,7 @@ class LLLiteModuleDiT(nn.Module):
         is_5d = x.dim() == 5
 
         def _pass():
-            return self.org_forward(x.reshape(orig_shape) if is_5d else x)
+            return self._orig_forward(x.reshape(orig_shape) if is_5d else x)
 
         if self.multiplier == 0.0 or self.cond_emb is None:
             return _pass()
@@ -200,11 +232,11 @@ class LLLiteModuleDiT(nn.Module):
 
         if x.shape[0] != cx.shape[0]:
             if x.shape[0] % cx.shape[0] != 0:
-                return self.org_forward(x.reshape(orig_shape) if is_5d else x)
+                return self._orig_forward(x.reshape(orig_shape) if is_5d else x)
             cx = cx.repeat(x.shape[0] // cx.shape[0], 1, 1)
 
         if x.shape[1] != cx.shape[1]:
-            return self.org_forward(x.reshape(orig_shape) if is_5d else x)
+            return self._orig_forward(x.reshape(orig_shape) if is_5d else x)
 
         param_dtype = self.down.weight.dtype
         x_proc = x if x.dtype == param_dtype else x.to(param_dtype)
@@ -231,7 +263,7 @@ class LLLiteModuleDiT(nn.Module):
         if out.dtype != x.dtype:
             out = out.to(x.dtype)
 
-        y = self.org_forward(x + out)
+        y = self._orig_forward(x + out)
         if is_5d:
             y = y.reshape(orig_shape[0], orig_shape[1], orig_shape[2], orig_shape[3], -1)
 
@@ -287,9 +319,7 @@ class ControlNetLLLiteDiT(nn.Module):
         any_attn = any(a in atomics for a in ("self_attn_q_pre", "self_attn_kv_pre", "cross_attn_q_pre"))
 
         for name, module in dit.named_modules():
-            cls = module.__class__.__name__
-
-            if any_attn and cls == TARGET_ATTENTION_CLASS:
+            if any_attn and _class_in_mro(module, TARGET_ATTENTION_CLASS):
                 if not hasattr(module, "is_SelfAttn"):
                     continue
                 is_self_attn = bool(module.is_SelfAttn)
@@ -301,7 +331,7 @@ class ControlNetLLLiteDiT(nn.Module):
                     full_name = f"lllite_dit.{name}.{child_name}".replace(".", "_")
                     modules.append(LLLiteModuleDiT(full_name, child, cond_emb_dim, mlp_dim, dropout, multiplier))
 
-            elif want_mlp and cls == TARGET_MLP_CLASS:
+            elif want_mlp and _class_in_mro(module, TARGET_MLP_CLASS):
                 child = getattr(module, "layer1", None)
                 if not isinstance(child, nn.Linear):
                     continue

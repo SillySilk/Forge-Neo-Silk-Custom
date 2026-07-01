@@ -247,7 +247,15 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             if quant_config is not None:
                 storage_dtype = state_dict_dtype
                 logger.info("Using MixedPrecision for Qwen3")
-            elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2, "nf4", "fp4", "gguf"]:
+            elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
+                # CUSTOM (Forge Neo): fp8 text encoders lose too much precision for text
+                # understanding. Keep storage_dtype at the user-configured/default value
+                # (float16) and cast fp8 weights up during load. Matters for Z-Image.
+                for k in state_dict:
+                    if state_dict[k].dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
+                        state_dict[k] = state_dict[k].to(dtype=storage_dtype)
+                logger.info(f"Qwen3 state dict was {state_dict_dtype}, upcast text encoder weights to {storage_dtype} for precision")
+            elif state_dict_dtype in ["nf4", "fp4", "gguf"]:
                 storage_dtype = state_dict_dtype
                 _log = f"{storage_dtype}" + (" (pre-quant)" if state_dict_dtype in ["nf4", "fp4", "gguf"] else "")
                 logger.info(f"Using Detected Qwen3 Data Type: {_log}")

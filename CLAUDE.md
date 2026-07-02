@@ -132,29 +132,35 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 
 - **GPU** RTX 4060 Ti 16 GB · **RAM** 32 GB · **Python** 3.13 · main drive ~94% full (keep an eye on it).
 - **LoRAs** live on `G:\LORAS` (685 files, moved off SSD; served via `--lora-dirs`).
-- **Per-model modules** (selected as "additional modules" for each UI preset):
+- **Per-model modules** (selected as "additional modules" for each UI preset). All VAE /
+  text-encoder files were **renamed 2026-07-02** to a self-describing scheme —
+  `TE <arch> (<models it serves>)` / `VAE <arch> (<models it serves>)` — so the module
+  dropdown groups TEs and VAEs and says what pairs with what. Renaming these files is safe:
+  Forge detects module type from state-dict contents, not filename; only `config.json`
+  (per-preset module lists), `ui-config.json` (PiD defaults), and this doc reference the names.
   | Model | Preset | VAE | Text encoder |
   |---|---|---|---|
-  | Chroma1-HD | `flux` | `ae.safetensors` | `fluxTextencoderT5XxlFp8` (T5 only, no CLIP-L) |
-  | Z-Image / Moody Pro Mix | `zit` | `zImageTurboVAE_v10` | `qwen_3_4b` |
-  | Anima | `anima` | `qwen_image_vae` | `qwen_3_06b` (+ T5 tokenizer) |
-  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `flux2-klein-vae` | `qwen_3_4b` (same file as Z-Image) |
-  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `flux2-klein-vae` (Flux.2 VAE) | `ernie_ministral3_3b_textonly` |
-  | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `wan_2.1_vae` | `umt5_xxl_fp8_e4m3fn_scaled` (G:) |
+  | Chroma1-HD | `flux` | `VAE Flux1 (Chroma)` | `TE T5-XXL fp8 (Chroma)` (T5 only, no CLIP-L) |
+  | Z-Image / Moody Pro Mix | `zit` | `VAE Z-Image` | `TE Qwen3-4B (Z-Image + Klein)` |
+  | Anima | `anima` | `VAE Qwen (Anima + PiD)` | `TE Qwen3-0.6B heretic (Anima)` (or `base` variant; + T5 tokenizer) |
+  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE Flux2 (Klein + ERNIE)` | `TE Qwen3-4B (Z-Image + Klein)` (same file as Z-Image) |
+  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE Flux2 (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
+  | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE Wan 2.1 (Wan video)` | `TE UMT5-XXL (Wan)` (G:) |
   > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE are
   > distilled → CFG 1, ~8 steps. Switching the **checkpoint** dropdown does NOT change
   > modules — switch the **UI Preset** dropdown.
-  > `ernie_ministral3_3b_textonly.safetensors` was converted locally from baidu's official
-  > multimodal TE (stripped `language_model.` prefix, dropped vision tower) — Forge rejects
-  > the raw baidu file ("You do not have Mistral3 state dict!").
+  > `TE Ministral3 (ERNIE).safetensors` (ex `ernie_ministral3_3b_textonly`) was converted
+  > locally from baidu's official multimodal TE (stripped `language_model.` prefix, dropped
+  > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").
+  > Unused spares: `TE CLIP-L (spare)`, `VAE SDXL (standard)`.
 - **PiD (NVIDIA pixel-diffusion decoder/upscaler)** — default-OFF (flipped 2026-07-01: the
   4× fixed upscale means 1280² → 5120² output every gen, too heavy as a default). Enable
   per-image via the "PiD Integrated" accordion checkbox in txt2img/img2img — the Anima
   model/VAE defaults are still preconfigured in `ui-config.json`. 4 steps, ~6 s at 512²,
   ~1 min extra at 1280² (5120² output, model-swap each gen). Variants are per-latent-family:
-  `pid_qwenimage_*` + `qwen_image_vae` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
+  `pid_qwenimage_*` + `VAE Qwen (Anima + PiD)` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
   VAE for **Pony** — switch both dropdowns together. Incompatible with Hires Fix (skips itself).
-  TE = `gemma_2_2b_it_elm_fp8_scaled`. New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
+  TE = `TE Gemma2 (PiD)` (ex `gemma_2_2b_it_elm_fp8_scaled`). New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
 - **Model research + Civitai vetted picks:** `docs/model-research.md`.
   **Civitai API helper:** `tools/civitai_search.py` (use `--insecure` on Windows; `--nsfw` needs a token).
 
@@ -178,7 +184,8 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   "cannot reshape array..."). The old `umt5_xxl` on G: was also a **truncated download**
   (1.9 GB of 6.74 GB) and was replaced with the full Comfy-Org file.
 - Current working set (installed 2026-07-01): `Wan2.2-T2V-A14B-{High,Low}Noise-Q4_K_M.gguf`
-  on `G:\Wan\checkpoints` + `models/VAE/wan_2.1_vae.safetensors` + fixed `umt5_xxl` on G:.
+  on `G:\Wan\checkpoints` + `models/VAE/VAE Wan 2.1 (Wan video).safetensors` + fixed
+  `G:\Wan\text_encoders\TE UMT5-XXL (Wan).safetensors` (ex `umt5_xxl_fp8_e4m3fn_scaled`).
   Select `wan` preset; HighNoise as checkpoint, LowNoise via **Settings→Refiner**
   (`refiner_checkpoint`, switch_at ≈ 0.5). **Frames = Batch size** (video when > 4;
   rounded to 4n+1). Heavy on 16 GB — expect minutes per clip, not a daily driver.

@@ -147,8 +147,10 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   > `ernie_ministral3_3b_textonly.safetensors` was converted locally from baidu's official
   > multimodal TE (stripped `language_model.` prefix, dropped vision tower) — Forge rejects
   > the raw baidu file ("You do not have Mistral3 state dict!").
-- **PiD (NVIDIA pixel-diffusion decoder/upscaler)** — default-ON via `ui-config.json`
-  ("PiD Integrated" accordion in txt2img/img2img). 4× fixed upscale, 4 steps, ~6 s at 512²,
+- **PiD (NVIDIA pixel-diffusion decoder/upscaler)** — default-OFF (flipped 2026-07-01: the
+  4× fixed upscale means 1280² → 5120² output every gen, too heavy as a default). Enable
+  per-image via the "PiD Integrated" accordion checkbox in txt2img/img2img — the Anima
+  model/VAE defaults are still preconfigured in `ui-config.json`. 4 steps, ~6 s at 512²,
   ~1 min extra at 1280² (5120² output, model-swap each gen). Variants are per-latent-family:
   `pid_qwenimage_*` + `qwen_image_vae` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
   VAE for **Pony** — switch both dropdowns together. Incompatible with Hires Fix (skips itself).

@@ -1,4 +1,4 @@
-# reference: https://github.com/Comfy-Org/ComfyUI/blob/v0.11.0/comfy/model_detection.py
+# reference: https://github.com/Comfy-Org/ComfyUI/blob/v0.26.1/comfy/model_detection.py
 
 import logging
 
@@ -220,20 +220,15 @@ def detect_unet_config(state_dict: dict, key_prefix: str) -> dict:
 
         return dit_config
 
-    if "{}adaLN_modulation.1.weight".format(key_prefix) in state_dict_keys:  # ERNIE-Image
-        dit_config = {}
-        dit_config["image_model"] = "ernie_image"
-        w = state_dict["{}x_embedder.proj.weight".format(key_prefix)]
-        dit_config["in_channels"]  = int(w.shape[1])
-        dit_config["hidden_size"]  = int(state_dict["{}adaLN_modulation.1.weight".format(key_prefix)].shape[1] // 6)
-        dit_config["num_layers"]   = count_blocks(state_dict_keys, "{}layers.".format(key_prefix) + "{}.")
-        dit_config["num_attention_heads"] = int(dit_config["hidden_size"] // 128)
-        dit_config["ffn_hidden_size"] = int(state_dict["{}layers.0.mlp.gate_proj.weight".format(key_prefix)].shape[0])
-        dit_config["out_channels"] = dit_config["in_channels"]
-        if "{}text_proj.weight".format(key_prefix) in state_dict_keys:
-            dit_config["text_in_dim"] = int(state_dict["{}text_proj.weight".format(key_prefix)].shape[1])
-        else:
-            dit_config["text_in_dim"] = dit_config["hidden_size"]
+    if (_lq_w_key := "{}lq_proj.latent_proj.0.weight".format(key_prefix)) in state_dict_keys:  # PiD
+        _gate_prefix = "{}lq_proj.gate_modules.".format(key_prefix)
+        num_gates = len({k[len(_gate_prefix) :].split(".")[0] for k in state_dict_keys if k.startswith(_gate_prefix)})
+        in_ch = int(state_dict[_lq_w_key].shape[1])
+        dit_config = {"image_model": "pid"}
+        dit_config["lq_latent_channels"] = in_ch
+        dit_config["latent_spatial_down_factor"] = 16 if in_ch >= 64 else 8
+        if num_gates > 0:
+            dit_config["lq_interval"] = (14 + num_gates - 1) // num_gates
         return dit_config
 
     if "{}txt_norm.weight".format(key_prefix) in state_dict_keys:  # Qwen Image
@@ -242,6 +237,21 @@ def detect_unet_config(state_dict: dict, key_prefix: str) -> dict:
         dit_config["image_model"] = "qwen_image"
         dit_config["in_channels"] = int(state_dict["{}img_in.weight".format(key_prefix)].shape[1])
         dit_config["num_layers"] = count_blocks(state_dict_keys, "{}transformer_blocks.".format(key_prefix) + "{}.")
+        return dit_config
+
+    if "{}txtfusion.projector.weight".format(key_prefix) in state_dict_keys:  # Krea 2
+        dit_config = {}
+        dit_config["image_model"] = "krea2"
+        head_dim = 128
+        first_w = state_dict["{}first.weight".format(key_prefix)]
+        dit_config["features"] = int(first_w.shape[0])
+        dit_config["channels"] = int(first_w.shape[1]) // (2 * 2)
+        dit_config["patch"] = 2
+        dit_config["layers"] = count_blocks(state_dict_keys, "{}blocks.".format(key_prefix) + "{}.")
+        dit_config["heads"] = int(state_dict["{}blocks.0.attn.wq.weight".format(key_prefix)].shape[0]) // head_dim
+        dit_config["kvheads"] = int(state_dict["{}blocks.0.attn.wk.weight".format(key_prefix)].shape[0]) // head_dim
+        dit_config["txtlayers"] = int(state_dict["{}txtfusion.projector.weight".format(key_prefix)].shape[1])
+        dit_config["txtdim"] = int(state_dict["{}txtfusion.layerwise_blocks.0.prenorm.scale".format(key_prefix)].shape[0])
         return dit_config
 
     if "{}layers.0.mlp.linear_fc2.weight".format(key_prefix) in state_dict_keys:  # Ernie Image
@@ -300,7 +310,7 @@ def detect_unet_config(state_dict: dict, key_prefix: str) -> dict:
 
         block_keys_output = sorted(list(filter(lambda a: a.startswith(prefix_output), state_dict_keys)))
 
-        if "{}0.op.weight".format(prefix) in block_keys:  # new layer
+        if "{}0.op.weight".format(prefix) in block_keys:
             num_res_blocks.append(last_res_blocks)
             channel_mult.append(last_channel_mult)
 

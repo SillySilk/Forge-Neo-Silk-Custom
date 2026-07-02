@@ -153,3 +153,14 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 3. Verify: ~83 canvas markers, sd-forge-couple indices, `git grep -i ltx` empty, ERNIE = upstream only,
    `python -m py_compile` on changed `.py`.
 4. Last big merge: **June 2026** — upstream/neo, 175 commits, tags 2.22–2.25 (16 conflicting files resolved).
+5. Latest merge: **2026-07-01** — upstream/neo tag 2.26, 28 commits (Krea2, PiD, GGUF/LoRA fixes,
+   Anima addcmul opt). Only 2 conflicts (README = ours; detection.py = dropped our stale
+   `ernie_image` block — upstream's own ERNIE detection is the live one). canvas.js untouched.
+
+## Video (Wan) — current status
+- **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The installed
+  `G:\Wan\checkpoints\Wan2.2-TI2V-5B-Q6_K.gguf` fails to load ("cannot reshape array...").
+  Tested and confirmed 2026-07-01. To do video: get Wan 2.2 **14B** GGUFs (high+low noise,
+  switched via Settings→Refiner) + the **Wan 2.1 VAE** (the on-disk `wan2.2_vae.safetensors`
+  is the 5B VAE — wrong for 14B). The `umt5_xxl` encoder on G: is correct for both.
+  Expect heavy VRAM pressure on 16 GB — quality-of-life tradeoff, not a daily driver.

@@ -1,12 +1,9 @@
 # https://github.com/comfyanonymous/ComfyUI/blob/v0.3.77/comfy/ldm/lumina/model.py
 # Reference: https://github.com/Alpha-VLLM/Lumina-Image-2.0
 
-import logging
 import math
 
 import torch
-
-logger = logging.getLogger(__name__)
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import repeat
@@ -359,7 +356,6 @@ class NextDiT(nn.Module):
         cap_pos_ids[:, :, 0] = torch.arange(cap_feats.shape[1], dtype=torch.float32, device=device) + 1.0
 
         B, C, H, W = x.shape
-        x_latent = x  # preserve BCHW latent for control patches
         x = self.x_embedder(x.view(B, C, H // pH, pH, W // pW, pW).permute(0, 2, 4, 3, 5, 1).flatten(3).flatten(1, 2))
 
         H_tokens, W_tokens = H // pH, W // pW
@@ -380,17 +376,8 @@ class NextDiT(nn.Module):
             cap_feats = layer(cap_feats, cap_mask, freqs_cis[:, : cap_pos_ids.shape[1]], transformer_options=transformer_options)
 
         padded_img_mask = None
-        patches = transformer_options.get("patches", {})
-        img_freqs_cis = freqs_cis[:, cap_pos_ids.shape[1]:]
-        for i, layer in enumerate(self.noise_refiner):
-            x = layer(x, padded_img_mask, img_freqs_cis, t, transformer_options=transformer_options)
-            if "noise_refiner" in patches:
-                img_input = x.clone()
-                for p in patches["noise_refiner"]:
-                    try:
-                        p({"img": x, "txt": cap_feats, "img_input": img_input, "x": x_latent, "pe": img_freqs_cis, "vec": t, "block_index": i, "block_type": "noise_refiner", "total_blocks": len(self.noise_refiner)})
-                    except Exception as e:
-                        logger.warning(f"Lumina noise_refiner patch failed at block {i}: {e}")
+        for layer in self.noise_refiner:
+            x = layer(x, padded_img_mask, freqs_cis[:, cap_pos_ids.shape[1] :], t, transformer_options=transformer_options)
 
         padded_full_embed = torch.cat((cap_feats, x), dim=1)
         mask = None
@@ -420,25 +407,11 @@ class NextDiT(nn.Module):
             adaln_input = self.time_text_embed(torch.cat((t, pooled), dim=-1))
 
         x_is_tensor = isinstance(x, torch.Tensor)
-        x_latent = x  # preserve BCHW latent for control patches
         x, mask, img_size, cap_size, freqs_cis = self.patchify_and_embed(x, cap_feats, cap_mask, t, num_tokens, transformer_options=transformer_options)
         freqs_cis = freqs_cis.to(x.device)
 
-        patches = transformer_options.get("patches", {})
-        cap_len = cap_size[0]
-        img_freqs_cis = freqs_cis[:, cap_len:]
-        n_layers = len(self.layers)
-
-        for i, layer in enumerate(self.layers):
+        for layer in self.layers:
             x = layer(x, mask, freqs_cis, adaln_input, transformer_options=transformer_options)
-            if "double_block" in patches:
-                img = x[:, cap_len:]
-                img_input = img.clone()
-                for p in patches["double_block"]:
-                    try:
-                        p({"img": img, "txt": x[:, :cap_len], "img_input": img_input, "x": x_latent, "pe": img_freqs_cis, "vec": adaln_input, "block_index": i, "block_type": "", "total_blocks": n_layers})
-                    except Exception as e:
-                        logger.warning(f"Lumina double_block patch failed at block {i}: {e}")
 
         x = self.final_layer(x, adaln_input)
         x = self.unpatchify(x, img_size, cap_size, return_tensor=x_is_tensor)[:, :, :h, :w]

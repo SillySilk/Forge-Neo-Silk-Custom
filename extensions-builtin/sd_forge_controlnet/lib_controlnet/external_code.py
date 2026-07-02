@@ -163,8 +163,8 @@ class ControlNetUnit:
     mask_image_fg: Optional[GradioImageMaskPair] = None
     hr_option: HiResFixOption | int | str = HiResFixOption.BOTH
     enabled: bool = True
-    module: str = "None"  # CUSTOM (Forge Neo): start with no preprocessor; set in UI as needed
-    model: str = "anima-lllite-any-test-like-v2"  # CUSTOM (Forge Neo): auto-load Anima "everything" LLLite
+    module: str = "None"
+    model: str = "None"
     weight: float = 1.0
     image: Optional[GradioImageMaskPair] = None
     image_fg: Optional[GradioImageMaskPair] = None

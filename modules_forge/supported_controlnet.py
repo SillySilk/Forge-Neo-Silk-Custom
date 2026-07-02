@@ -222,5 +222,3 @@ class ControlNetPatcher(ControlModelPatcher):
 
 
 add_supported_control_model(ControlNetPatcher)
-
-import modules_forge.supported_controlnet_zit  # noqa: F401 — registers ZImageControlNetPatcher

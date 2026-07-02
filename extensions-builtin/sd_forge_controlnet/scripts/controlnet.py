@@ -69,7 +69,7 @@ class ControlNetForForgeOfficial(scripts.Script):
         max_models = shared.opts.data.get("control_net_unit_count", 3)
         gen_type = "img2img" if is_img2img else "txt2img"
         elem_id_tabname = gen_type + "_controlnet"
-        default_unit = ControlNetUnit()  # enabled, module and model will use dataclass defaults
+        default_unit = ControlNetUnit(enabled=False, module="None", model="None")
 
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(open=False, label="ControlNet Integrated", elem_id="controlnet", elem_classes=["controlnet"]):

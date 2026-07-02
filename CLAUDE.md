@@ -21,9 +21,11 @@ real debugging time once; always edit args in `webui.settings.bat`.
 - Verify args took effect via the console line: `Launching Web UI with arguments:`.
 - Arg changes need a **full process restart** — the in-app "Reload UI" does **not** re-read them.
 
-Current confirmed-good args (Anima-primary workflow, marked good 2026-06-16):
+Current confirmed-good args — **treat as the default set** (Anima-primary workflow,
+re-confirmed working wonderfully 2026-07-01; heavily A/B-adjusted, so only change one
+arg at a time with comparison testing):
 ```
---api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS"
+--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders"
 ```
 - **`--bf16-unet` is fine for Anima/Z-Image** — they are already native bf16, so it does
   *not* dequantize them. (The earlier warning was about fp8/GGUF models; avoid `--bf16-unet`
@@ -83,7 +85,6 @@ and keep ~83 custom markers:
 ### ControlNet — `sd_forge_controlnet` ⚠ `controlnet_ui_group.py`, `controlnet.py`
 - Tabbed batch UI: **Single Image / Batch Folder / Batch Upload** (galleries). Keep the
   `gr.Tabs` structure and fold upstream's additions (canvas_editor, download-preview, etc.) *inside* it.
-- Z-Image ControlNet: `modules_forge/supported_controlnet_zit.py` + `backend/nn/lumina_controlnet.py`.
 - `controlnet.py` uses upstream's `try_load_supported_control_model` — our old
   `cached_controlnet_loader` was undefined/broken; do not reintroduce it.
 
@@ -112,6 +113,15 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   `backend/nn/ernie.py`, `Ministral3_3B`, `backend/huggingface/baidu/ERNIE-Image/`. Our custom
   `ernie_image.py` / `ernie_engine.py` / custom `Ministral3` were deleted June 2026 (untested duplicate).
 - **LTX-Video** was discarded June 2026 (never worked) — all wiring removed. `git grep -i ltx` should be empty.
+- **Z-Image ControlNet** was removed July 2026 (no longer using Z-Image; the misto-line default
+  model was gone and the port had an inert start/end-percent bug). Deleted:
+  `modules_forge/supported_controlnet_zit.py`, `backend/nn/lumina_controlnet.py`, the registration
+  import in `supported_controlnet.py`, the patch hooks in `backend/nn/lumina.py`, and
+  `javascript/controlnet_defaults.js` (hardcoded the removed `mistoline_v10`). Z-Image *model*
+  support (`backend/diffusion_engine/zimage.py`, `zit` preset) is upstream and stays.
+- **ForgeCanvas modular refactor** was abandoned and deleted July 2026 (`forge_canvas/modules/`,
+  `build-canvas.sh`, `REFACTORING_*.md`, `.backup` files). The live files are the monolithic
+  `canvas.js` + `shapes.js` only — never run a "build" step; edit `canvas.js` directly.
 
 ### Other custom extensions (untracked, under `extensions/`)
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).

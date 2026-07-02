@@ -138,8 +138,21 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   | Chroma1-HD | `flux` | `ae.safetensors` | `fluxTextencoderT5XxlFp8` (T5 only, no CLIP-L) |
   | Z-Image / Moody Pro Mix | `zit` | `zImageTurboVAE_v10` | `qwen_3_4b` |
   | Anima | `anima` | `qwen_image_vae` | `qwen_3_06b` (+ T5 tokenizer) |
-  > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Switching the
-  > **checkpoint** dropdown does NOT change modules — switch the **UI Preset** dropdown.
+  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `flux2-klein-vae` | `qwen_3_4b` (same file as Z-Image) |
+  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `flux2-klein-vae` (Flux.2 VAE) | `ernie_ministral3_3b_textonly` |
+  | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `wan_2.1_vae` | `umt5_xxl_fp8_e4m3fn_scaled` (G:) |
+  > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE are
+  > distilled → CFG 1, ~8 steps. Switching the **checkpoint** dropdown does NOT change
+  > modules — switch the **UI Preset** dropdown.
+  > `ernie_ministral3_3b_textonly.safetensors` was converted locally from baidu's official
+  > multimodal TE (stripped `language_model.` prefix, dropped vision tower) — Forge rejects
+  > the raw baidu file ("You do not have Mistral3 state dict!").
+- **PiD (NVIDIA pixel-diffusion decoder/upscaler)** — default-ON via `ui-config.json`
+  ("PiD Integrated" accordion in txt2img/img2img). 4× fixed upscale, 4 steps, ~6 s at 512²,
+  ~1 min extra at 1280² (5120² output, model-swap each gen). Variants are per-latent-family:
+  `pid_qwenimage_*` + `qwen_image_vae` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
+  VAE for **Pony** — switch both dropdowns together. Incompatible with Hires Fix (skips itself).
+  TE = `gemma_2_2b_it_elm_fp8_scaled`. New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
 - **Model research + Civitai vetted picks:** `docs/model-research.md`.
   **Civitai API helper:** `tools/civitai_search.py` (use `--insecure` on Windows; `--nsfw` needs a token).
 
@@ -158,9 +171,12 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
    `ernie_image` block — upstream's own ERNIE detection is the live one). canvas.js untouched.
 
 ## Video (Wan) — current status
-- **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The installed
-  `G:\Wan\checkpoints\Wan2.2-TI2V-5B-Q6_K.gguf` fails to load ("cannot reshape array...").
-  Tested and confirmed 2026-07-01. To do video: get Wan 2.2 **14B** GGUFs (high+low noise,
-  switched via Settings→Refiner) + the **Wan 2.1 VAE** (the on-disk `wan2.2_vae.safetensors`
-  is the 5B VAE — wrong for 14B). The `umt5_xxl` encoder on G: is correct for both.
-  Expect heavy VRAM pressure on 16 GB — quality-of-life tradeoff, not a daily driver.
+- **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The old
+  5B GGUF and its `wan2.2_vae.safetensors` were **deleted 2026-07-01** (confirmed failing:
+  "cannot reshape array..."). The old `umt5_xxl` on G: was also a **truncated download**
+  (1.9 GB of 6.74 GB) and was replaced with the full Comfy-Org file.
+- Current working set (installed 2026-07-01): `Wan2.2-T2V-A14B-{High,Low}Noise-Q4_K_M.gguf`
+  on `G:\Wan\checkpoints` + `models/VAE/wan_2.1_vae.safetensors` + fixed `umt5_xxl` on G:.
+  Select `wan` preset; HighNoise as checkpoint, LowNoise via **Settings→Refiner**
+  (`refiner_checkpoint`, switch_at ≈ 0.5). **Frames = Batch size** (video when > 4;
+  rounded to 4n+1). Heavy on 16 GB — expect minutes per clip, not a daily driver.

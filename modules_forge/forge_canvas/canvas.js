@@ -57,12 +57,18 @@ class ForgeCanvas {
         this.gradio_config = gradio_config;
         this.uuid = uuid;
 
+        // Detaches this instance's document-level listeners on destroy()
+        this._abort = new AbortController();
+
         // Store instance globally for access by extensions (like eraser)
         if (!window.forgeCanvasInstances) {
             window.forgeCanvasInstances = {};
         }
-        // Remove any stale instance for this UUID before registering the new one
+        // Tear down any stale instance for this UUID before registering the new one,
+        // so its document-level listeners don't accumulate
         if (window.forgeCanvasInstances[uuid]) {
+            const stale = window.forgeCanvasInstances[uuid];
+            if (typeof stale.destroy === "function") stale.destroy();
             delete window.forgeCanvasInstances[uuid];
         }
         window.forgeCanvasInstances[uuid] = this;
@@ -124,6 +130,7 @@ class ForgeCanvas {
         this._original_alpha = null;
         this.brushShape = "circle";  // "circle", "rectangle", or "triangle"
         this.scatterMode = false;  // Scatter brush: random offset + size jitter per stamp
+        this._scatterJitterCache = [];  // Per-stroke jitter values, so redraws don't re-randomize placed stamps
         this.lastLinePoint = null;  // Track last point for straight line drawing
 
         // Shape system state
@@ -132,6 +139,15 @@ class ForgeCanvas {
         this.shapeOutlineWidth = 0;  // Stroke width for outline mode
         this.strokeColor = "#ffffff";  // Stroke/outline color (separate from fill)
         this.customShapes = [];  // User-imported shapes (future)
+    }
+
+    // Remove document-level listeners and unregister this instance.
+    // Called automatically when a new ForgeCanvas is created with the same UUID.
+    destroy() {
+        this._abort.abort();
+        if (window.forgeCanvasInstances && window.forgeCanvasInstances[this.uuid] === this) {
+            delete window.forgeCanvasInstances[this.uuid];
+        }
     }
 
     // Built-in shape library
@@ -861,7 +877,7 @@ class ForgeCanvas {
                     shapePalette.style.display = "none";
                 }
             }
-        });
+        }, { signal: self._abort.signal });
 
         scribbleColor.addEventListener("input", (e) => {
             self.scribbleColor = e.target.value;
@@ -1036,6 +1052,7 @@ class ForgeCanvas {
             if (e.ctrlKey && self.lastLinePoint !== null) {
                 self.temp_draw_bg = drawContext.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
                 self.temp_draw_points = [self.lastLinePoint, [x, y]];
+                self._scatterJitterCache = [];
                 self.handleDraw(e);
                 self.saveState();
                 self.lastLinePoint = [x, y];  // Update last point
@@ -1048,6 +1065,7 @@ class ForgeCanvas {
             scribbleIndicator.style.display = "none";
             self.temp_draw_points = [[x, y]];
             self.temp_draw_bg = drawContext.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
+            self._scatterJitterCache = [];
             self.lastLinePoint = [x, y];  // Track starting point for straight lines
             self.handleDraw(e);
         });
@@ -1244,10 +1262,12 @@ class ForgeCanvas {
 
         document.addEventListener("paste", (e) => {
             if (self.pointerInsideContainer) self.handlePaste(e);
-        });
+        }, { signal: self._abort.signal });
 
         document.addEventListener("keydown", (e) => {
             if (!self.pointerInsideContainer) return;
+            // Don't hijack keys while the user is typing (prompt fields, slider value inputs, etc.)
+            if (e.target.closest("input, textarea, select, [contenteditable='true']")) return;
             // CUSTOM (Forge Neo): built-in Shift-key eraser disabled to avoid conflict
             // with the ForgeUI-MaskEraser extension. Upstream re-enables it; keep ours.
             // if (e.shiftKey) {
@@ -1272,6 +1292,9 @@ class ForgeCanvas {
             }
             if (e.key === "e") {
                 scribbleColor.click();
+            }
+            if (e.key === "E" && !self.no_shapes) {
+                strokeColor.click();
             }
             if (e.key === "r") {
                 centerButton.click();
@@ -1305,7 +1328,7 @@ class ForgeCanvas {
             if (e.key === "s") this._held_S = true;
             if (e.key === "d") this._held_D = true;
             if (e.key === "q") this._held_Q = true;
-        });
+        }, { signal: self._abort.signal });
 
         document.addEventListener("keyup", () => {
             this._held_W = false;
@@ -1321,7 +1344,7 @@ class ForgeCanvas {
             //     updateInput(scribbleAlpha);
             //     scribbleIndicator.style.border = "1px solid";
             // }
-        });
+        }, { signal: self._abort.signal });
 
         maxButton.addEventListener("click", () => {
             self.maximize();
@@ -1454,19 +1477,29 @@ class ForgeCanvas {
         const spacing = this.scatterMode ? minDimension * 0.5 : minDimension * 0.1;
         const scatterRange = minDimension * 0.7;  // max offset radius in scatter mode
 
+        // handleDraw redraws the whole stroke on every pointermove, so scatter jitter must be
+        // cached per stamp index — otherwise already-placed stamps re-randomize each frame.
+        let stampIndex = 0;
         const stampOne = (cx, cy) => {
             if (this.scatterMode) {
-                const offsetAngle = Math.random() * Math.PI * 2;
-                const offsetMag = Math.random() * scatterRange;
-                const sizeJitter = 0.6 + Math.random() * 0.6;  // 0.6 - 1.2
-                const rotJitter = (Math.random() - 0.5) * 0.5;  // ±~14°
+                let jitter = this._scatterJitterCache[stampIndex];
+                if (!jitter) {
+                    jitter = {
+                        offsetAngle: Math.random() * Math.PI * 2,
+                        offsetMag: Math.random(),  // normalized; scaled by scatterRange at draw time
+                        size: 0.6 + Math.random() * 0.6,  // 0.6 - 1.2
+                        rot: (Math.random() - 0.5) * 0.5,  // ±~14°
+                    };
+                    this._scatterJitterCache[stampIndex] = jitter;
+                }
+                stampIndex++;
                 this.drawStamp(
                     ctx,
-                    cx + Math.cos(offsetAngle) * offsetMag,
-                    cy + Math.sin(offsetAngle) * offsetMag,
-                    brushWidth * sizeJitter,
-                    brushHeight * sizeJitter,
-                    rotationRad + rotJitter,
+                    cx + Math.cos(jitter.offsetAngle) * jitter.offsetMag * scatterRange,
+                    cy + Math.sin(jitter.offsetAngle) * jitter.offsetMag * scatterRange,
+                    brushWidth * jitter.size,
+                    brushHeight * jitter.size,
+                    rotationRad + jitter.rot,
                     drawingAlpha
                 );
             } else {

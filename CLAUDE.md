@@ -75,12 +75,18 @@ Files marked ⚠ conflict on essentially every merge.
 
 ### ForgeCanvas — `modules_forge/forge_canvas/canvas.js` ⚠
 Never take upstream's `canvas.js` wholesale (it has **none** of our customs). Hand-merge
-and keep ~83 custom markers:
+and keep all of these (runnable check: every one of
+`forgeCanvasInstances|drawWithStamps|_scatterJitterCache|no_shapes|scribbleRotation|scribbleHeight|MAX_HISTORY|_abort`
+must grep in `canvas.js`, and the file should stay ~2.3× upstream's line count — ours ~1750+,
+upstream ~750):
 - constructor params `no_shapes`, `scribbleRotation`/`scribbleRotationFixed`, `scribbleHeight`/`scribbleHeightFixed`
 - `window.forgeCanvasInstances` registry (the ForgeUI-MaskEraser extension depends on it)
-- `drawWithStamps` stamp-shape drawing system
+  + `destroy()` / `AbortController` teardown of document-level listeners
+- `drawWithStamps` stamp-shape drawing system (+ `shapes.js`, loaded via `canvas.py`)
+- scatter brush with per-stroke jitter cache (`_scatterJitterCache`)
 - built-in Shift-key eraser left **commented out** (it conflicts with ForgeUI-MaskEraser)
-- 50-step undo (`MAX_HISTORY`) vs upstream's `HISTORY_LIMIT = 16`
+- 50-step undo (`MAX_HISTORY`) vs upstream's `HISTORY_LIMIT = 16`; history entries are PNG
+  data URLs, not raw ImageData
 
 ### ControlNet — `sd_forge_controlnet` ⚠ `controlnet_ui_group.py`, `controlnet.py`
 - Tabbed batch UI: **Single Image / Batch Folder / Batch Upload** (galleries). Keep the
@@ -171,7 +177,8 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 1. `git branch neo-backup-YYYYMMDD`; commit any pending custom work.
 2. `git merge upstream/neo`; resolve conflicts preserving everything above (the ⚠ files
    conflict almost every time). For `canvas.js`, hand-merge — never accept upstream's whole file.
-3. Verify: ~83 canvas markers, sd-forge-couple indices, `git grep -i ltx` empty, ERNIE = upstream only,
+3. Verify: canvas.js grep check (see ForgeCanvas section above) + `node --check` on changed `.js`,
+   sd-forge-couple indices, `git grep -i ltx` empty, ERNIE = upstream only,
    `python -m py_compile` on changed `.py`.
 4. Last big merge: **June 2026** — upstream/neo, 175 commits, tags 2.22–2.25 (16 conflicting files resolved).
 5. Latest merge: **2026-07-01** — upstream/neo tag 2.26, 28 commits (Krea2, PiD, GGUF/LoRA fixes,

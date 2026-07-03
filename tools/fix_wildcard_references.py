@@ -6,7 +6,8 @@ Replace single underscores with hyphens inside __wildcard__ patterns.
 import re
 from pathlib import Path
 
-WILDCARDS_DIR = Path("extensions/sd-dynamic-prompts/wildcards")
+# Anchored to the repo root (tools/..) so the script works from any working directory
+WILDCARDS_DIR = Path(__file__).resolve().parent.parent / "extensions/sd-dynamic-prompts/wildcards"
 
 def replace_underscores_in_wildcards(match):
     """Replace single underscores with hyphens inside __wildcard__ match."""

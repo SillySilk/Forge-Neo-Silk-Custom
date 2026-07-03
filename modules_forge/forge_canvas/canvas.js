@@ -1330,12 +1330,15 @@ class ForgeCanvas {
             if (e.key === "q") this._held_Q = true;
         }, { signal: self._abort.signal });
 
-        document.addEventListener("keyup", () => {
-            this._held_W = false;
-            this._held_A = false;
-            this._held_S = false;
-            this._held_D = false;
-            this._held_Q = false;
+        document.addEventListener("keyup", (e) => {
+            // Only clear the released key, so holding one modifier survives tapping another.
+            // Lowercased because Shift held at release reports the uppercase key.
+            const k = e.key.toLowerCase();
+            if (k === "w") this._held_W = false;
+            if (k === "a") this._held_A = false;
+            if (k === "s") this._held_S = false;
+            if (k === "d") this._held_D = false;
+            if (k === "q") this._held_Q = false;
 
             // Disabled built-in Shift key eraser restoration to avoid conflict with ForgeUI-MaskEraser extension
             // if (this._original_alpha !== null) {
@@ -1344,6 +1347,15 @@ class ForgeCanvas {
             //     updateInput(scribbleAlpha);
             //     scribbleIndicator.style.border = "1px solid";
             // }
+        }, { signal: self._abort.signal });
+
+        // Keyups can be missed when the window loses focus mid-hold; clear everything
+        window.addEventListener("blur", () => {
+            this._held_W = false;
+            this._held_A = false;
+            this._held_S = false;
+            this._held_D = false;
+            this._held_Q = false;
         }, { signal: self._abort.signal });
 
         maxButton.addEventListener("click", () => {
@@ -1790,17 +1802,19 @@ class ForgeCanvas {
     saveState() {
         const MAX_HISTORY = 50;
         const canvas = document.getElementById(`drawingCanvas_${this.uuid}`);
-        const ctx = canvas.getContext("2d");
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // Snapshots are PNG data URLs, not raw ImageData: 50 raw snapshots of a large
+        // canvas would cost hundreds of MB per canvas instance.
+        const snapshot = canvas.toDataURL("image/png");
         this.history = this.history.slice(0, this.historyIndex + 1);
-        this.history.push(imageData);
+        this.history.push(snapshot);
         this.historyIndex++;
         if (this.history.length > MAX_HISTORY) {  // CUSTOM (Forge Neo): 50-step history (upstream HISTORY_LIMIT=16)
             this.history.shift();
             this.historyIndex--;
         }
         this.updateUndoRedoButtons();
-        this.updateDrawingData();
+        // Same value updateDrawingData() would produce; reuse it to skip a second PNG encode
+        this.foreground_gradio_bind.set_value(this.img ? snapshot : "");
     }
 
     undo() {
@@ -1822,9 +1836,22 @@ class ForgeCanvas {
     restoreState() {
         const canvas = document.getElementById(`drawingCanvas_${this.uuid}`);
         const ctx = canvas.getContext("2d");
-        const imageData = this.history[this.historyIndex];
-        ctx.putImageData(imageData, 0, 0);
-        this.updateDrawingData();
+        const snapshot = this.history[this.historyIndex];
+        // PNG decode is async — token guards against rapid undo/redo landing out of order
+        const token = (this._restoreToken = (this._restoreToken || 0) + 1);
+        const img = new Image();
+        img.onload = () => {
+            if (token !== this._restoreToken) return;
+            ctx.save();
+            // The eraser extension may leave destination-out active; force a plain replace
+            ctx.globalCompositeOperation = "source-over";
+            ctx.globalAlpha = 1.0;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+            this.updateDrawingData();
+        };
+        img.src = snapshot;
     }
 
     updateUndoRedoButtons() {

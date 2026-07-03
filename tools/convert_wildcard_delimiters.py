@@ -6,7 +6,8 @@ This prevents conflicts with LoRA tags that contain __ in their names.
 import re
 from pathlib import Path
 
-WILDCARDS_DIR = Path("extensions/sd-dynamic-prompts/wildcards")
+# Anchored to the repo root (tools/..) so the script works from any working directory
+WILDCARDS_DIR = Path(__file__).resolve().parent.parent / "extensions/sd-dynamic-prompts/wildcards"
 
 def convert_wildcard_delimiters(dry_run=True):
     """

@@ -7,8 +7,9 @@ This prevents conflicts with sd-dynamic-prompts' __wildcard__ syntax.
 import os
 from pathlib import Path
 
-# Base directory for wildcards
-WILDCARDS_DIR = Path("extensions/sd-dynamic-prompts/wildcards")
+# Base directory for wildcards, anchored to the repo root (tools/..) so the
+# script works from any working directory
+WILDCARDS_DIR = Path(__file__).resolve().parent.parent / "extensions/sd-dynamic-prompts/wildcards"
 
 def safe_print(text):
     """Print text with ASCII encoding fallback for Windows console."""

@@ -169,6 +169,10 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   TE = `TE Gemma2 (PiD)` (ex `gemma_2_2b_it_elm_fp8_scaled`). New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
 - **Model research + Civitai vetted picks:** `docs/model-research.md`.
   **Civitai API helper:** `tools/civitai_search.py` (use `--insecure` on Windows; `--nsfw` needs a token).
+- **LoRA preset filtering** — Settings → Extra Networks → "Filter Lora based on selected Preset"
+  (`lora_preset_filter`, enabled 2026-07) hides LoRA cards whose `"sd version"` sidecar tag doesn't
+  match the active UI preset. `tools/lora_autotag.py` bulk-tags `G:\LORAS` from safetensors headers
+  (dry-run by default, `--apply` to write); run it again after downloading new LoRAs.
 
 ---
 

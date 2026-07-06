@@ -136,7 +136,7 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 
 ## Local environment & model setup
 
-- **GPU** RTX 4060 Ti 16 GB · **RAM** 32 GB · **Python** 3.13 · main drive ~94% full (keep an eye on it).
+- **GPU** RTX 4060 Ti 16 GB · **RAM** 32 GB · **Python** 3.13 · main drive (C:) space freed up 2026-07-06, no longer near-full — still worth checking before large downloads.
 - **LoRAs** live on `G:\LORAS` (685 files, moved off SSD; served via `--lora-dirs`).
 - **Per-model modules** (selected as "additional modules" for each UI preset). All VAE /
   text-encoder files were **renamed 2026-07-02** to a self-describing scheme —
@@ -197,6 +197,8 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 - Current working set (installed 2026-07-01): `Wan2.2-T2V-A14B-{High,Low}Noise-Q4_K_M.gguf`
   on `G:\Wan\checkpoints` + `models/VAE/VAE Wan 2.1 (Wan video).safetensors` + fixed
   `G:\Wan\text_encoders\TE UMT5-XXL (Wan).safetensors` (ex `umt5_xxl_fp8_e4m3fn_scaled`).
-  Select `wan` preset; HighNoise as checkpoint, LowNoise via **Settings→Refiner**
-  (`refiner_checkpoint`, switch_at ≈ 0.5). **Frames = Batch size** (video when > 4;
+  Select `wan` preset; HighNoise as checkpoint, LowNoise via the **Refiner** accordion
+  (`refiner_checkpoint`, switch_at ≈ **0.875** for T2V / 0.9 for I2V — Forge's own UI
+  tooltip gives these values; `show_refiner` must be `true` in config.json for the
+  accordion to appear at all). **Frames = Batch size** (video when > 4;
   rounded to 4n+1). Heavy on 16 GB — expect minutes per clip, not a daily driver.

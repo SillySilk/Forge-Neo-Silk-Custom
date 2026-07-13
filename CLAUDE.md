@@ -185,9 +185,14 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
    sd-forge-couple indices, `git grep -i ltx` empty, ERNIE = upstream only,
    `python -m py_compile` on changed `.py`.
 4. Last big merge: **June 2026** — upstream/neo, 175 commits, tags 2.22–2.25 (16 conflicting files resolved).
-5. Latest merge: **2026-07-01** — upstream/neo tag 2.26, 28 commits (Krea2, PiD, GGUF/LoRA fixes,
+5. Prior merge: **2026-07-01** — upstream/neo tag 2.26, 28 commits (Krea2, PiD, GGUF/LoRA fixes,
    Anima addcmul opt). Only 2 conflicts (README = ours; detection.py = dropped our stale
    `ernie_image` block — upstream's own ERNIE detection is the live one). canvas.js untouched.
+6. Latest merge: **2026-07-13** — upstream/neo, 7 commits (k_predictor refactor, ModelMerger
+   update, int8 moved into comfy-kitchen, emphasis-stripped token counter, empty-prompt qwen3vl
+   fix, upscaler tweaks). Zero conflicts; no ⚠ files touched. **comfy-kitchen bumped
+   0.2.10 → 0.2.16** (`pip install` needed after pulling this merge). Verified with a live
+   Anima generation via API (k_predictor exercises every engine's sampling path).
 
 ## Video (Wan) — current status
 - **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The old

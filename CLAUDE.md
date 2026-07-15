@@ -152,9 +152,13 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE Flux2 (Klein + ERNIE)` | `TE Qwen3-4B (Z-Image + Klein)` (same file as Z-Image) |
   | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE Flux2 (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
   | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE Wan 2.1 (Wan video)` | `TE UMT5-XXL (Wan)` (G:) |
-  > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE are
-  > distilled → CFG 1, ~8 steps. Switching the **checkpoint** dropdown does NOT change
-  > modules — switch the **UI Preset** dropdown.
+  | Qwen-Image (Q4 GGUF; opt. `qwen-image-2512-Q4_K_M` upgrade) | `qwen` | `VAE Qwen (Anima + PiD)` | `qwen_2.5_vl_7b_fp8_scaled` (Qwen2.5-VL-7B) |
+  | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE Qwen (Anima + PiD)` | `TE Qwen3-VL-4B (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
+  > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE/**Krea 2 Turbo** are
+  > distilled → CFG 1, ~8 steps (**Krea 2 Raw** would need CFG 3–5, ~28 steps). Switching the **checkpoint**
+  > dropdown does NOT change modules — switch the **UI Preset** dropdown, which auto-loads that preset's
+  > `forge_additional_modules_<preset>` list from `config.json` via `on_preset_change` (main_entry.py). An
+  > empty/incomplete list = the TE/VAE won't auto-populate (that was the 2026-07 `krea` empty / `qwen` missing-TE bug).
   > `TE Ministral3 (ERNIE).safetensors` (ex `ernie_ministral3_3b_textonly`) was converted
   > locally from baidu's official multimodal TE (stripped `language_model.` prefix, dropped
   > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").

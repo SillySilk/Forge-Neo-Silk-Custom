@@ -219,23 +219,31 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 
 ## Triton backend — what it is, why it's inert here
 
-Triton is **not** a general speed-up. It is one of three kernel backends registered in
-comfy-kitchen (`ck.registry`, priority **`["cuda", "triton", "eager"]`**) serving *quantized*
-tensor ops only: FP8 / MXFP8 / NVFP4 / INT8 / ConvRot-W4A4 matmuls (`backend/quant_ops.py`).
-It does nothing for ordinary bf16 inference — i.e. nothing for the Anima primary workflow.
+Triton is **not** a general speed-up. It only serves *quantized* tensor ops (FP8 / MXFP8 /
+NVFP4 / INT8 / ConvRot-W4A4) and does nothing for ordinary bf16 inference — i.e. nothing for
+the Anima primary workflow. **Triton is not installed** (no `triton` module, not in
+`requirements.txt`), so both paths below are dead today.
 
-It is inert for us three times over, so **don't chase it for performance**:
-1. **Not installed** (no `triton` module, not in `requirements.txt`) → self-disables via
-   ImportError regardless of `--disable-triton-backend`.
-2. **Outranked by CUDA.** We're on torch 2.10.0+cu130, so we clear the `cuda_version < (13,)`
-   check at `quant_ops.py:20-25` and the `cuda` backend is available with **31 of 33**
-   capabilities. CUDA is consulted first; triton would only fill CUDA's gaps — currently just
-   `scaled_mm_mxfp8` / `dequantize_mxfp8`, which fall back to `eager`.
-3. **Our models barely touch quant layouts.** Only the Gemma2 PiD TE logs "MixedPrecision";
-   Anima is bf16.
+There are **two independent Triton paths** — and `--disable-triton-backend` only controls one:
 
-Installing `triton-windows` would therefore buy ~nothing unless we start running an **MXFP8**
-model. If that ever changes, that's the one case worth an A/B test.
+| | Path A — registry | Path B — fused INT8 kernel |
+|---|---|---|
+| Where | `backend/quant_ops.py:29` (`ck.registry`) | `backend/operations_mixed_precision.py:23-28,251,278` |
+| Gated by | the flag **and** `import triton` | **`import triton` only — flag has no effect** |
+| Fires when | any quant layout, per registry priority `["cuda","triton","eager"]` | `quant_format == "int8_tensorwise"` |
+
+**Installing `triton-windows` would buy us nothing**, verified per path:
+- **Path A** — outranked by CUDA. torch 2.10.0+cu130 clears the `cuda_version < (13,)` check
+  (`quant_ops.py:20-25`), so `cuda` is available with **31 of 33** capabilities and is consulted
+  first. Triton would only fill CUDA's gaps: `scaled_mm_mxfp8` / `dequantize_mxfp8` → we run no
+  MXFP8 model.
+- **Path B** — needs `int8_tensorwise`. Our only comfy_quant model is the **Gemma2 PiD TE**, and
+  its payload decodes to `{"format": "float8_e4m3fn"}` (metadata `pid_quant:
+  float8_e4m3fn_scaled`) — **fp8, not int8** → never fires. CUDA already covers the fp8 ops.
+
+⚠ **Gotcha if triton is ever installed:** `--disable-triton-backend` would *not* fully disable
+it — Path B ignores the flag and would activate on any `int8_tensorwise` model. Only revisit
+this if we adopt an **MXFP8** (Path A) or **int8_tensorwise** (Path B) model.
 
 ## Video (Wan) — current status
 - **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The old

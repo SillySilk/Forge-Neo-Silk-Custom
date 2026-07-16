@@ -217,20 +217,31 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
      which the PR does not touch). If you ever see "MixedPrecision for **Model**", that's the
      changed UNet branch and is worth re-testing.
 
-## Triton — INSTALLED 2026-07-16 (unlocks torch.compile)
+## Triton — TESTED AND REJECTED 2026-07-16 (do not reinstall without cause)
 
-`triton-windows==3.7.1.post27` (cp313 wheel) installed **out-of-band** — deliberately **not**
-added to `requirements.txt` (it's not upstream's dep; adding it would create a merge-conflict
-point). `pip install -r requirements.txt` on launch won't remove it. Reinstall after a venv rebuild.
+**Decision: NOT installed.** `triton-windows==3.7.1.post27` (139 MB) was installed, benchmarked,
+and uninstalled the same day. Verified back to baseline afterwards (20.31s vs 20.34s
+pre-experiment; compile accordion hidden again; txt2img script count back to 18). **Don't
+re-litigate this** — the numbers below are measured, not theorized.
 
-**Why it's installed:** it is *not* a general accelerator — but it gates three separate things,
-and only the third matters to us:
+**Why rejected:** its only real benefit is unlocking torch.compile (Path C), and torch.compile's
+**break-even is ~19 generations at a fixed resolution**. This workflow is **2–4 images at a
+time**, where it's a net *loss*: 3 gens compiled = 20 s compile + 3×19.11 = 77.3 s vs 60.5 s
+baseline → **~17 s slower**. Best case even with a persistent inductor cache is ~3 s saved per
+session — not worth an unpinned out-of-band dep plus a UI footgun.
+
+**Reinstall only if** the workflow changes to long runs (~19+) at one fixed resolution:
+`venv/Scripts/python.exe -m pip install triton-windows` (keep it OUT of `requirements.txt` —
+it's not upstream's dep and would become a merge-conflict point).
+
+**Reference — it is *not* a general accelerator.** It gates three separate things; only the
+third ever mattered:
 
 | Path | Where | Gated by | Verdict on our hardware |
 |---|---|---|---|
 | A — ck.registry | `backend/quant_ops.py:29` | flag **and** `import triton` | **Useless.** CUDA is priority-first (`["cuda","triton","eager"]`) and triton's 13 caps are a strict **subset** of CUDA's 32 — measured "triton-only caps: none". |
 | B — fused INT8 | `operations_mixed_precision.py:23-28,251,278` | **`import triton` only — flag has NO effect** | **Never fires.** Needs `quant_format == "int8_tensorwise"`; our only comfy_quant model (Gemma2 PiD TE) decodes to `{"format":"float8_e4m3fn"}`. |
-| **C — torch.compile** | `extensions-builtin/sd_forge_compile/scripts/compile.py:18-23,48` | `import triton` only | **The reason to install.** `show()` returns `AlwaysVisible if TRITON_AVAILABLE else None` → without triton the **"Torch Compile Integrated" accordion is hidden entirely**. Works on **bf16** (i.e. Anima). |
+| **C — torch.compile** | `extensions-builtin/sd_forge_compile/scripts/compile.py:18-23,48` | `import triton` only | **The only real benefit** — but too small here (see above). `show()` returns `AlwaysVisible if TRITON_AVAILABLE else None` → without triton the **"Torch Compile Integrated" accordion is hidden entirely**, which is why we never knew it existed. Works on **bf16** (i.e. Anima). |
 
 **Measured** (Anima 1024², 20 steps, seed 777, our standard args incl. `--cuda-malloc`):
 
@@ -241,8 +252,8 @@ and only the third matters to us:
 | **`guard_filter_fn`** | 40.30s | **19.11s** | **−5.2% faster** |
 | `max-autotune-no-cudagraphs` | 176.81s | 24.66s | **+22% SLOWER — do not use** |
 
-**How to use it:** the accordion is opt-in per generation; default `"Automatic"` = no change.
-`guard_filter_fn` is the only preset that wins here, and it's **not a free default**:
+**If ever reinstalled:** the accordion is opt-in per generation; default `"Automatic"` = no
+change. `guard_filter_fn` is the only preset that wins here, and it's **not a free default**:
 - ~20 s one-time compile, repaid at ~1 s/gen → **break-even ≈ 19 generations** at a *fixed*
   resolution/batch. It recompiles when resolution or batch size changes, so a varied-resolution
   session can be net-negative. Worth it for long batches at one size; not otherwise.

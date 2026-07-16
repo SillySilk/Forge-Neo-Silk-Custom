@@ -217,33 +217,41 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
      which the PR does not touch). If you ever see "MixedPrecision for **Model**", that's the
      changed UNet branch and is worth re-testing.
 
-## Triton backend — what it is, why it's inert here
+## Triton — INSTALLED 2026-07-16 (unlocks torch.compile)
 
-Triton is **not** a general speed-up. It only serves *quantized* tensor ops (FP8 / MXFP8 /
-NVFP4 / INT8 / ConvRot-W4A4) and does nothing for ordinary bf16 inference — i.e. nothing for
-the Anima primary workflow. **Triton is not installed** (no `triton` module, not in
-`requirements.txt`), so both paths below are dead today.
+`triton-windows==3.7.1.post27` (cp313 wheel) installed **out-of-band** — deliberately **not**
+added to `requirements.txt` (it's not upstream's dep; adding it would create a merge-conflict
+point). `pip install -r requirements.txt` on launch won't remove it. Reinstall after a venv rebuild.
 
-There are **two independent Triton paths** — and `--disable-triton-backend` only controls one:
+**Why it's installed:** it is *not* a general accelerator — but it gates three separate things,
+and only the third matters to us:
 
-| | Path A — registry | Path B — fused INT8 kernel |
-|---|---|---|
-| Where | `backend/quant_ops.py:29` (`ck.registry`) | `backend/operations_mixed_precision.py:23-28,251,278` |
-| Gated by | the flag **and** `import triton` | **`import triton` only — flag has no effect** |
-| Fires when | any quant layout, per registry priority `["cuda","triton","eager"]` | `quant_format == "int8_tensorwise"` |
+| Path | Where | Gated by | Verdict on our hardware |
+|---|---|---|---|
+| A — ck.registry | `backend/quant_ops.py:29` | flag **and** `import triton` | **Useless.** CUDA is priority-first (`["cuda","triton","eager"]`) and triton's 13 caps are a strict **subset** of CUDA's 32 — measured "triton-only caps: none". |
+| B — fused INT8 | `operations_mixed_precision.py:23-28,251,278` | **`import triton` only — flag has NO effect** | **Never fires.** Needs `quant_format == "int8_tensorwise"`; our only comfy_quant model (Gemma2 PiD TE) decodes to `{"format":"float8_e4m3fn"}`. |
+| **C — torch.compile** | `extensions-builtin/sd_forge_compile/scripts/compile.py:18-23,48` | `import triton` only | **The reason to install.** `show()` returns `AlwaysVisible if TRITON_AVAILABLE else None` → without triton the **"Torch Compile Integrated" accordion is hidden entirely**. Works on **bf16** (i.e. Anima). |
 
-**Installing `triton-windows` would buy us nothing**, verified per path:
-- **Path A** — outranked by CUDA. torch 2.10.0+cu130 clears the `cuda_version < (13,)` check
-  (`quant_ops.py:20-25`), so `cuda` is available with **31 of 33** capabilities and is consulted
-  first. Triton would only fill CUDA's gaps: `scaled_mm_mxfp8` / `dequantize_mxfp8` → we run no
-  MXFP8 model.
-- **Path B** — needs `int8_tensorwise`. Our only comfy_quant model is the **Gemma2 PiD TE**, and
-  its payload decodes to `{"format": "float8_e4m3fn"}` (metadata `pid_quant:
-  float8_e4m3fn_scaled`) — **fp8, not int8** → never fires. CUDA already covers the fp8 ops.
+**Measured** (Anima 1024², 20 steps, seed 777, our standard args incl. `--cuda-malloc`):
 
-⚠ **Gotcha if triton is ever installed:** `--disable-triton-backend` would *not* fully disable
-it — Path B ignores the flag and would activate on any `int8_tensorwise` model. Only revisit
-this if we adopt an **MXFP8** (Path A) or **int8_tensorwise** (Path B) model.
+| config | first | warm avg | vs baseline |
+|---|---|---|---|
+| baseline, no triton | 40.89s | 20.34s | — |
+| triton installed, compile OFF | 30.90s | 20.16s | ~0% — **install alone costs nothing** |
+| **`guard_filter_fn`** | 40.30s | **19.11s** | **−5.2% faster** |
+| `max-autotune-no-cudagraphs` | 176.81s | 24.66s | **+22% SLOWER — do not use** |
+
+**How to use it:** the accordion is opt-in per generation; default `"Automatic"` = no change.
+`guard_filter_fn` is the only preset that wins here, and it's **not a free default**:
+- ~20 s one-time compile, repaid at ~1 s/gen → **break-even ≈ 19 generations** at a *fixed*
+  resolution/batch. It recompiles when resolution or batch size changes, so a varied-resolution
+  session can be net-negative. Worth it for long batches at one size; not otherwise.
+- `max-autotune` / `reduce-overhead` are hard-refused with `--cuda-malloc` (`compile.py:93`).
+  **Don't drop `--cuda-malloc` to chase them** — inductor logs *"Not enough SMs to use
+  max_autotune_gemm mode"* on the 4060 Ti (34 SMs), so max-autotune can't pay off here anyway.
+
+⚠ `--disable-triton-backend` is **not** a master switch — it only controls Path A. Path B
+ignores it. To truly disable triton, uninstall the package.
 
 ## Video (Wan) — current status
 - **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The old

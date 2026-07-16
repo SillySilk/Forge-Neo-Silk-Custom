@@ -197,6 +197,23 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
    fix, upscaler tweaks). Zero conflicts; no ⚠ files touched. **comfy-kitchen bumped
    0.2.10 → 0.2.16** (`pip install` needed after pulling this merge). Verified with a live
    Anima generation via API (k_predictor exercises every engine's sampling path).
+7. Latest merge: **2026-07-16** — upstream/neo tag 2.27 (12 commits) **+ open PR #1316
+   (PiD v1.5)**, taken before it landed upstream (it's Haoming02's own branch).
+   Only conflict = README (ours). No ⚠ file needed hand-merging: the PR edits loader.py's
+   **UNet** loader (~line 446) while our fp8 upcast is in the **Qwen3 TE** loader (~line 281),
+   so git auto-merged. **comfy-kitchen 0.2.16 → 0.2.20** (launcher auto-installs on boot).
+   Verified live: PiD 512→2048, Anima txt2img, LoRA gen; 0 tracebacks.
+   - **PiD v1.5 is inert for us today** — it's gated on `lq_proj.pit_head.weight`, which our
+     v1.0 weights lack (they report `lq_hidden_dim=512`, the old default), so they take an
+     unchanged legacy path. Benefits need published v1.5 weights; none found as of this merge.
+   - ⚠ **Triton now defaults ON**: upstream flipped `--enable-triton-backend` →
+     `--disable-triton-backend` (opt-in → opt-out). Accepted deliberately rather than pinning
+     it off. If perf/stability regresses on the 4060 Ti, add `--disable-triton-backend` to
+     `webui.settings.bat` — that restores pre-2.27 behavior.
+   - The PR's new `storage_dtype = torch.bfloat16` MixedPrecision branch never fires for our
+     models (log shows only "MixedPrecision for **Gemma2**" — the TE branch at `loader.py:202`,
+     which the PR does not touch). If you ever see "MixedPrecision for **Model**", that's the
+     changed UNet branch and is worth re-testing.
 
 ## Video (Wan) — current status
 - **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The old

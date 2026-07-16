@@ -206,14 +206,36 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
    - **PiD v1.5 is inert for us today** — it's gated on `lq_proj.pit_head.weight`, which our
      v1.0 weights lack (they report `lq_hidden_dim=512`, the old default), so they take an
      unchanged legacy path. Benefits need published v1.5 weights; none found as of this merge.
-   - ⚠ **Triton now defaults ON**: upstream flipped `--enable-triton-backend` →
-     `--disable-triton-backend` (opt-in → opt-out). Accepted deliberately rather than pinning
-     it off. If perf/stability regresses on the 4060 Ti, add `--disable-triton-backend` to
-     `webui.settings.bat` — that restores pre-2.27 behavior.
+   - **Triton flag flip is a NO-OP for us** — upstream flipped `--enable-triton-backend` →
+     `--disable-triton-backend` (opt-in → opt-out), but **triton is not installed** and is not
+     in `requirements.txt`. Without the flag, `backend/quant_ops.py:31-35` falls into
+     `try: import triton` → `ImportError` → `ck.registry.disable("triton")`. Verified live:
+     `ck.registry` reports `triton: available=False, disabled=True,
+     unavailable_reason="ImportError: No module named 'triton'"`. Nothing changed; no arg needed.
    - The PR's new `storage_dtype = torch.bfloat16` MixedPrecision branch never fires for our
      models (log shows only "MixedPrecision for **Gemma2**" — the TE branch at `loader.py:202`,
      which the PR does not touch). If you ever see "MixedPrecision for **Model**", that's the
      changed UNet branch and is worth re-testing.
+
+## Triton backend — what it is, why it's inert here
+
+Triton is **not** a general speed-up. It is one of three kernel backends registered in
+comfy-kitchen (`ck.registry`, priority **`["cuda", "triton", "eager"]`**) serving *quantized*
+tensor ops only: FP8 / MXFP8 / NVFP4 / INT8 / ConvRot-W4A4 matmuls (`backend/quant_ops.py`).
+It does nothing for ordinary bf16 inference — i.e. nothing for the Anima primary workflow.
+
+It is inert for us three times over, so **don't chase it for performance**:
+1. **Not installed** (no `triton` module, not in `requirements.txt`) → self-disables via
+   ImportError regardless of `--disable-triton-backend`.
+2. **Outranked by CUDA.** We're on torch 2.10.0+cu130, so we clear the `cuda_version < (13,)`
+   check at `quant_ops.py:20-25` and the `cuda` backend is available with **31 of 33**
+   capabilities. CUDA is consulted first; triton would only fill CUDA's gaps — currently just
+   `scaled_mm_mxfp8` / `dequantize_mxfp8`, which fall back to `eager`.
+3. **Our models barely touch quant layouts.** Only the Gemma2 PiD TE logs "MixedPrecision";
+   Anima is bf16.
+
+Installing `triton-windows` would therefore buy ~nothing unless we start running an **MXFP8**
+model. If that ever changes, that's the one case worth an A/B test.
 
 ## Video (Wan) — current status
 - **Wan 2.2 5B TI2V is NOT supported** by Forge Neo (14B only, per upstream). The old

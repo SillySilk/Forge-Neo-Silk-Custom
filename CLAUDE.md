@@ -118,7 +118,11 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 - **ERNIE-Image** is now **official upstream**: use `backend/diffusion_engine/ernie.py`,
   `backend/nn/ernie.py`, `Ministral3_3B`, `backend/huggingface/baidu/ERNIE-Image/`. Our custom
   `ernie_image.py` / `ernie_engine.py` / custom `Ministral3` were deleted June 2026 (untested duplicate).
-- **LTX-Video** was discarded June 2026 (never worked) — all wiring removed. `git grep -i ltx` should be empty.
+- **LTX-Video** was discarded June 2026 (never worked) — all wiring removed. Verify with a **precise**
+  pattern (plain `git grep -i ltx` is NOT clean — it matches token-vocab JSON under
+  `backend/huggingface/`, a `Ltxt` variable in `backend/nn/pixeldit/model.py`, and these docs):
+  `git grep -iE 'ltx[-_]?video|ltxv|LTXVideo|ltx_pipeline' -- '*.py' '*.js' ':!backend/huggingface/*' ':!CLAUDE*.md'`
+  should be empty.
 - **Z-Image ControlNet** was removed July 2026 (no longer using Z-Image; the misto-line default
   model was gone and the port had an inert start/end-percent bug). Deleted:
   `modules_forge/supported_controlnet_zit.py`, `backend/nn/lumina_controlnet.py`, the registration
@@ -186,7 +190,8 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 2. `git merge upstream/neo`; resolve conflicts preserving everything above (the ⚠ files
    conflict almost every time). For `canvas.js`, hand-merge — never accept upstream's whole file.
 3. Verify: canvas.js grep check (see ForgeCanvas section above) + `node --check` on changed `.js`,
-   sd-forge-couple indices, `git grep -i ltx` empty, ERNIE = upstream only,
+   sd-forge-couple indices, no LTX-Video wiring (use the **precise** grep from the LTX-Video note
+   above — not plain `git grep -i ltx`), ERNIE = upstream only,
    `python -m py_compile` on changed `.py`.
 4. Last big merge: **June 2026** — upstream/neo, 175 commits, tags 2.22–2.25 (16 conflicting files resolved).
 5. Prior merge: **2026-07-01** — upstream/neo tag 2.26, 28 commits (Krea2, PiD, GGUF/LoRA fixes,

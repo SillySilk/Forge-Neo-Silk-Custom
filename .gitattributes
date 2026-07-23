@@ -1,0 +1,2 @@
+# Binary report assets — never apply CRLF/line-ending conversion (repo has core.autocrlf=true)
+*.pdf binary

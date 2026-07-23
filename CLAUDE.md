@@ -216,6 +216,26 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
      models (log shows only "MixedPrecision for **Gemma2**" — the TE branch at `loader.py:202`,
      which the PR does not touch). If you ever see "MixedPrecision for **Model**", that's the
      changed UNet branch and is worth re-testing.
+8. Latest merge: **2026-07-23** — upstream/neo, **36 commits, UNTAGGED** (past tag 2.27;
+   target `2.27-38-g97ff3a40`). First run of the new **`/updateforge` skill**
+   (`.claude/skills/updateforge/`, local-only). **Clean merge — zero conflicts** (README did
+   not conflict this time; `backend/loader.py` auto-merged and the fp8 TE-upcast branch survived —
+   verified at loader.py:280-281). No ⚠ file needed hand-merging; `canvas.js`, forge-couple
+   `tile_funcs.py`, `utils.py`, and the controlnet UI were untouched by upstream in this range.
+   - **Dependency bumps (11):** comfy-kitchen 0.2.20→0.2.22, transformers 4.56.2→**4.57.6**,
+     safetensors 0.7.0→**0.8.0**, accelerate 1.13→1.14, opencv 4.10→4.11, Pillow 12.2→12.3,
+     GitPython, av, rich, pillow-heif, pillow-jxl. **Removed from requirements:** `peft`,
+     `torchdiffeq` (still installed in venv, harmless). Synced via `pip install -r requirements.txt`.
+     `pip check` conflicts (gradio/Pillow, litelama/kornia+omegaconf) are **pre-existing Forge
+     version overrides**, not new.
+   - **Notable upstream content:** several "speed" optimizations; refiner **cfg** + refiner
+     **lora** support (`modules/processing_scripts/refiner.py` +77); img2img refactor;
+     torch.compile tweaks (`sd_forge_compile/scripts/compile.py`); `backend/operations_triton.py`
+     expanded (+197) and `quant_rotation`/`quant_ops` changes; a **PiD v1.5** commit; new
+     `javascript/keepAlive.js` (replaces deleted `javascript/gradio.js`).
+   - **Verified live:** Anima txt2img 512², 12 steps, seed 777 via `/sdapi/v1/txt2img` → valid
+     298 KB PNG in 21.9 s; **0 tracebacks** in `tmp/run.log`; 29 JS + 32 PY changed files compile
+     clean. PDF report at `docs/updates/forge-neo-update-2026-07-23-2.27-38-g97ff3a40.pdf`.
 
 ## Triton — TESTED AND REJECTED 2026-07-16 (do not reinstall without cause)
 

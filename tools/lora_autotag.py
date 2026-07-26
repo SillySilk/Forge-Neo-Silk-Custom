@@ -32,12 +32,14 @@ BASE_VERSION_MAP = {
     "anima": "anima",
     "ernie_image": "ernie",
     "flux2_klein_9b": "klein",
+    "flux2_klein_4b": "klein",
     "flux1": "flux",
     "sd_v1": "sd",
     "sd_v2": "sd",
     "sdxl_base_v1-0": "xl",
     "qwen_image": "qwen",
     "wan2_2": "wan",
+    "krea2": "krea",
 }
 
 # modelspec.architecture prefix -> preset (fallback; some trainers write wrong values,
@@ -51,6 +53,9 @@ MODELSPEC_MAP = [
     ("stable-diffusion-v1", "sd"),
     ("qwen-image", "qwen"),
     ("wan", "wan"),
+    # Krea 2 trainers are inconsistent: "krea2/lora", "krea-2/lora", "Krea-2/lora".
+    # arch is lowercased before matching, so this one prefix covers all spellings.
+    ("krea", "krea"),
 ]
 
 RE_ANIMA_KEY = re.compile(r"lora_unet_blocks_\d+_(cross|self)_attn_.*_proj")
@@ -71,12 +76,12 @@ def classify(header: dict) -> tuple[str, str]:
     meta = header.get("__metadata__") or {}
 
     base = meta.get("ss_base_model_version", "")
-    if base in BASE_VERSION_MAP:
-        return BASE_VERSION_MAP[base], f"ss_base_model_version={base!r}"
+    if base.lower() in BASE_VERSION_MAP:
+        return BASE_VERSION_MAP[base.lower()], f"ss_base_model_version={base!r}"
 
     arch = meta.get("modelspec.architecture", "")
     for prefix, preset in MODELSPEC_MAP:
-        if arch.startswith(prefix):
+        if arch.lower().startswith(prefix):
             return preset, f"modelspec.architecture={arch!r}"
 
     keys = [k for k in header if k != "__metadata__"]

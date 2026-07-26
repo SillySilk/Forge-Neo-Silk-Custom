@@ -136,6 +136,37 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 ### Other custom extensions (untracked, under `extensions/`)
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).
 
+### sd-civitai-browser-neo ⚠ — tracked in `SillySilk/forge-neo-silk-extensions`, NOT here
+Upstream is **[eduardoabreu81/sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo)**
+(fork of BlafKing's archived `sd-civitai-browser-plus`). Its `main` is frozen at v0.9.0;
+**all development happens on the `revamp` branch** — that's what we track. Remote `ext-upstream`
+is already configured. The extension lives in a *subdirectory* of the extensions repo, so
+updating is a snapshot sync (`git rm -r` + `git read-tree --prefix=`), **not** `git pull`.
+
+Synced **2026-07-26** to `revamp` @ `04996798`. Re-apply these on every upstream sync — a
+plain re-sync silently reverts all of them:
+
+1. **`--lora-dirs` support** (`scripts/civitai_api.py`, `resolve_path` + LORA/LoCon/DoRA) —
+   Forge Neo's `--ckpt-dirs`/`--lora-dirs`/`--text-encoder-dirs` are argparse
+   `action="append"` **lists**; `Path(list)` raises `TypeError`. Without this, downloads
+   ignore `G:\LORAS` and land in `models/Lora`. Submitted upstream as
+   **[PR #3](https://github.com/eduardoabreu81/sd-civitai-browser-neo/pull/3)**.
+2. **Security hardening** (commit `bb6b76b`, in the **private** `forge-neo-silk-extensions`
+   repo) — from a 2026-07-26 audit, all verified against a running install. Touches: aria2
+   RPC binding/secret, third-party request headers, archive extraction, HTML escaping, TLS
+   verification, URL host matching, and delete safety.
+
+   > **Details are deliberately omitted from this public file** pending upstream disclosure
+   > (emailed to the maintainer 2026-07-26). Do not open a public issue/PR or expand this
+   > section until the maintainer ships a fix. Full write-up lives in commit `bb6b76b` and
+   > the private repo.
+
+> Verify after any sync: `grep -c "rpc-listen-all=false" scripts/civitai_download.py` (→1),
+> `grep -c "no_api=True" scripts/browser_sources/*.py` (→6 across 4 files),
+> `grep -c "lora_dirs" scripts/civitai_api.py` (→3), and `grep -rE '^\s*except:\s*$' scripts/`
+> should be empty. Ships its own suite: run each `tests/*.py` directly with the venv python
+> (stdlib `unittest`, no pytest, no `tests/__init__.py`) — **158 tests** should pass.
+
 ---
 
 ## Local environment & model setup

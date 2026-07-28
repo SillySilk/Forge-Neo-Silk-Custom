@@ -25,15 +25,20 @@ Current confirmed-good args — **treat as the default set** (Anima-primary work
 re-confirmed working wonderfully 2026-07-01; heavily A/B-adjusted, so only change one
 arg at a time with comparison testing):
 ```
---api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders"
+--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2
 ```
 - **`--bf16-unet` is fine for Anima/Z-Image** — they are already native bf16, so it does
-  *not* dequantize them. (The earlier warning was about fp8/GGUF models; avoid `--bf16-unet`
-  only if you load those.)
+  *not* dequantize them. It is also **safe for GGUF checkpoints** (Klein/ERNIE/Krea/Wan/Qwen):
+  `loader.py:448` catches `state_dict_dtype == "gguf"` *before* `override_dtype` is ever read at
+  `:455`, so `--bf16-unet` cannot dequantize a GGUF UNet. Avoid it only for **fp8** models.
 - **`--pin-shared-memory`** — back in the preferred set. If other apps get starved of RAM, drop it.
 - **`--lora-dirs "G:\LORAS"`** — LoRAs live on the G: drive; **`--gradio-allowed-path "G:\LORAS"`** lets the UI read them.
-- **dropped `--reserve-vram 2` / `--tiled-conv2d 512`** from this set — re-add `--tiled-conv2d 512`
-  (→256/128) if VAE-decode OOM resurfaces; re-add `--reserve-vram 2` if the text encoder starves sampling.
+- **`--reserve-vram 2` is load-bearing — do NOT drop it.** Measured 2026-07-27 on Klein 4B
+  (1024², 20 steps): with it, text-encode cost 3.55 s; **without it, 28.34 s** and total gen
+  24.09 s → 51.68 s (**2.1× slower**). Removing the reserve lets the allocator over-commit, so
+  pulling the text encoder in evicts far more. The old note claiming this arg was "dropped" was
+  wrong — it is in `webui.settings.bat` and must stay.
+- **`--tiled-conv2d 512`** (→256/128) is still the knob to re-add if VAE-decode OOM resurfaces.
 
 ---
 
@@ -184,7 +189,7 @@ plain re-sync silently reverts all of them:
   | Chroma1-HD | `flux` | `VAE Flux1 (Chroma)` | `TE T5-XXL fp8 (Chroma)` (T5 only, no CLIP-L) |
   | Z-Image / Moody Pro Mix | `zit` | `VAE Z-Image` | `TE Qwen3-4B (Z-Image + Klein)` |
   | Anima | `anima` | `VAE Qwen (Anima + PiD)` | `TE Qwen3-0.6B heretic (Anima)` (or `base` variant; + T5 tokenizer) |
-  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE Flux2 (Klein + ERNIE)` | `TE Qwen3-4B (Z-Image + Klein)` (same file as Z-Image) |
+  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE Flux2 (Klein + ERNIE)` | **`TE Qwen3-4B heretic Q8 (Z-Image + Klein).gguf`** — see "GGUF text encoders" below |
   | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE Flux2 (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
   | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE Wan 2.1 (Wan video)` | `TE UMT5-XXL (Wan)` (G:) |
   | Qwen-Image (Q4 GGUF; opt. `qwen-image-2512-Q4_K_M` upgrade) | `qwen` | `VAE Qwen (Anima + PiD)` | `qwen_2.5_vl_7b_fp8_scaled` (Qwen2.5-VL-7B) |
@@ -198,6 +203,37 @@ plain re-sync silently reverts all of them:
   > locally from baidu's official multimodal TE (stripped `language_model.` prefix, dropped
   > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").
   > Unused spares: `TE CLIP-L (spare)`, `VAE SDXL (standard)`.
+- **GGUF text encoders are supported — and are a big win for Klein** (verified 2026-07-27).
+  A `.gguf` TE dropped in `models/text_encoder/` appears in the additional-modules dropdown
+  (`main_entry.py:98`), gets llama.cpp→HF key remapping (`loader_gguf.py:46-72`, the `blk.*`
+  branch), and routes on hidden size to `qwen3_06b/4b/8b` (`loader.py:742-746`).
+  **Klein 4B now uses `TE Qwen3-4B heretic Q8 (Z-Image + Klein).gguf`** (4.28 GB, from
+  [LuffyTheFox/Qwen3-Uncensored-TextEncoders-Klein-Z-Image-Anima-GGUF](https://huggingface.co/LuffyTheFox/Qwen3-Uncensored-TextEncoders-Klein-Z-Image-Anima-GGUF),
+  Heretic-abliterated) instead of the 7.49 GB bf16 safetensors. Measured, 1024², same session:
+
+  | Klein 4B Q8 | 8 steps (native) | 20 steps | text-encode cost |
+  |---|---|---|---|
+  | bf16 TE 7.49 GB | 13.78 s | 24.09 s | 3.55–5.25 s (14.7–38.1%) |
+  | **Q8 GGUF TE 4.28 GB** | **8.70 s** | **20.66 s** | **0.15–0.18 s (0.7–2.0%)** |
+
+  **~37% faster at Klein's native 8 steps.** The mechanism is a *threshold*, not linear byte
+  scaling: at 7.49 GB the TE cannot stay resident beside the UNet, so every prompt change
+  triggers `Unloaded partially` / `Moving model(s)` thrash cycles; at 4.28 GB both fit and the
+  thrash lines vanish from the log entirely (`grep -c "Unloaded partially"` → **0**). Sampling
+  speed is unchanged (cached-prompt runs 20.54 s vs 20.51 s), confirming the per-forward
+  dequant in `ForgeOperationsGGUF.Linear.forward` (`operations.py:441`) costs nothing here —
+  the TE runs **once** per generation (`processing.py:977`, outside the sampling loop), and a
+  repeated prompt hits the class-level conditioning cache and skips it entirely.
+  - Text-encode cost is **weight movement, not compute** — a 400-token prompt and `"a cat"`
+    timed identically (5.36 s vs 5.34 s). So the fix is always *fit it in VRAM*, not *shrink the prompt*.
+  - **Anima has nothing to gain** — its 1.11 GB TE is already only ~1.1% of a generation.
+  - The repo's **`Qwen3-VL-4B` file will NOT work for Krea 2**: 398 tensors, zero `v.*`/`mm.*`
+    vision tensors (llama.cpp splits vision into a separate `mmproj` that repo lacks). Krea is
+    detected via `model.visual.deepstack_merger_list.0.norm.weight` (`loader.py:731`); without
+    it the file misroutes to the plain `qwen3_4b` slot. Its README also admits it is vanilla, not
+    uncensored. The `Qwen3-8B` file targets **Klein 9B**, which we do not have.
+  - `zit` (Z-Image) still points at the old bf16 safetensors — deliberately left alone since
+    Z-Image is not in use; that file is also the fallback, so **do not delete it**.
 - **PiD (NVIDIA pixel-diffusion decoder/upscaler)** — default-OFF (flipped 2026-07-01: the
   4× fixed upscale means 1280² → 5120² output every gen, too heavy as a default). Enable
   per-image via the "PiD Integrated" accordion checkbox in txt2img/img2img — the Anima

@@ -19,8 +19,14 @@
 ::  --gradio-allowed-path "G:\LORAS" : lets the UI serve LoRA previews from G:.
 ::  --ckpt-dirs "G:\Wan\checkpoints"        : Wan 2.2 video checkpoints (GGUF) on G:.
 ::  --text-encoder-dirs "G:\Wan\text_encoders" : UMT5-XXL encoder for Wan (select via "wan" preset).
+::  --nunchaku           : enables SVDQ (int4) models, e.g. Qwen-Image-Edit 2511. Auto-installs the
+::                         nunchaku wheel on first boot (cu13.0/torch2.10/cp313 -> matches this venv).
+::                         Additive only: it does not alter behaviour of non-SVDQ models.
+::
+::  --reserve-vram 2     : LOAD-BEARING, do not remove. Measured 2026-07-27 on Klein 4B
+::                         (1024/20 steps): with it, text-encode 3.55s and total 24.09s;
+::                         WITHOUT it, text-encode 28.34s and total 51.68s (2.1x slower).
 ::
 :: If problems resurface, candidate knobs (re-test before trusting):
 ::   VAE-decode OOM       -> add --tiled-conv2d 512 (then 256/128).
-::   Text encoder starves -> add --reserve-vram 2.
-set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2
+set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2

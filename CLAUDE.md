@@ -32,7 +32,7 @@ Current confirmed-good args — **treat as the default set** (Anima-primary work
 re-confirmed working wonderfully 2026-07-01; heavily A/B-adjusted, so only change one
 arg at a time with comparison testing):
 ```
---api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2
+--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2
 ```
 - **`--bf16-unet` is fine for Anima/Z-Image** — they are already native bf16, so it does
   *not* dequantize them. It is also **safe for GGUF checkpoints** (Klein/ERNIE/Krea/Wan/Qwen):
@@ -45,6 +45,10 @@ arg at a time with comparison testing):
   24.09 s → 51.68 s (**2.1× slower**). Removing the reserve lets the allocator over-commit, so
   pulling the text encoder in evicts far more. The old note claiming this arg was "dropped" was
   wrong — it is in `webui.settings.bat` and must stay.
+- **`--bnb` was REMOVED 2026-08-20** — upstream commit `4e94f1fd` deleted bitsandbytes support
+  entirely (`backend/operations_bnb.py` gone, zero `bnb` references left). `modules/shared_cmd_options.py:13`
+  uses **strict `parse_args()`**, so leaving `--bnb` in `webui.settings.bat` is a **hard launch crash**
+  ("unrecognized arguments"), not a warning. No impact here: none of our models are nf4/fp4.
 - **`--tiled-conv2d 512`** (→256/128) is still the knob to re-add if VAE-decode OOM resurfaces.
 
 ---
@@ -315,6 +319,69 @@ plain re-sync silently reverts all of them:
    - **Verified live:** Anima txt2img 512², 12 steps, seed 777 via `/sdapi/v1/txt2img` → valid
      298 KB PNG in 21.9 s; **0 tracebacks** in `tmp/run.log`; 29 JS + 32 PY changed files compile
      clean. PDF report at `docs/updates/forge-neo-update-2026-07-23-2.27-38-g97ff3a40.pdf`.
+
+9. Latest merge: **2026-08-20** — upstream/neo, **39 commits**, `2.27-70` → **`2.28.1-10-ge782dc3f`**
+   (crosses new tags **2.28** and **2.28.1**). Only **2 conflicts**: README (kept ours) and
+   `modules/processing.py` (see below). `canvas.js`, forge-couple, and the ControlNet UI were
+   **untouched by upstream** in this range — no hand-merge needed. All 8 canvas markers verified
+   (1988 lines vs upstream 857); 62 changed .py files compile clean; LTX/ERNIE greps empty.
+   - **`modules/processing.py` conflict — recurring, now resolved in upstream's idiom.** Upstream
+     rewrote the hires-modules guard as `"Use same choices" not in (getattr(self, "hr_additional_modules", []) or [])`.
+     That **enters** the branch when the attr is None (its dataclass default) and passes None to
+     `main_entry.modules_change()` → `for v in None` → **TypeError**. Our guard skips instead. Kept ours,
+     rewritten as a walrus + marked `# CUSTOM (Forge Neo)` so it stops conflicting every merge.
+   - **4 backend modules DELETED** (folded into comfy-kitchen): `backend/float.py`,
+     `operations_bnb.py`, `operations_triton.py`, `quant_rotation.py`. This makes the
+     **comfy-kitchen bump mandatory**, not optional.
+   - **Dependency bumps (10):** comfy-kitchen 0.2.22→**0.2.31**, opencv-python 4.11→**5.0.0.93** (major),
+     httpx 0.24.1→0.28.1, GitPython 3.1.52→3.1.57, lark 1.2.2→1.3.1, omegaconf 2.2.3→2.3.1,
+     psutil 6.1.1→7.2.2, pillow-heif 1.4.0→1.5.0, tqdm 4.67.3→4.70.0; `setuptools` dropped.
+   - **Also fixed (not upstream):** `requests` 2.32.5 → **2.34.2** kills the boot-time
+     `RequestsDependencyWarning`. Cause is **chardet, not urllib3**: requests 2.32 asserts
+     `3.0.2 <= chardet < 6.0.0`, and `ZipUnicode` pulls **chardet 7.4.3**; since chardet is present,
+     requests checks it and never looks at the valid `charset_normalizer`. `requests` is transitive
+     (not in `requirements.txt`), so this won't fight future merges.
+   - **Verified live:** Krea 2 GGUF txt2img 768×1024 via `/sdapi/v1/txt2img`; **0 tracebacks**.
+   - Upstream also notes our **PyTorch 2.10.0+cu130 is now flagged "outdated"** at boot. Not acted on.
+
+## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
+
+Krea 2 has **no classic ControlNet** and never will via the ControlNet tab. All Krea 2 "control"
+is **LoRA + reference-image conditioning**, which upstream added 2026-07-31 (`7c866142 Krea 2 Edit`,
+`0dc18e4f vision`, `c80bb048 ref_latents`).
+
+**The switch you will forget:** Settings → **`krea2_do_reference`** ("[Krea2] Enable Reference"),
+**default OFF**. With it off, ImageStitch encodes nothing and reference images are silently ignored
+— generations come out byte-identical to no-reference runs. Gated in **two** places:
+`backend/diffusion_engine/krea.py:55` and `:103`. Its tooltip warns *"enable Edit ; disable img2img"*
+— while ON, `encode_first_stage` diverts the img2img init image into `ref_latents`, so **img2img
+breaks**. Pin it to Quicksettings if toggling often. Left **OFF** after testing.
+
+**How to actually use it** (txt2img): set `krea2_do_reference` ON → put the control/reference image
+in the **ImageStitch Integrated** accordion (*not* the ControlNet tab) → load the matching edit LoRA.
+API: `alwayson_scripts: {"ImageStitch Integrated": {"args": [true, [<b64>], 1024]}}`.
+
+**The base checkpoint cannot edit or pose on its own** — an edit-trained LoRA is mandatory. Verified:
+with a DWPose skeleton as reference and no LoRA, Krea 2 just *reproduced the skeleton* as glowing
+neon lines over the figure (it preserves the reference, as Edit models do).
+
+| LoRA | What it is | Status here |
+|---|---|---|
+| [thedeoxen/Krea-2-pose-controlnet](https://huggingface.co/thedeoxen/Krea-2-pose-controlnet) | OpenPose, edit-arch LoRA, 228 MB | **Installed** → `G:\LORAS\controlnet\`. Pose control **confirmed working**. |
+| [Patil/Krea-2-depth-controlnet](https://huggingface.co/Patil/Krea-2-depth-controlnet) | Depth, 862 MB, **channel-concat** (token 64→128 via expanded input projection) | **Will NOT work** — Forge feeds 64-dim tokens straight to `SingleStreamDiT.first`; nothing concatenates a control latent. `pad_weight` exists (`backend/patcher/lora.py:100`) but is never set, so it would log `SHAPE MISMATCH ... WEIGHT NOT MERGED`. Needs ~20 lines in `backend/nn/krea.py`. |
+| [Krea 2 Identity Edit](https://civitai.com/models/2761113/krea-2-identity-edit) | Identity-preserving image edit | Not downloaded. This is what upstream's README means by "requires specific LoRA". |
+
+No canny / lineart / tile weights are published yet (the training recipe is control-type agnostic,
+so they are possible — nobody has released them).
+
+⚠ **Open quality issue — reference path degrades output.** Pose *structure* transfers correctly, but
+images generated **with** a reference show heavy dark mottling and skeleton colour bleed; the same
+prompt + LoRA **without** a reference is pristine. So the LoRA is fine — the fault is in the reference
+conditioning. Prime suspect: `qwen3vl_engine.py` prepends bare `<|vision_start|>` blocks into the
+"Describe the image…" system template, whereas ostris's nodes use Krea's own template with
+**`Picture N:`** labels *as the LoRAs were trained*. Untested hypothesis — do not treat as diagnosed.
+
+---
 
 ## Triton — TESTED AND REJECTED 2026-07-16 (do not reinstall without cause)
 

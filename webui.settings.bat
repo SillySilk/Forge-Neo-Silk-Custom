@@ -14,7 +14,6 @@
 ::  --bf16-unet          : bf16 UNet compute. Fine for Anima/Z-Image (native bf16);
 ::                         avoid only if loading fp8/GGUF *diffusion* models it would dequantize.
 ::  --autotune           : cuDNN benchmark autotuning.
-::  --bnb                : bitsandbytes (nf4/fp4 quant support).
 ::  --lora-dirs "G:\LORAS"           : LoRAs live on G: (off the SSD).
 ::  --gradio-allowed-path "G:\LORAS" : lets the UI serve LoRA previews from G:.
 ::  --ckpt-dirs "G:\Wan\checkpoints"        : Wan 2.2 video checkpoints (GGUF) on G:.
@@ -29,4 +28,4 @@
 ::
 :: If problems resurface, candidate knobs (re-test before trusting):
 ::   VAE-decode OOM       -> add --tiled-conv2d 512 (then 256/128).
-set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --bnb --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2
+set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2

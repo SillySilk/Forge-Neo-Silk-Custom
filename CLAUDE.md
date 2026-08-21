@@ -8,7 +8,14 @@ everything under **"Custom work to preserve."**
 - **upstream** — https://github.com/Haoming02/sd-webui-forge-classic (branch `neo`)
 
 > Pre-rewrite verbose notes are archived in `CLAUDE.archive-pre-2026-06-rewrite.md`
-> (kept as a safety net; deletable once this file is trusted).
+> (kept as a safety net; deletable once this file is trusted). That file is still present
+> as of this writing, and no decision to delete it has been recorded anywhere — treat it
+> as still pending, not resolved.
+
+> This repo lives one level deeper than sibling AI projects, at `Forge_neo\forge-neo\`.
+> The parent `Forge_neo\` folder also holds `forge-openai-proxy.py`, an `orphan/` dir of
+> stray checkpoint files, and `_dotgit-backups/` (archived `.git` dirs from other
+> extensions) — none of that is part of this repo.
 
 ---
 

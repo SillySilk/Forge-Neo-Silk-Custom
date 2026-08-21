@@ -1406,7 +1406,10 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         fp_additional_modules = getattr(shared.opts, "forge_additional_modules")
 
         reload = False
-        if hasattr(self, 'hr_additional_modules') and self.hr_additional_modules is not None and 'Use same choices' not in self.hr_additional_modules:
+        # CUSTOM (Forge Neo): `hr_additional_modules` defaults to None (e.g. an API call with
+        # `enable_hr` that omits it). Upstream's `or []` ENTERS this branch on None and then
+        # passes None to modules_change() -> `for v in None` -> TypeError. Skip instead.
+        if (hr_modules := getattr(self, "hr_additional_modules", None)) is not None and "Use same choices" not in hr_modules:
             modules_changed = main_entry.modules_change(self.hr_additional_modules, preset=None, save=False, refresh=False)
             if modules_changed:
                 reload = True

@@ -17,6 +17,15 @@ shared.options_templates.update(
             "lora_preferred_name": shared.OptionInfo("Alias from file", "When adding to prompt, refer to Lora by", gr.Radio, {"choices": ["Alias from file", "Filename"]}),
             "lora_add_hashes_to_infotext": shared.OptionInfo(True, "Add Lora hashes to infotext"),
             "lora_preset_filter": shared.OptionInfo(False, "Filter Lora based on selected Preset"),
+            # CUSTOM (Forge Neo): scope the Lora tab to one model's folder without restarting.
+            "lora_active_dir": shared.OptionInfo(
+                networks.ALL_LORA_FOLDERS,
+                "Active Lora folder",
+                gr.Dropdown,
+                lambda: {"choices": networks.available_lora_folders()},
+                onchange=networks.list_available_networks,
+                refresh=networks.list_available_networks,
+            ).info("only show and load Loras from this subfolder, so one model's Loras do not crowd another's"),
         },
     )
 )

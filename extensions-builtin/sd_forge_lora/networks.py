@@ -176,10 +176,52 @@ def load_networks(names: list[str], te_multipliers: list[float] = None, unet_mul
     current_sd.forge_objects_after_applying_lora = current_sd.forge_objects.shallow_copy()
 
 
+# CUSTOM (Forge Neo): per-model Lora folder switching, no restart required.
+# Every Lora set is model-specific (a Krea 2 Lora is useless under Anima), so the
+# Lora tab is scoped to one subfolder at a time via the "Active Lora folder" setting.
+ALL_LORA_FOLDERS = "All"
+
+
+def lora_root_dirs() -> list[str]:
+    """Every configured Lora root: the built-in models/Lora plus each --lora-dirs entry."""
+    return [shared.cmd_opts.lora_dir, *shared.cmd_opts.lora_dirs]
+
+
+def available_lora_folders() -> list[str]:
+    """Choices for "Active Lora folder": "All" plus the immediate subfolders of every root."""
+    folders = []
+
+    for root in lora_root_dirs():
+        try:
+            entries = sorted(os.listdir(root), key=str.lower)
+        except OSError:
+            continue
+        for entry in entries:
+            if entry not in folders and os.path.isdir(os.path.join(root, entry)):
+                folders.append(entry)
+
+    return [ALL_LORA_FOLDERS, *folders]
+
+
+def active_lora_dirs() -> list[str]:
+    """The roots to scan, narrowed to the selected subfolder when one is active."""
+    active = getattr(shared.opts, "lora_active_dir", ALL_LORA_FOLDERS)
+    if not active or active == ALL_LORA_FOLDERS:
+        return lora_root_dirs()
+
+    dirs = [os.path.join(root, active) for root in lora_root_dirs() if os.path.isdir(os.path.join(root, active))]
+    if not dirs:
+        # A renamed or deleted folder would otherwise empty the Lora tab with no explanation.
+        logger.warning('Active Lora folder "%s" no longer exists; showing all Loras', active)
+        return lora_root_dirs()
+
+    return dirs
+
+
 def process_network_files(names: Optional[list[str]] = None):
     candidates = []
 
-    for _dir in [shared.cmd_opts.lora_dir, *shared.cmd_opts.lora_dirs]:
+    for _dir in active_lora_dirs():
         candidates.extend(shared.walk_files(_dir, allowed_extensions=[".pt", ".ckpt", ".safetensors"]))
 
     for filename in candidates:

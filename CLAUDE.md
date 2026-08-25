@@ -117,22 +117,49 @@ indices by **+3**: `use_tile=15, tile_h=16, tile_v=17, mode=6, direction=8, back
 mapping=11, tile_threshold=18, tile_replace=19`. Wrong indices → "Invalid Tile Count: 0"
 in img2img. (Full file-by-file edits in the archive file.)
 
-### sd_forge_lora — active LoRA folder switcher (added 2026-08-25)
-`networks.py` + `scripts/lora_script.py`, both marked `# CUSTOM (Forge Neo)`. Adds an
-**"Active Lora folder"** dropdown (quicksettings, under UI Preset) that scopes the LoRA tab
-to one subfolder of the configured LoRA roots — switching model-specific LoRA sets with no
-restart. Every LoRA is model-specific, so a flat list mixes Krea 2 / Klein / Anima together.
-- `networks.py`: `ALL_LORA_FOLDERS`, `lora_root_dirs()`, `available_lora_folders()`,
-  `active_lora_dirs()`; `process_network_files()` iterates `active_lora_dirs()` instead of
-  `[shared.cmd_opts.lora_dir, *shared.cmd_opts.lora_dirs]`. A renamed/deleted folder falls
-  back to all roots **with a warning** rather than silently emptying the tab.
-- `lora_script.py`: the `lora_active_dir` OptionInfo (dropdown + refresh arrow, `onchange`
-  re-scans). Upstream edits this options block, so expect conflicts here.
-- Setting lives in `config.json` (`lora_active_dir` + a `quicksettings_list` entry) — that
-  file is **gitignored**, so a fresh clone needs the quicksettings entry re-added by hand.
-- Note: options registered by this extension never appear in the `/sdapi/v1/options` **GET**
-  (the response model is built before extension options register) — pre-existing for
-  `lora_preset_filter`/`sd_lora` too. `POST` works fine, which is how it is testable headlessly.
+### LoRA folder picker ⚠ (added 2026-08-25) — 5 files, 3 of them upstream's
+An **"Active Lora folder"** `<select>` in the LoRA tab's control row, right next to Search.
+Auto-populated with the immediate subfolders of the LoRA roots; picking one scopes the tab
+(and what can be loaded) to that folder, with no restart. Every LoRA is model-specific, so a
+flat list mixes Krea 2 / Anima / Klein together — `G:\LORAS` is now organised by model
+(`Anima`, `krea2`, `Klein`, `controlnet`).
+
+All edits are marked `# CUSTOM (Forge Neo)`:
+- `extensions-builtin/sd_forge_lora/networks.py` — `ALL_LORA_FOLDERS`, `lora_root_dirs()`,
+  `available_lora_folders()`, `active_lora_dirs()`; `process_network_files()` iterates
+  `active_lora_dirs()` instead of `[shared.cmd_opts.lora_dir, *shared.cmd_opts.lora_dirs]`.
+  A renamed/deleted folder falls back to all roots **with a warning**, never an empty tab.
+- `extensions-builtin/sd_forge_lora/scripts/lora_script.py` — the `lora_active_dir` option.
+  Upstream edits this options block; expect conflicts.
+- `extensions-builtin/sd_forge_lora/ui_extra_networks_lora.py` — `create_folder_selector_html()`
+  builds the `<select>`; `set_active_dir()` applies it (`run_callbacks=False`, since the
+  refresh that follows re-scans anyway) and saves `config.json`.
+- ⚠ `modules/ui_extra_networks.py` — base no-op `create_folder_selector_html()` /
+  `set_active_dir()`, the `folder_selector` page param, and the hidden
+  `{tabname}_{page}_active_dir` textbox + `_set_active_dir` button in `create_ui()`
+  (mirrors the existing `_extra_refresh_internal` bridge pattern).
+- ⚠ `html/extra-networks-pane.html` — the `{folder_selector}` slot after the search div.
+  **Any page param added here must also be added to `create_html()`'s `page_params`** or
+  `.format()` raises `KeyError`.
+- ⚠ `javascript/extraNetworks.js` — `extraNetworksControlFolderOnChange()`; `style.css` —
+  `.extra-network-control--folder`.
+
+Gotchas:
+- **Turn `lora_preset_filter` OFF.** It compounds with the folder picker: with folder=`Anima`
+  and UI Preset `krea` it hid 121 of 129 cards. The picker replaces it and needs no tagging.
+  Set to `false` 2026-08-25.
+- The control row is **duplicated in the DOM** (the pane copy plus the one the JS moves into
+  the tab nav), so `#{tabname}_lora_folder_select` matches two elements — pre-existing for
+  Search/Sort too. Use `querySelector`, not a strict single-element locator.
+- Options registered by this extension never appear in the `/sdapi/v1/options` **GET** (the
+  response model is built before extension options register) — pre-existing for
+  `lora_preset_filter`/`sd_lora`. `POST` works, which is how this is testable headlessly.
+- `config.json` is **gitignored** and is rewritten by a running Forge — never hand-edit it
+  while the app is up, the edit will be silently clobbered.
+
+Verified live 2026-08-25: picker renders in txt2img **and** img2img next to Search; switching
+to `Anima` gives 129 cards, `krea2` gives 167, matching disk exactly; selection survives a
+refresh; 0 tracebacks.
 
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`

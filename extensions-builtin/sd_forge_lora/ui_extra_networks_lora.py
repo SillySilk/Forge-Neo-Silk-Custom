@@ -1,3 +1,4 @@
+import html
 import os.path
 
 import network
@@ -15,6 +16,34 @@ class ExtraNetworksPageLora(ui_extra_networks.ExtraNetworksPage):
 
     def refresh(self):
         networks.list_available_networks()
+
+    # CUSTOM (Forge Neo): every Lora is model-specific, so the tab is scoped to one
+    # folder at a time. The picker sits in the control row next to Search.
+    def create_folder_selector_html(self, tabname: str) -> str:
+        folders = networks.available_lora_folders()
+        active = getattr(shared.opts, "lora_active_dir", networks.ALL_LORA_FOLDERS)
+        if active not in folders:
+            active = networks.ALL_LORA_FOLDERS
+
+        options = "".join(
+            f'<option value="{html.escape(folder, quote=True)}"{" selected" if folder == active else ""}>'
+            f"{html.escape(folder)}</option>"
+            for folder in folders
+        )
+
+        return (
+            f'<select id="{tabname}_{self.extra_networks_tabname}_folder_select" '
+            f'class="extra-network-control--folder" title="Only show Loras from this folder" '
+            f"onchange=\"extraNetworksControlFolderOnChange(event, '{tabname}', '{self.extra_networks_tabname}');\">"
+            f"{options}</select>"
+        )
+
+    def set_active_dir(self, folder: str) -> None:
+        if folder not in networks.available_lora_folders():
+            return
+        # refresh() re-scans immediately after this, so skip the onchange rescan.
+        shared.opts.set("lora_active_dir", folder, run_callbacks=False)
+        shared.opts.save(shared.config_filename)
 
     def create_item(self, name, index=None, enable_filter=True):
         lora_on_disk = networks.available_networks.get(name)

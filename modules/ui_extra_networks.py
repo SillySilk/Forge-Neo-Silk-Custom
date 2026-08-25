@@ -199,6 +199,16 @@ class ExtraNetworksPage:
     def refresh(self):
         pass
 
+    # CUSTOM (Forge Neo): folder scoping. Only pages whose items are split into
+    # mutually exclusive per-model folders (Lora) override these two.
+    def create_folder_selector_html(self, tabname: str) -> str:
+        """HTML for the folder picker in the control row; empty means no picker."""
+        return ""
+
+    def set_active_dir(self, folder: str) -> None:
+        """Called when the user picks a folder; refresh() runs straight after."""
+        pass
+
     def read_user_metadata(self, item, use_cache=True):
         filename = item.get("filename", None)
         metadata = extra_networks.get_user_metadata(filename, lister=self.lister if use_cache else None)
@@ -611,6 +621,8 @@ class ExtraNetworksPage:
             "items_html": self.create_card_view_html(tabname, none_message="Loading..." if empty else None),
             "extra_networks_tree_view_default_width": shared.opts.extra_networks_tree_view_default_width,
             "tree_view_div_default_display_class": "" if show_tree else "extra-network-dirs-hidden",
+            # CUSTOM (Forge Neo): pages that scope themselves to one folder render a picker here.
+            "folder_selector": self.create_folder_selector_html(tabname),
         }
 
         if shared.opts.extra_networks_tree_view_style == "Tree":
@@ -772,6 +784,17 @@ def create_ui(interface: gr.Blocks, unrelated_tabs, tabname):
 
         button_refresh = gr.Button("Refresh", elem_id=f"{tabname}_{page.extra_networks_tabname}_extra_refresh_internal", visible=False)
         button_refresh.click(fn=refresh, outputs=ui.pages).then(fn=lambda: None, _js="function(){ " + f"applyExtraNetworkFilter('{tabname}_{page.extra_networks_tabname}');" + " }").then(fn=lambda: None, _js="setupAllResizeHandles")
+
+        # CUSTOM (Forge Neo): the in-tab folder picker hands its value to python
+        # through this hidden textbox, then clicks the hidden button beside it.
+        active_dir_box = gr.Textbox("", elem_id=f"{tabname}_{page.extra_networks_tabname}_active_dir", visible=False)
+        button_set_dir = gr.Button("Set folder", elem_id=f"{tabname}_{page.extra_networks_tabname}_set_active_dir", visible=False)
+
+        def set_active_dir(folder, pg=page):
+            pg.set_active_dir(folder)
+            return refresh()
+
+        button_set_dir.click(fn=set_active_dir, inputs=[active_dir_box], outputs=ui.pages).then(fn=lambda: None, _js="function(){ " + f"applyExtraNetworkFilter('{tabname}_{page.extra_networks_tabname}');" + " }").then(fn=lambda: None, _js="setupAllResizeHandles")
 
     def create_html():
         ui.pages_contents = [pg.create_html(ui.tabname) for pg in ui.stored_extra_pages]

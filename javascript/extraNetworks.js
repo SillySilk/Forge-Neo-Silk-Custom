@@ -521,6 +521,18 @@ function clickLoraRefresh() {
     });
 }
 
+// CUSTOM (Forge Neo): folder picker in the extra-networks control row. Hands the
+// chosen folder to python via a hidden textbox, then clicks the hidden button that
+// applies it and redraws the cards.
+function extraNetworksControlFolderOnChange(event, tabname, extra_networks_tabname) {
+    let prefix = tabname + "_" + extra_networks_tabname;
+    let box = gradioApp().getElementById(prefix + "_active_dir");
+    let input = box.querySelector("input, textarea");
+    input.value = event.target.value;
+    updateInput(input);
+    gradioApp().getElementById(prefix + "_set_active_dir").dispatchEvent(new Event("click"));
+}
+
 function extraNetworksControlRefreshOnClick(event, tabname, extra_networks_tabname) {
     /**
      * Handles `onclick` events for the Refresh Page button.

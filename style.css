@@ -1590,6 +1590,24 @@ body.resizing .resize-handle {
     line-height: 1rem;
 }
 
+/* CUSTOM (Forge Neo): folder picker in the extra-networks control row */
+.extra-network-control .extra-network-control--folder {
+    border: 1px solid var(--button-secondary-border-color);
+    border-radius: 0.5rem;
+    color: var(--button-secondary-text-color);
+    background-color: transparent;
+    margin-left: 0.5rem;
+    padding: 0 0.5rem;
+    line-height: 1rem;
+    max-width: 12rem;
+    cursor: pointer;
+}
+
+.extra-network-control .extra-network-control--folder option {
+    background-color: var(--body-background-fill);
+    color: var(--body-text-color);
+}
+
 .extra-network-control .extra-network-control--search .extra-network-control--search-text::placeholder {
     color: var(--input-placeholder-color);
 }

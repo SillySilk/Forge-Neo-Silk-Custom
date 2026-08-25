@@ -117,6 +117,23 @@ indices by **+3**: `use_tile=15, tile_h=16, tile_v=17, mode=6, direction=8, back
 mapping=11, tile_threshold=18, tile_replace=19`. Wrong indices → "Invalid Tile Count: 0"
 in img2img. (Full file-by-file edits in the archive file.)
 
+### sd_forge_lora — active LoRA folder switcher (added 2026-08-25)
+`networks.py` + `scripts/lora_script.py`, both marked `# CUSTOM (Forge Neo)`. Adds an
+**"Active Lora folder"** dropdown (quicksettings, under UI Preset) that scopes the LoRA tab
+to one subfolder of the configured LoRA roots — switching model-specific LoRA sets with no
+restart. Every LoRA is model-specific, so a flat list mixes Krea 2 / Klein / Anima together.
+- `networks.py`: `ALL_LORA_FOLDERS`, `lora_root_dirs()`, `available_lora_folders()`,
+  `active_lora_dirs()`; `process_network_files()` iterates `active_lora_dirs()` instead of
+  `[shared.cmd_opts.lora_dir, *shared.cmd_opts.lora_dirs]`. A renamed/deleted folder falls
+  back to all roots **with a warning** rather than silently emptying the tab.
+- `lora_script.py`: the `lora_active_dir` OptionInfo (dropdown + refresh arrow, `onchange`
+  re-scans). Upstream edits this options block, so expect conflicts here.
+- Setting lives in `config.json` (`lora_active_dir` + a `quicksettings_list` entry) — that
+  file is **gitignored**, so a fresh clone needs the quicksettings entry re-added by hand.
+- Note: options registered by this extension never appear in the `/sdapi/v1/options` **GET**
+  (the response model is built before extension options register) — pre-existing for
+  `lora_preset_filter`/`sd_lora` too. `POST` works fine, which is how it is testable headlessly.
+
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`
 branch that upcasts fp8 text-encoder weights to float16 (fp8 loses text-comprehension

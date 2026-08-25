@@ -138,6 +138,13 @@ All edits are marked `# CUSTOM (Forge Neo)`:
   `set_active_dir()`, the `folder_selector` page param, and the hidden
   `{tabname}_{page}_active_dir` textbox + `_set_active_dir` button in `create_ui()`
   (mirrors the existing `_extra_refresh_internal` bridge pattern).
+- ⚠ `modules/ui_extra_networks.py` — `directories_for_browsing()`, used by
+  `create_tree_view_html()` and `create_dirs_view_html()` in place of
+  `allowed_directories_for_previews()`. **Keep these two separate.** The latter is a
+  *permission* list (gradio allowed paths at `:88`, save-preview safety at `:837`) and must
+  stay wide, or previews break when the active folder changes; the former is what the folder
+  chips and tree enumerate. Without this split the chip row still listed every `Anima\...`
+  folder while `krea2` was selected, which defeats the whole feature.
 - ⚠ `html/extra-networks-pane.html` — the `{folder_selector}` slot after the search div.
   **Any page param added here must also be added to `create_html()`'s `page_params`** or
   `.format()` raises `KeyError`.

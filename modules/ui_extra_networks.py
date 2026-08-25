@@ -209,6 +209,15 @@ class ExtraNetworksPage:
         """Called when the user picks a folder; refresh() runs straight after."""
         pass
 
+    def directories_for_browsing(self) -> list:
+        """Roots the folder chips and tree enumerate.
+
+        Separate from allowed_directories_for_previews(), which is a *permission*
+        list (gradio allowed paths, save-preview safety) and must stay wide so
+        previews keep resolving after the active folder changes.
+        """
+        return self.allowed_directories_for_previews()
+
     def read_user_metadata(self, item, use_cache=True):
         filename = item.get("filename", None)
         metadata = extra_networks.get_user_metadata(filename, lister=self.lister if use_cache else None)
@@ -472,7 +481,7 @@ class ExtraNetworksPage:
         res = ""
 
         # Setup the tree dictionary.
-        roots = self.allowed_directories_for_previews()
+        roots = self.directories_for_browsing()
         tree_items = {v["filename"]: ExtraNetworksItem(v) for v in self.items.values()}
         tree = get_tree([os.path.abspath(x) for x in roots], items=tree_items)
 
@@ -520,7 +529,7 @@ class ExtraNetworksPage:
         """Generates HTML for displaying folders."""
 
         subdirs = {}
-        for parentdir in [os.path.abspath(x) for x in self.allowed_directories_for_previews()]:
+        for parentdir in [os.path.abspath(x) for x in self.directories_for_browsing()]:
             for root, dirs, _ in sorted(os.walk(parentdir, followlinks=True), key=lambda x: shared.natural_sort_key(x[0])):
                 for dirname in sorted(dirs, key=shared.natural_sort_key):
                     x = os.path.join(root, dirname)

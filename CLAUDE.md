@@ -210,15 +210,37 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
 
 ### Extensions inventory — upstreams & update status (audited 2026-08-29)
 `extensions/` is its own repo (`SillySilk/forge-neo-silk-extensions`), **not** part of this
-one. By convention **no extension has a nested `.git`** — that repo tracks them as plain
-files, and each extension's original `.git` is archived in `Forge_neo/_dotgit-backups/`.
-Consequence: **Forge's Extensions tab cannot check or update any of them.** To update one,
-drive its archived git dir externally:
-`git --git-dir=../../_dotgit-backups/<name>-dotgit-<date> --work-tree=$PWD/<name> fetch/reset --hard origin/HEAD`
-— then leave the `.git` in `_dotgit-backups`, never inside the extension.
-
-All were brought to their upstream HEAD on **2026-08-29** (restore point: extensions-repo
+one. All were brought to their upstream HEAD on **2026-08-29** (restore point: extensions-repo
 tag `pre-update-2026-08-29`).
+
+**Nested `.git` restored 2026-08-30** — every extension with an upstream now carries its own
+repo, so **Forge's Extensions tab checks and applies updates itself**. Just use the tab; the
+old `--git-dir=_dotgit-backups/...` dance is obsolete. (`_dotgit-backups/` is kept as a cold
+archive only.)
+
+⚠ **The updater is destructive, and four extensions are deliberately shielded from it.**
+`Extension.fetch_and_reset_hard()` runs `git reset --hard origin/<branch>`
+(`modules/extensions.py:219`), which erases local changes. So **ADetailer-Neo**,
+**ForgeUI-MaskEraser-Extension**, **sd-civitai-browser-neo** and **sd-dynamic-prompts** sit on
+a local **`silk-custom`** branch. `origin/silk-custom` does not exist → `check_updates()` hits
+its `except` and reports *"unknown (remote error)"* → `can_update` stays False →
+`ui_extensions.py:167` never renders the update checkbox → the reset can never fire.
+**Do not move these four back onto `main`/`revamp`** — that re-arms the wipe. Take upstream
+changes by rebasing `silk-custom` by hand.
+
+Because git cannot track files inside a nested repo, those 12 directories are **gitignored**
+in the extensions repo (history up to `f624332` is still there). Their local modifications are
+exported to **`extensions/_silk-customs/*.patch`** — the only off-machine copy, since the
+`silk-custom` branches have no remote. Re-export them after changing any custom.
+
+Verify the whole arrangement by replaying Forge's own logic — 8 should say `latest`, the 4
+custom ones `unknown (remote error)`:
+```python
+from modules.gitpython_hack import Repo   # run from the forge-neo root with the venv python
+```
+First-run gotcha: GitPython's `fetch(dry_run=True)` reads `.git/FETCH_HEAD`, which `--dry-run`
+never writes, so a repo that has never fetched raises `FileNotFoundError` and shows a bogus
+error. One real `git fetch` in that extension fixes it permanently.
 
 | Extension | Upstream |
 |---|---|

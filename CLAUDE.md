@@ -110,12 +110,20 @@ upstream ~750):
 - `controlnet.py` uses upstream's `try_load_supported_control_model` — our old
   `cached_controlnet_loader` was undefined/broken; do not reintroduce it.
 
-### sd-forge-couple — region randomization ⚠ `tile_funcs.py` indices
-Custom "Randomize Regions" + "Lock Full-Frame Layers" + "Randomize Preset". 3 extra
-params at return-list positions 3/4/5 shift `tile_funcs.py:calculate_tiles()` positional
-indices by **+3**: `use_tile=15, tile_h=16, tile_v=17, mode=6, direction=8, background=9,
-mapping=11, tile_threshold=18, tile_replace=19`. Wrong indices → "Invalid Tile Count: 0"
-in img2img. (Full file-by-file edits in the archive file.)
+### sd-forge-couple — NO LONGER CUSTOM (reverted to stock upstream 2026-08-29)
+The local fork was **dropped** on 2026-08-29 at the user's direction and the extension
+reset clean to upstream `c7884e8`. Do **not** reintroduce any of it:
+- `lib_couple/regional_anima.py` / `regional_qwen.py` / `regional_flux.py` / `lib_flux/`
+  (≈1250 lines of custom regional cross-attention masking) — upstream now ships its own
+  `lib_couple/anima.py`, which supersedes them.
+- the "Region Blend" slider (`region_blend.py`) and mask-preset save/load
+  (`mask_presets.py`, `mask_presets/`).
+- "Randomize Regions" / "Lock Full-Frame Layers" / "Randomize Preset", and with them the
+  **+3 `tile_funcs.py:calculate_tiles()` positional-index shift** — indices are now
+  upstream's again, so the old `use_tile=15, tile_h=16, ...` note no longer applies.
+
+The old fork is recoverable from the extensions repo tag `pre-update-2026-08-29`; the
+3 saved mask presets were copied to `../_extension-backups/sd-forge-couple-customs-20260829/`.
 
 ### LoRA folder picker ⚠ (added 2026-08-25) — 5 files, 3 of them upstream's
 An **"Active Lora folder"** `<select>` in the LoRA tab's control row, right next to Search.
@@ -200,8 +208,51 @@ old name so legacy extensions (sd-dynamic-prompts, forge2_cleaner) still import 
   `build-canvas.sh`, `REFACTORING_*.md`, `.backup` files). The live files are the monolithic
   `canvas.js` + `shapes.js` only — never run a "build" step; edit `canvas.js` directly.
 
-### Other custom extensions (untracked, under `extensions/`)
+### Extensions inventory — upstreams & update status (audited 2026-08-29)
+`extensions/` is its own repo (`SillySilk/forge-neo-silk-extensions`), **not** part of this
+one. By convention **no extension has a nested `.git`** — that repo tracks them as plain
+files, and each extension's original `.git` is archived in `Forge_neo/_dotgit-backups/`.
+Consequence: **Forge's Extensions tab cannot check or update any of them.** To update one,
+drive its archived git dir externally:
+`git --git-dir=../../_dotgit-backups/<name>-dotgit-<date> --work-tree=$PWD/<name> fetch/reset --hard origin/HEAD`
+— then leave the `.git` in `_dotgit-backups`, never inside the extension.
+
+All were brought to their upstream HEAD on **2026-08-29** (restore point: extensions-repo
+tag `pre-update-2026-08-29`).
+
+| Extension | Upstream |
+|---|---|
+| `--sd-webui-ar-plusplus` | altoiddealer/--sd-webui-ar-plusplus |
+| `ADetailer-Neo` | Haoming02/ADetailer-Neo |
+| `composer_forge_neo` | abzaloff/composer_forge_neo |
+| `forge2_cleaner` | DenOfEquity/forge2_cleaner |
+| `ForgeUI-MaskEraser-Extension` | MrLawli3t/ForgeUI-MaskEraser-Extension |
+| `ScribeNEO` | **hirorohi03**/ScribeNEO — account renamed; the old `SiliconeShojo/ScribeNEO` URL 404s |
+| `sd-dynamic-prompts` | adieyal/sd-dynamic-prompts (upstream dormant since 2024-07) |
+| `sd-forge-couple` | Haoming02/sd-forge-couple |
+| `sd-forge-ic-light` | Haoming02/sd-forge-ic-light |
+| `sd-webui-mosaic-outpaint` | Haoming02/sd-webui-mosaic-outpaint |
+| `smart-outpaint` | ruboard/smart-outpaint |
+| `sd-civitai-browser-neo` | eduardoabreu81, branch `revamp` — see its own section below |
+
+**No upstream exists** for these — don't go looking:
+- `sd_forge_freeu_neo`, `sd_forge_sag_neo`, `sd_forge_perturbed_attention_neo` — local
+  revivals of Forge Neo's own built-ins, deleted upstream 2025-07-28 (`05285774 "yeet"`).
+  PAG is byte-identical to the deleted original; FreeU and SAG carry local edits.
+- `sd-forge-emotions`, `PussyWagon` — self-authored.
+- `sd-forge-cleaner` — empty leftover folder, safe to delete.
+
+**Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).
+  Deliberately **kept** on 2026-08-29; upstream is dormant so there is nothing to take.
+- **ADetailer-Neo**: adds a `"None"` entry to the ADetailer-checkpoint dropdown
+  (`lib_adetailer/ui.py`) and treats it as unset (`scripts/adetailer.py`), so enabling
+  "Use separate Checkpoint" no longer force-overrides the model. Upstream still lacks this.
+- **ForgeUI-MaskEraser-Extension**: `eraserBtn.className` (upstream sets `.class`, which is
+  not a DOM property — the button renders unstyled without this) plus button sizing and the
+  `ERASER_IDLE_BORDER` idle outline. The ForgeCanvas shape-deselect integration that used
+  `window.forgeCanvasInstances` was **removed 2026-08-29 at the user's direction** — do not
+  reintroduce it. (`canvas.js` still exports the registry; other things may use it.)
 
 ### sd-civitai-browser-neo ⚠ — tracked in `SillySilk/forge-neo-silk-extensions`, NOT here
 Upstream is **[eduardoabreu81/sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo)**
@@ -210,14 +261,17 @@ Upstream is **[eduardoabreu81/sd-civitai-browser-neo](https://github.com/eduardo
 is already configured. The extension lives in a *subdirectory* of the extensions repo, so
 updating is a snapshot sync (`git rm -r` + `git read-tree --prefix=`), **not** `git pull`.
 
-Synced **2026-07-26** to `revamp` @ `04996798`. Re-apply these on every upstream sync — a
-plain re-sync silently reverts all of them:
+Synced **2026-08-29** to `revamp` @ `f9ef12b` (24 commits past the previous `04996798`).
+Re-apply the item below on every upstream sync — a plain re-sync silently reverts it:
 
-1. **`--lora-dirs` support** (`scripts/civitai_api.py`, `resolve_path` + LORA/LoCon/DoRA) —
-   Forge Neo's `--ckpt-dirs`/`--lora-dirs`/`--text-encoder-dirs` are argparse
-   `action="append"` **lists**; `Path(list)` raises `TypeError`. Without this, downloads
-   ignore `G:\LORAS` and land in `models/Lora`. Submitted upstream as
-   **[PR #3](https://github.com/eduardoabreu81/sd-civitai-browser-neo/pull/3)**.
+1. ~~**`--lora-dirs` support**~~ — **NOW UPSTREAM, do not re-apply.**
+   **[PR #3](https://github.com/eduardoabreu81/sd-civitai-browser-neo/pull/3)** was merged
+   upstream at `634a77b` (2026-08-19), and `8ee7019` extended the same fix to `--vae-dirs`.
+   On the 2026-08-29 sync the old local hunk conflicted with the merged version in
+   `resolve_path`; **upstream's was kept** (it is strictly better — it also covers VAE).
+   If a future sync ever loses it, the symptom is downloads ignoring `G:\LORAS` and landing
+   in `models/Lora`, because Forge Neo's `--ckpt-dirs`/`--lora-dirs`/`--text-encoder-dirs`
+   are argparse `action="append"` **lists** and `Path(list)` raises `TypeError`.
 2. **Security hardening** (commit `bb6b76b`, in the **private** `forge-neo-silk-extensions`
    repo) — from a 2026-07-26 audit, all verified against a running install. Touches: aria2
    RPC binding/secret, third-party request headers, archive extraction, HTML escaping, TLS
@@ -230,9 +284,10 @@ plain re-sync silently reverts all of them:
 
 > Verify after any sync: `grep -c "rpc-listen-all=false" scripts/civitai_download.py` (→1),
 > `grep -c "no_api=True" scripts/browser_sources/*.py` (→6 across 4 files),
-> `grep -c "lora_dirs" scripts/civitai_api.py` (→3), and `grep -rE '^\s*except:\s*$' scripts/`
-> should be empty. Ships its own suite: run each `tests/*.py` directly with the venv python
-> (stdlib `unittest`, no pytest, no `tests/__init__.py`) — **158 tests** should pass.
+> `grep -c "lora_dirs" scripts/civitai_api.py` (→**7** since the upstream merge; was 3), and
+> `grep -rE '^\s*except:\s*$' scripts/` should be empty. Ships its own suite: run each
+> `tests/*.py` directly with the venv python (stdlib `unittest`, no pytest, no
+> `tests/__init__.py`) — **220 tests** should pass (158 before the 2026-08-29 sync).
 
 ---
 
@@ -319,7 +374,7 @@ plain re-sync silently reverts all of them:
 2. `git merge upstream/neo`; resolve conflicts preserving everything above (the ⚠ files
    conflict almost every time). For `canvas.js`, hand-merge — never accept upstream's whole file.
 3. Verify: canvas.js grep check (see ForgeCanvas section above) + `node --check` on changed `.js`,
-   sd-forge-couple indices, no LTX-Video wiring (use the **precise** grep from the LTX-Video note
+   no LTX-Video wiring (use the **precise** grep from the LTX-Video note
    above — not plain `git grep -i ltx`), ERNIE = upstream only,
    `python -m py_compile` on changed `.py`.
 4. Last big merge: **June 2026** — upstream/neo, 175 commits, tags 2.22–2.25 (16 conflicting files resolved).

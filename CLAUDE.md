@@ -230,7 +230,7 @@ changes by rebasing `silk-custom` by hand.
 
 Because git cannot track files inside a nested repo, those 12 directories are **gitignored**
 in the extensions repo (history up to `f624332` is still there). Their local modifications are
-exported to **`extensions/_silk-customs/*.patch`** — the only off-machine copy, since the
+exported to **`extensions/silk-custom-*.patch`** — the only off-machine copy, since the
 `silk-custom` branches have no remote. Re-export them after changing any custom.
 
 Verify the whole arrangement by replaying Forge's own logic — 8 should say `latest`, the 4

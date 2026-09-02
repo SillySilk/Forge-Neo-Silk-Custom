@@ -75,6 +75,11 @@ must capture the console yourself.
    `venv/Scripts/python.exe launch.py <args from webui.settings.bat> > tmp/run.log 2>&1` &
    (or run `webui.bat` redirected — but it ends in `pause`, so background + redirect is cleaner).
 2. Poll `tmp/run.log` until `Running on local URL:  http://127.0.0.1:7860` appears.
+   **Gotcha (cost real time during the LoRA Tidy project):** Gradio prints that line to
+   **stderr**, not stdout. A single `> tmp/run.log 2>&1` redirect still catches it, but if you
+   split stdout/stderr into separate files (e.g. `-RedirectStandardOutput` /
+   `-RedirectStandardError` in PowerShell), you must poll **both** files, or the ready-check
+   never fires even though the server is up.
 3. Drive a generation via the API (`POST http://127.0.0.1:7860/sdapi/v1/txt2img` or `/img2img`),
    including the ControlNet / Forge-Couple payload needed to reproduce the case.
 4. Read `tmp/run.log` for the error / success markers (e.g. `Loaded Control-LLLite (Anima) (N modules)`).
@@ -263,6 +268,8 @@ error. One real `git fetch` in that extension fixes it permanently.
   PAG is byte-identical to the deleted original; FreeU and SAG carry local edits.
 - `sd-forge-emotions`, `PussyWagon` — self-authored.
 - `sd-forge-cleaner` — empty leftover folder, safe to delete.
+- `sd-forge-lora-tidy` — self-authored (2026-09-02). Replaces `sd-civitai-browser-neo` for
+  preview fetch, trigger words and rename + in-file alias. Spec + plan in its `docs/`.
 
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).
@@ -277,6 +284,9 @@ error. One real `git fetch` in that extension fixes it permanently.
   reintroduce it. (`canvas.js` still exports the registry; other things may use it.)
 
 ### sd-civitai-browser-neo ⚠ — tracked in `SillySilk/forge-neo-silk-extensions`, NOT here
+> **DISABLED 2026-09-02** in `config.json` (`disabled_extensions`), superseded by
+> `sd-forge-lora-tidy`. Kept on disk with its `silk-custom` branch and patch; do not delete.
+
 Upstream is **[eduardoabreu81/sd-civitai-browser-neo](https://github.com/eduardoabreu81/sd-civitai-browser-neo)**
 (fork of BlafKing's archived `sd-civitai-browser-plus`). Its `main` is frozen at v0.9.0;
 **all development happens on the `revamp` branch** — that's what we track. Remote `ext-upstream`

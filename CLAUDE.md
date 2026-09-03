@@ -281,7 +281,10 @@ error. One real `git fetch` in that extension fixes it permanently.
   swap via Boxes, 3-region Basic, CFG 3 + negative, hires pass; ~27% slower than plain (SDPA
   instead of flash while active). Region Blend > 0.4 duplicates/seams. **Regional LoRAs** (same
   day): a `<lora>` tag on a region line applies only there (subtract-outside-region on the LoRA's
-  low-rank delta; Forge's merge untouched). Spec + plans in its `docs/`.
+  low-rank delta; Forge's merge untouched). **Painted masks** (same day): Forge Couple's mask editor
+  ported (GPL-3, private) onto ForgeCanvas, plus "Use last result as background". Gotcha for any
+  script holding UI state: Forge's API init calls `Script.ui()` again (`api.py init_default_script_args`),
+  so cache the built components per tab or the generation reads a fresh, empty object. Spec + plans in its `docs/`.
 
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).

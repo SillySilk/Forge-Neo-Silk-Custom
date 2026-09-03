@@ -29,6 +29,9 @@ real debugging time once; always edit args in `webui.settings.bat`.
 
 - Verify args took effect via the console line: `Launching Web UI with arguments:`.
 - Arg changes need a **full process restart** — the in-app "Reload UI" does **not** re-read them.
+- **Pre-launch cleanup (2026-09-03):** `webui.settings.bat` first kills any python running this
+  repo's `launch.py` and waits until nothing listens on 7860, so a relaunch always lands on 7860
+  instead of drifting to 7861. Verified against a live instance. Leaves the forge-neo MCP server alone.
 
 Current confirmed-good args — **treat as the default set** (Anima-primary workflow,
 re-confirmed working wonderfully 2026-07-01; heavily A/B-adjusted, so only change one

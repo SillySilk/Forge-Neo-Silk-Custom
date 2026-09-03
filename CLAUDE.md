@@ -270,6 +270,11 @@ error. One real `git fetch` in that extension fixes it permanently.
 - `sd-forge-cleaner` — empty leftover folder, safe to delete.
 - `sd-forge-lora-tidy` — self-authored (2026-09-02). Replaces `sd-civitai-browser-neo` for
   preview fetch, trigger words and rename + in-file alias. Spec + plan in its `docs/`.
+- `sd-forge-krea-regional` — self-authored (2026-09-03). Regional prompting for **Krea 2**
+  (joint-attention bias over per-line prompt segments; Forge Couple can't drive Krea's
+  single-stream DiT). Standalone: leave Forge Couple unchecked on Krea. Verified live: region
+  swap via Boxes, 3-region Basic, CFG 3 + negative, hires pass; ~27% slower than plain (SDPA
+  instead of flash while active). Region Blend > 0.4 duplicates/seams. Spec + plan in its `docs/`.
 
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).

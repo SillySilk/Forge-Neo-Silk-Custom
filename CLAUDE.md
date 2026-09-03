@@ -21,7 +21,9 @@ everything under **"Custom work to preserve."**
 
 ## ⚠️ Launcher — read this first
 
-The **active launcher is `webui.settings.bat`** (it sets `COMMANDLINE_ARGS`).
+The **active launcher is `webui.settings.bat`** (it sets `COMMANDLINE_ARGS`). It only *sets*
+the args: **run `webui.bat`** (which `call`s `webui.settings.bat` first). Starting
+`webui.settings.bat` on its own does nothing visible (cost 15 min on 2026-09-03).
 **`webui-user.bat` is gitignored and NOT used** — editing it changes nothing. This cost
 real debugging time once; always edit args in `webui.settings.bat`.
 

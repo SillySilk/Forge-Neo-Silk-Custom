@@ -274,7 +274,9 @@ error. One real `git fetch` in that extension fixes it permanently.
   (joint-attention bias over per-line prompt segments; Forge Couple can't drive Krea's
   single-stream DiT). Standalone: leave Forge Couple unchecked on Krea. Verified live: region
   swap via Boxes, 3-region Basic, CFG 3 + negative, hires pass; ~27% slower than plain (SDPA
-  instead of flash while active). Region Blend > 0.4 duplicates/seams. Spec + plan in its `docs/`.
+  instead of flash while active). Region Blend > 0.4 duplicates/seams. **Regional LoRAs** (same
+  day): a `<lora>` tag on a region line applies only there (subtract-outside-region on the LoRA's
+  low-rank delta; Forge's merge untouched). Spec + plans in its `docs/`.
 
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).

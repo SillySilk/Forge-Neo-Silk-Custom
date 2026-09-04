@@ -90,6 +90,22 @@ must capture the console yourself.
 4. Read `tmp/run.log` for the error / success markers (e.g. `Loaded Control-LLLite (Anima) (N modules)`).
 5. Stop the server (kill the launch.py process / free port 7860) before editing, then repeat.
 
+Three gotchas learned 2026-09-04 (each cost a failed run):
+- **Wait for the `Startup time:` line, not `Running on local URL:`.** Gradio accepts requests
+  before the script-args table exists; a txt2img sent in that gap dies with
+  `IndexError: list assignment index out of range` in `init_script_args`.
+- **Never keep test outputs under `tmp/`.** `clean_temp_dir_at_start` deletes every `*.png`
+  there at each launch, so a restart mid-test wipes your reference images. Write to the
+  session scratchpad instead.
+- **A stale browser tab reconnects and re-sends its old checkpoint.** If the UI is open in a
+  browser (yours or the user's), the page's reconnect after a restart pushes its dropdown
+  state — it switched the model to a nunchaku Qwen-Image-Edit checkpoint under a running API
+  request (`AssertionError: You do not have Qwen 2.5 state dict!`). Check
+  `netstat -ano | findstr :7860` for `ESTABLISHED` browser PIDs and `/sdapi/v1/progress`
+  before restarting; the user may be generating from that tab.
+- `taskkill /PID` and `tasklist /FI` do **not** work from Git Bash (MSYS turns `/PID` into a
+  path). Use the PowerShell tool: `Stop-Process -Id <pid> -Force`.
+
 Reproduce → log → fix → re-run is the loop. A fix isn't "verified" until the log shows it.
 
 ---
@@ -120,20 +136,32 @@ upstream ~750):
 - `controlnet.py` uses upstream's `try_load_supported_control_model` — our old
   `cached_controlnet_loader` was undefined/broken; do not reintroduce it.
 
-### sd-forge-couple — NO LONGER CUSTOM (reverted to stock upstream 2026-08-29)
-The local fork was **dropped** on 2026-08-29 at the user's direction and the extension
-reset clean to upstream `c7884e8`. Do **not** reintroduce any of it:
-- `lib_couple/regional_anima.py` / `regional_qwen.py` / `regional_flux.py` / `lib_flux/`
-  (≈1250 lines of custom regional cross-attention masking) — upstream now ships its own
-  `lib_couple/anima.py`, which supersedes them.
-- the "Region Blend" slider (`region_blend.py`) and mask-preset save/load
-  (`mask_presets.py`, `mask_presets/`).
-- "Randomize Regions" / "Lock Full-Frame Layers" / "Randomize Preset", and with them the
-  **+3 `tile_funcs.py:calculate_tiles()` positional-index shift** — indices are now
-  upstream's again, so the old `use_tile=15, tile_h=16, ...` note no longer applies.
-
-The old fork is recoverable from the extensions repo tag `pre-update-2026-08-29`; the
-3 saved mask presets were copied to `../_extension-backups/sd-forge-couple-customs-20260829/`.
+### sd-forge-couple — Krea 2 fork (2026-09-04) ⚠ own repo, not this one
+Runs branch **`krea2-lora`** of our public fork `SillySilk/sd-forge-couple` (`origin` = fork,
+`upstream` = Haoming02). It is stock upstream `c7884e8` plus a third engine for **Krea 2**
+(`lib_couple/krea.py` + `krea_bias.py`: joint-attention-bias regional prompting; global
+lines are *derived* from full-frame masks, so Couple's own UI drives everything with no new
+controls) and **regional LoRAs on Krea 2** (`krea_lora.py`: a `<lora>` tag on a region line
+applies only there). Offered upstream as two stacked PRs: `krea2` (regions,
+[PR #148](https://github.com/Haoming02/sd-forge-couple/pull/148)) and `krea2-lora` (open it
+once PR 1 lands, after rebasing onto `upstream/main`). Spec + plan:
+`docs/superpowers/{specs,plans}/2026-09-04-forge-couple-krea2*.md` (local, gitignored).
+- Krea-only knobs live in **Settings → Forge Couple**: `[Krea 2] Region Blend` (0.25; above
+  0.4 seams / duplicates) and `[Krea 2] Regional LoRA` (on). Edit / reference mode is
+  unsupported (one warning, plain image). Regional generations run on SDPA, ~27% slower.
+- Verified 2026-09-04 on Krea 2 Turbo: Basic None / First / Last, Advanced swap, Mask via API
+  and via the UI editor, CFG 3 + negative, hires with Compatibility off, edit mode inert,
+  plain-before/after byte-identical, Anima through Couple byte-identical to upstream `main`,
+  two character LoRAs each confined to its own line.
+- The Extensions-tab updater does `git reset --hard origin/<current branch>`; origin is our
+  fork, so updating is safe. Take upstream changes by rebasing `krea2` then `krea2-lora` onto
+  `upstream/main`, re-running `tests/test_krea_*.py` and one live Krea generation.
+- **Supersedes `sd-forge-krea-regional`** (disabled in `config.json` 2026-09-04, kept on disk).
+  Its mask-editor port and `layout.py` have no equivalent here because Couple's own UI is used.
+- The old 2026-08 local fork (regional_anima/qwen/flux, Region Blend slider, mask presets,
+  Randomize Regions, the +3 `tile_funcs` index shift) stays retired — do not reintroduce it;
+  recoverable from extensions-repo tag `pre-update-2026-08-29`, presets in
+  `../_extension-backups/sd-forge-couple-customs-20260829/`.
 
 ### LoRA folder picker ⚠ (added 2026-08-25) — 5 files, 3 of them upstream's
 An **"Active Lora folder"** `<select>` in the LoRA tab's control row, right next to Search.
@@ -261,7 +289,7 @@ error. One real `git fetch` in that extension fixes it permanently.
 | `ForgeUI-MaskEraser-Extension` | MrLawli3t/ForgeUI-MaskEraser-Extension |
 | `ScribeNEO` | **hirorohi03**/ScribeNEO — account renamed; the old `SiliconeShojo/ScribeNEO` URL 404s |
 | `sd-dynamic-prompts` | adieyal/sd-dynamic-prompts (upstream dormant since 2024-07) |
-| `sd-forge-couple` | Haoming02/sd-forge-couple |
+| `sd-forge-couple` | Haoming02/sd-forge-couple — **runs our fork `SillySilk/sd-forge-couple`, branch `krea2-lora`** (see its section above) |
 | `sd-forge-ic-light` | Haoming02/sd-forge-ic-light |
 | `sd-webui-mosaic-outpaint` | Haoming02/sd-webui-mosaic-outpaint |
 | `smart-outpaint` | ruboard/smart-outpaint |
@@ -275,16 +303,12 @@ error. One real `git fetch` in that extension fixes it permanently.
 - `sd-forge-cleaner` — empty leftover folder, safe to delete.
 - `sd-forge-lora-tidy` — self-authored (2026-09-02). Replaces `sd-civitai-browser-neo` for
   preview fetch, trigger words and rename + in-file alias. Spec + plan in its `docs/`.
-- `sd-forge-krea-regional` — self-authored (2026-09-03). Regional prompting for **Krea 2**
-  (joint-attention bias over per-line prompt segments; Forge Couple can't drive Krea's
-  single-stream DiT). Standalone: leave Forge Couple unchecked on Krea. Verified live: region
-  swap via Boxes, 3-region Basic, CFG 3 + negative, hires pass; ~27% slower than plain (SDPA
-  instead of flash while active). Region Blend > 0.4 duplicates/seams. **Regional LoRAs** (same
-  day): a `<lora>` tag on a region line applies only there (subtract-outside-region on the LoRA's
-  low-rank delta; Forge's merge untouched). **Painted masks** (same day): Forge Couple's mask editor
-  ported (GPL-3, private) onto ForgeCanvas, plus "Use last result as background". Gotcha for any
-  script holding UI state: Forge's API init calls `Script.ui()` again (`api.py init_default_script_args`),
-  so cache the built components per tab or the generation reads a fresh, empty object. Spec + plans in its `docs/`.
+- `sd-forge-krea-regional` — self-authored (2026-09-03), **DISABLED 2026-09-04, superseded by
+  the Couple fork** (see the sd-forge-couple section). Kept on disk as history: the original
+  standalone Krea 2 regional prompting (joint-attention bias), regional LoRAs, and a private
+  GPL-3 port of Couple's mask editor onto ForgeCanvas. Its one reusable lesson: Forge's API
+  init calls `Script.ui()` again (`api.py init_default_script_args`), so any script holding
+  UI state must cache the built components per tab. Spec + plans in its `docs/`.
 
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).

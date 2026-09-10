@@ -666,9 +666,6 @@ class ModelPatcher:
                 self.model.model_lowvram = False
                 self.model.lowvram_patch_counter = 0
 
-            for m in self.model.modules():
-                reset_weight_functions(m, wipe=True)
-
             keys = list(self.backup.keys())
 
             for k in keys:

@@ -2,6 +2,7 @@
 
 import logging
 import math
+from functools import wraps
 
 import torch
 from einops import rearrange, repeat
@@ -13,6 +14,25 @@ from backend.logging import setup_logger
 
 logger = logging.getLogger("attention")
 setup_logger(logger)
+
+
+# region Wrap
+
+
+def wrap_attn(func):
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        transformer_options: dict = kwargs.get("transformer_options", {})
+        if "optimized_attention_override" in transformer_options:
+            optimized_attention_override = transformer_options["optimized_attention_override"]
+            return optimized_attention_override(func, *args, **kwargs)
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+# region Packages
 
 
 if memory_management.xformers_enabled() or memory_management.xformers_enabled_vae():
@@ -88,6 +108,8 @@ if memory_management.ck_enabled():
 
         return q, k, v, mask, b, dim_head
 
+    @wrap_attn
+    @torch.compiler.disable
     def attention_comfy_kitchen_int8(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
         q, k, v, mask, b, dim_head = _comfy_kitchen_int8_inputs(q, k, v, heads, mask, skip_reshape, kwargs.get("enable_gqa", False))
         out = ck.int8_attention(q, k, v, scale=kwargs.get("scale", None), attn_mask=mask)
@@ -134,6 +156,7 @@ else:
 # region Attentions
 
 
+@wrap_attn
 def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     attn_precision = get_attn_precision(attn_precision, q.dtype)
 
@@ -190,6 +213,7 @@ def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
     return out
 
 
+@wrap_attn
 @torch.compiler.disable
 def attention_xformers(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     b = q.shape[0]
@@ -247,6 +271,7 @@ def attention_xformers(q, k, v, heads, mask=None, attn_precision=None, skip_resh
     return out
 
 
+@wrap_attn
 def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     if skip_reshape:
         b, _, _, dim_head = q.shape
@@ -282,6 +307,7 @@ def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_resha
     return out
 
 
+@wrap_attn
 @torch.compiler.disable
 def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     in_dtype = v.dtype
@@ -335,6 +361,7 @@ def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=
     return out
 
 
+@wrap_attn
 @torch.compiler.disable
 def attention_flash(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     if skip_reshape:

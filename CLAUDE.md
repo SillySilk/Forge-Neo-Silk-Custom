@@ -520,6 +520,55 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
      (not in `requirements.txt`), so this won't fight future merges.
    - **Verified live:** Krea 2 GGUF txt2img 768×1024 via `/sdapi/v1/txt2img`; **0 tracebacks**.
    - Upstream also notes our **PyTorch 2.10.0+cu130 is now flagged "outdated"** at boot. Not acted on.
+10. Latest merge: **2026-09-10** — upstream/neo, **34 commits**, `2.28.1` → **`2.29`** (new tag).
+    **6 conflicts**, all resolved; two of them (`backend/attention.py`, `backend/patcher/base.py`)
+    aren't in any documented custom-preserve rule — both were clean upstream additions our side
+    simply lacked, resolved by taking upstream's side. `canvas.js` and forge-couple were untouched
+    by upstream in this range (all 8 canvas markers verified, 1988 lines).
+    - **Big upstream content:** new **Anima 2.9B and 3.8B** model-size variants, an Anima LoRA
+      rewrite, VRAM/OOM fixes, a "SolAttn" change, one self-reverted commit ("maybe...?" →
+      "Revert 'maybe...?'"). `backend/float.py` re-added (was deleted in the 2026-08-20 merge,
+      folded back in via the LoRA rewrite) — not a conflict, upstream's file taken as-is.
+    - **`modules/processing.py` conflict was a false alarm — pure line-ending artifact, not real
+      divergence.** Our tracked blob had been silently normalized to LF somewhere along the way
+      while upstream/merge-base stayed CRLF, so git's line diff saw *every line* as different and
+      flagged the whole 3800-line file as one giant conflict. Diagnosed via
+      `git diff --ignore-cr-at-eol <merge-base> upstream/neo -- modules/processing.py`, which
+      showed upstream's real change was one line (`self.outpath_samples = opts.outdir_hires_samples
+      or self.outpath_samples` in the hires sampling pass). Took our HEAD version whole and
+      hand-inserted that one line, preserving the CUSTOM `hr_additional_modules` guard, the
+      Wan-model safe seed/prompt indexing, and the local 0.60 denoising-strength defaults (0.75
+      upstream). **If a future merge shows this file as one monolithic conflict again, check line
+      endings first** (`git show HEAD:modules/processing.py | head -c 200 | xxd` vs the same for
+      `upstream/neo`) before assuming real divergence.
+    - **`extensions-builtin/sd_forge_lora/networks.py` — real conflict.** Upstream generalized
+      `process_anima()` to remap 28/40/52-block Anima LoRAs (supporting the new 2.9B/3.8B sizes);
+      ours only handled 28/40. Took upstream's version whole (strict superset, not a documented
+      custom) and dropped our now-redundant duplicate `process_anima()` call site. Folder-picker
+      customs in the same file (`ALL_LORA_FOLDERS`, `active_lora_dirs()`, etc.) untouched, verified intact.
+    - **Two clean (non-conflicting) auto-merges were silently broken — only the live-test caught
+      them; static verification and `py_compile` both passed.**
+      1. `backend/args.py`: `--use-ck-attention` got registered **twice** — upstream added it at
+         its new canonical spot (grouped with the other attention flags), while our own prior
+         local addition already had it further down (grouped with the install flags). Neither
+         side's diff conflicted with the other's context, so git silently applied both →
+         `argparse.ArgumentError` at every launch. Fixed by deleting our duplicate, keeping
+         upstream's placement.
+      2. `backend/patcher/base.py`: our `unpatch_model()` still called
+         `reset_weight_functions(m, wipe=True)` in a second cleanup loop; upstream's refactor
+         **renamed/replaced that function** with `wipe_lowvram_weight()` (called earlier, only in
+         the lowvram-specific branch) and dropped the second loop entirely. The old call survived
+         the merge untouched (git had no reason to touch that line) but its target no longer
+         existed → `NameError` on **every** model unload/swap, i.e. every generation. Fixed by
+         deleting the dead loop to match upstream's current design.
+      - **Lesson: a clean/conflict-free merge is not proof of correctness when two branches touch
+        the same symbol from different angles.** Both bugs were syntactically valid and passed
+        `py_compile`; only actually launching and generating surfaced them. The Phase 6 live test
+        is load-bearing, not a formality.
+    - **Dependency bump:** comfy-kitchen 0.2.31 → 0.2.33.
+    - **Verified live:** Krea 2 GGUF (`sickOllieKrea2GGUF_v10`) txt2img 512×512, 12 steps, seed 777
+      via `/sdapi/v1/txt2img` → HTTP 200, valid 286 KB PNG, **0 tracebacks** — after the two fixes
+      above. PDF report at `docs/updates/forge-neo-update-2026-09-10-2.29-17-g76586f6a.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

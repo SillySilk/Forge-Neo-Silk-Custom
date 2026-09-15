@@ -569,6 +569,32 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** Krea 2 GGUF (`sickOllieKrea2GGUF_v10`) txt2img 512×512, 12 steps, seed 777
       via `/sdapi/v1/txt2img` → HTTP 200, valid 286 KB PNG, **0 tracebacks** — after the two fixes
       above. PDF report at `docs/updates/forge-neo-update-2026-09-10-2.29-17-g76586f6a.pdf`.
+11. Latest merge: **2026-09-15** — upstream/neo, **7 commits, UNTAGGED** (`2.29` → `2.29-24-g73a4eb7c`,
+    no new tag reached). Small update. **1 conflict:** `backend/loader.py`. `canvas.js`, forge-couple,
+    the ControlNet UI, `modules_forge/utils.py`, and `modules/generation_parameters_copypaste.py`
+    were all untouched by upstream in this range — no hand-merge needed there.
+    - **`backend/loader.py` conflict.** Upstream collapsed the duplicated per-component
+      dtype-detection blocks (Qwen2.5, Gemma2, Mistral3, Qwen3, T5XXL, UNet) into one shared
+      `_detect_dtype()` helper and dropped the dead `nf4`/`fp4` branches (bitsandbytes was already
+      gone). Our **CUSTOM (Forge Neo) Qwen3 fp8-upcast** branch lived inside the old duplicated
+      `if/elif` chain upstream deleted. Resolved by keeping upstream's `_detect_dtype()` call, then
+      adding a Qwen3-only override right after it: `if quant_config is None and state_dict_dtype in
+      (torch.float8_e4m3fn, torch.float8_e5m2):` resets `storage_dtype` back to
+      `memory_management.text_encoder_dtype()` and upcasts the fp8 weights in place — same behavior
+      and log message as before, just re-anchored to the new helper structure. Marked
+      `# CUSTOM (Forge Neo)`, verified present post-merge at loader.py:254-263.
+    - `modules_forge/packages/huggingface_guess/detection.py` also changed (dropped unused
+      `image_size`/`legacy`/`use_temporal_resblock`/`use_temporal_attention` keys from the SD1.5/SDXL
+      `unet_config` dicts) but auto-merged with **zero conflict** — no ERNIE involvement, confirmed
+      by diff.
+    - **Dependency bump:** comfy-kitchen 0.2.33 → 0.2.34.
+    - **Verified live:** Krea 2 GGUF (`sickOllieKrea2GGUF_v10`) txt2img 512×512, 8 steps, seed 777 via
+      `/sdapi/v1/txt2img` → HTTP 200, valid image, **0 tracebacks** — exercises the Qwen3-VL-4B
+      (Krea 2) TE load path the hand-merge touched. PDF report at
+      `docs/updates/forge-neo-update-2026-09-15-2.29-24-g73a4eb7c.pdf`.
+    - **Side note, unrelated to this merge:** the live-test log showed CivitAI Browser Neo starting
+      its Aria2 RPC, even though this file marks that extension **DISABLED 2026-09-02**. Not
+      investigated — flagged here for whoever looks at it next.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

@@ -595,6 +595,30 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Side note, unrelated to this merge:** the live-test log showed CivitAI Browser Neo starting
       its Aria2 RPC, even though this file marks that extension **DISABLED 2026-09-02**. Not
       investigated — flagged here for whoever looks at it next.
+12. Latest merge: **2026-09-25** — upstream/neo, **17 commits**, `2.29` → **`2.29.1-7-g710f1e25`**
+    (crosses new tag **2.29.1**). **3 conflicts**: README (kept ours), `modules/processing.py`
+    (line-ending artifact again + real changes), `extensions-builtin/sd_forge_controlnet/scripts/controlnet.py`
+    (hand-merged). `canvas.js`, forge-couple, `backend/loader.py`, `modules_forge/utils.py`, and
+    `modules/generation_parameters_copypaste.py` were untouched by upstream — no hand-merge needed there.
+    - **`modules/processing.py` conflict** — line-ending artifact (ours=LF, upstream=CRLF) again
+      causing whole-file conflict. Took our HEAD, then applied real upstream changes: (1) added
+      `self.width, self.height = image.size` after img2img resize (keeps `p` dimensions in sync with
+      actual resized output), (2) removed stale `self.firstpass_use_distilled_cfg_scale` assignment in
+      hires checkpoint branch, (3) quote-style `'Use same checkpoint'` → `"Use same checkpoint"`.
+      **Preserved our CUSTOM guards**: Wan safe seed/prompt indexing (`seed_idx`/`prompt_idx` min()),
+      `0.60` denoising_strength defaults (upstream reverted to `0.75`), and the `hr_additional_modules`
+      None-safe walrus guard. **If this file conflicts as a monolithic block again, check line endings
+      first** — see 2026-09-10 entry for the diagnosis pattern.
+    - **`controlnet.py` conflict** — small conflict: upstream added `if params.model is None: return`
+      before a block where our custom batch-iteration tensor slicing lives. Hand-merged: kept upstream's
+      model-is-None guard AND our `control_cond_full[start_idx:end_idx]` slicing below it.
+    - **Notable upstream content:** ControlLLLite × MultiDiffusion integration (`b469e221`),
+      controlnet changes (`41359cd4`), res/resize fixes (`38bffce2`, `6266f6a6`), rope changes
+      (`6f616e8d`), dtype refactor (`23332996`), metadata (`3baffa8b`), compat fixes (`7e790110`).
+    - **Dependency bump:** comfy-kitchen 0.2.34 → 0.2.35.
+    - **Verified live:** Krea 2 GGUF (`sickOllieKrea2GGUF_v10`) txt2img 512×512, 8 steps, seed 777 via
+      `/sdapi/v1/txt2img` → HTTP 200, valid 359 KB PNG, **0 tracebacks** (used existing running server).
+      PDF report at `docs/updates/forge-neo-update-2026-09-25-2.29.1-7-g710f1e25.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

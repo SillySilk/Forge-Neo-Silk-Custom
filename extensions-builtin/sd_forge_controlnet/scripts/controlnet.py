@@ -497,7 +497,9 @@ class ControlNetForForgeOfficial(scripts.Script):
             assert unit.model != "None", "You have not selected any control model!"
             model_filename = global_state.get_controlnet_filename(unit.model)
             params.model = try_load_supported_control_model(model_filename)
-            assert params.model is not None, logger.error(f"Recognizing Control Model failed: {model_filename}")
+            if params.model is None:
+                logger.error(f"Failed to load Control Model: {model_filename}")
+                return
 
         params.preprocessor = preprocessor
 
@@ -505,7 +507,6 @@ class ControlNetForForgeOfficial(scripts.Script):
         params.model.process_after_running_preprocessors(process=p, params=params, **kwargs)
 
         logger.info(f"Current ControlNet {type(params.model).__name__}: {model_filename}")
-        return
 
     @torch.no_grad()
     def process_unit_before_every_sampling(self, p: StableDiffusionProcessing, unit: ControlNetUnit, params: ControlNetCachedParameters, *args, **kwargs):
@@ -527,6 +528,9 @@ class ControlNetForForgeOfficial(scripts.Script):
             logger.info(f"ControlNet Skipped Low-res pass.")
             return
 
+        if params.model is None:
+            return
+
         # Fixed: Slice the appropriate portion of control tensor for this iteration
         if params.num_images is not None and params.control_cond_full is not None:
             iteration = getattr(p, 'iteration', 0)
@@ -536,7 +540,6 @@ class ControlNetForForgeOfficial(scripts.Script):
             logger.debug(f"DEBUG: p.iteration={iteration}, params.batch_size={params.batch_size}, params.num_images={params.num_images}")
             logger.debug(f"DEBUG: control_cond_full.shape={params.control_cond_full.shape}, slicing [{start_idx}:{end_idx}]")
 
-            # Slice the tensors for this iteration
             params.control_cond = params.control_cond_full[start_idx:end_idx].contiguous()
             if params.control_cond_for_hr_fix_full is not None:
                 params.control_cond_for_hr_fix = params.control_cond_for_hr_fix_full[start_idx:end_idx].contiguous()
@@ -624,10 +627,9 @@ class ControlNetForForgeOfficial(scripts.Script):
 
     @torch.no_grad()
     def process_unit_after_every_sampling(self, p: StableDiffusionProcessing, unit: ControlNetUnit, params: ControlNetCachedParameters, *args, **kwargs):
-
         params.preprocessor.process_after_every_sampling(p, params, *args, **kwargs)
-        params.model.process_after_every_sampling(p, params, *args, **kwargs)
-        return
+        if params.model is not None:
+            params.model.process_after_every_sampling(p, params, *args, **kwargs)
 
     @torch.no_grad()
     def process(self, p, *args, **kwargs):
@@ -642,7 +644,6 @@ class ControlNetForForgeOfficial(scripts.Script):
             params = ControlNetCachedParameters()
             self.process_unit_after_click_generate(p, unit, params, *args, **kwargs)
             self.current_params[i] = params
-        return
 
     @torch.no_grad()
     def process_before_every_sampling(self, p, *args, **kwargs):
@@ -652,7 +653,6 @@ class ControlNetForForgeOfficial(scripts.Script):
                 logger.warning(f"ControlNet unit {i} has no cached params (likely due to model load failure). Skipping.")
                 continue
             self.process_unit_before_every_sampling(p, unit, self.current_params[i], *args, **kwargs)
-        return
 
     @torch.no_grad()
     def postprocess_batch_list(self, p, pp, *args, **kwargs):
@@ -662,11 +662,9 @@ class ControlNetForForgeOfficial(scripts.Script):
                 logger.warning(f"ControlNet unit {i} has no cached params in postprocess. Skipping.")
                 continue
             self.process_unit_after_every_sampling(p, unit, self.current_params[i], pp, *args, **kwargs)
-        return
 
     def postprocess(self, p, processed, *args):
         self.current_params = {}
-        return
 
 
 def on_ui_settings():

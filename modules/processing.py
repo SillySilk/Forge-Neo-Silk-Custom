@@ -1414,10 +1414,9 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if modules_changed:
                 reload = True
 
-        if self.hr_checkpoint_name and self.hr_checkpoint_name != 'Use same checkpoint':
+        if self.hr_checkpoint_name and self.hr_checkpoint_name != "Use same checkpoint":
             checkpoint_changed = main_entry.checkpoint_change(self.hr_checkpoint_name, preset=None, save=False, refresh=False)
             if checkpoint_changed:
-                self.firstpass_use_distilled_cfg_scale = self.sd_model.use_distilled_cfg_scale
                 reload = True
 
         if reload:
@@ -1796,6 +1795,7 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
 
             if crop_region is None and self.resize_mode != 3:  # Whole picture / img2img
                 image = images.resize_image(self.resize_mode, image, self.width, self.height)
+                self.width, self.height = image.size
 
             if image_mask is not None:
                 _scales = tuple(y / x for y, x in zip(_image_size, _orig_size))

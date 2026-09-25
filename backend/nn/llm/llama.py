@@ -219,7 +219,23 @@ def rope_matrix(freqs_cis):
 
 
 def apply_rope(xq, xk, freqs_cis):
-    return ck.apply_rope_split_half(xq, xk, rope_matrix(freqs_cis))
+    matrix = rope_matrix(freqs_cis)
+    if matrix.ndim == 5:
+        matrix = matrix.unsqueeze(0)
+
+    q_ndim, k_ndim = xq.ndim, xk.ndim
+    if q_ndim == 3:
+        xq = xq.unsqueeze(0)
+    if k_ndim == 3:
+        xk = xk.unsqueeze(0)
+
+    xq, xk = ck.apply_rope_split_half(xq, xk, matrix)
+    if q_ndim == 3:
+        xq = xq.squeeze(0)
+    if k_ndim == 3:
+        xk = xk.squeeze(0)
+
+    return xq, xk
 
 
 class Attention(nn.Module):
@@ -435,7 +451,7 @@ class Llama2_(nn.Module):
         if embeds is not None:
             x = embeds
         else:
-            x = self.embed_tokens(x, out_dtype=dtype)
+            x = self.embed_tokens(x).to(dtype=dtype)
 
         if self.normalize_in:
             x *= self.config.hidden_size**0.5

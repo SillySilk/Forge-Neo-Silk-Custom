@@ -125,6 +125,17 @@ def detect_quantization(state_dict: dict[str, torch.Tensor], *, is_unet: bool = 
     return None
 
 
+def _detect_prefix(sd: list[str], meta: str) -> str:
+    name = ""
+
+    for key in sd:
+        if key.endswith(f"{meta}.weight"):
+            name = key
+            break
+
+    return name.replace(f"{meta}.weight", "")
+
+
 def convert_quantization(state_dict: dict[str, torch.Tensor], metadata: dict) -> tuple[dict[str, torch.Tensor], dict]:
     # https://github.com/Comfy-Org/ComfyUI/blob/v0.19.0/comfy/utils.py#L1358
     if metadata is None:
@@ -187,7 +198,8 @@ def convert_quantization(state_dict: dict[str, torch.Tensor], metadata: dict) ->
         quant_metadata = {"layers": layers}
 
     if layers := quant_metadata.get("layers", None):
+        prefix = _detect_prefix(state_dict.keys(), next(iter(layers.keys())))
         for k, v in layers.items():
-            state_dict["{}.comfy_quant".format(k)] = torch.tensor(list(json.dumps(v).encode("utf-8")), dtype=torch.uint8)
+            state_dict[f"{prefix}{k}.comfy_quant"] = torch.tensor(list(json.dumps(v).encode("utf-8")), dtype=torch.uint8)
 
     return state_dict, metadata

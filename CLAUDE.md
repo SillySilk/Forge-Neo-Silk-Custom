@@ -619,6 +619,28 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** Krea 2 GGUF (`sickOllieKrea2GGUF_v10`) txt2img 512×512, 8 steps, seed 777 via
       `/sdapi/v1/txt2img` → HTTP 200, valid 359 KB PNG, **0 tracebacks** (used existing running server).
       PDF report at `docs/updates/forge-neo-update-2026-09-25-2.29.1-7-g710f1e25.pdf`.
+13. Latest merge: **2026-10-06** — upstream/neo, **15 commits**, `2.29.1-7` → **`2.29.2-6-gbd1d0159`**
+    (crosses new tag **2.29.2**). **2 conflicts**: README (kept ours) and `canvas.js` (hand-merged).
+    `loader.py`, `utils.py`, the copypaste shim, ControlNet UI and the LoRA folder-picker files all
+    auto-merged with customs intact.
+    - **`canvas.js` conflict** — upstream fixed a duplicated first stroke point (pointerdown seeded
+      `temp_draw_points` *and* `handleDraw` pushed the same point) and added a 1 px dot for a single
+      click. Kept our whole stamp/Ctrl-line pointerdown block, changed only its seed to `[]`, and put
+      upstream's `arc` line inside our **line-based** branch of `handleDraw` (the stamp branch already
+      draws single points). All 8 markers present, 1989 lines.
+    - **TextProcessingEngine rewrite (`21886f41`)** — the per-model engines (`qwen3vl_engine`,
+      `qwen3_engine`, `t5_engine`, `umt5_engine`, `gemma*`, `ministral3_engine`, `qwen_engine`) are
+      deleted, replaced by a shared `backend/text_processing/_comfy.py` plus thin per-model files;
+      `classic_engine.py` → `sd_engine.py`. Grepped all extensions: nothing imports the deleted modules.
+      Note `backend/text_processing/ernie_engine.py` now exists — it is **upstream's**, not our old
+      custom `diffusion_engine/ernie_engine.py`; the "no custom ERNIE" grep will flag it, ignore it.
+      The open Krea 2 reference-quality hypothesis (bare `<|vision_start|>` in `qwen3vl_engine.py`)
+      must be re-checked against `krea2_engine.py` now.
+    - **Dependency bump:** comfy-kitchen 0.2.35 → 0.2.37.
+    - **Verified live:** Krea 2 GGUF txt2img 512×512, 8 steps, seed 777 → HTTP 200, clean 357 KB PNG.
+      Forge was relaunched from outside the session mid-test (its `webui.settings.bat` pre-launch cleanup killed the headless launch)
+      so the test ran against that instance and its console log was not captured.
+      PDF report at `docs/updates/forge-neo-update-2026-10-06-2.29.2-6-gbd1d0159.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

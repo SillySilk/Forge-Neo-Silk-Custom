@@ -1063,7 +1063,7 @@ class ForgeCanvas {
             self.drawing = true;
             drawingCanvas.style.cursor = "crosshair";
             scribbleIndicator.style.display = "none";
-            self.temp_draw_points = [[x, y]];
+            self.temp_draw_points = [];
             self.temp_draw_bg = drawContext.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
             self._scatterJitterCache = [];
             self.lastLinePoint = [x, y];  // Track starting point for straight lines
@@ -1396,6 +1396,7 @@ class ForgeCanvas {
             // Use traditional line-based rendering (only for circles with no rotation and 1:1 aspect)
             ctx.beginPath();
             ctx.moveTo(this.temp_draw_points[0][0], this.temp_draw_points[0][1]);
+            if (this.temp_draw_points.length === 1) ctx.arc(x, y, 1, 0, Math.PI * 2);
 
             for (let i = 1; i < this.temp_draw_points.length; i++) {
                 ctx.lineTo(this.temp_draw_points[i][0], this.temp_draw_points[i][1]);

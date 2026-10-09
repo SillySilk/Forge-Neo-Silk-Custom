@@ -22,6 +22,11 @@
 ::                         nunchaku wheel on first boot (cu13.0/torch2.10/cp313 -> matches this venv).
 ::                         Additive only: it does not alter behaviour of non-SVDQ models.
 ::
+::  --onnxruntime-gpu    : (2026-10-08) installs the CUDA 13 build of onnxruntime-gpu when it is
+::                         missing. ReActor (face swap) needs a GPU onnxruntime; its own installer
+::                         pins 1.17.1, which has no CUDA 13 / py3.13 wheel, so it used to uninstall
+::                         onnxruntime on every start and fail. Its install.py is patched locally
+::                         to accept 1.17.1 or newer (extension repo, uncommitted there).
 ::  --reserve-vram 2     : LOAD-BEARING, do not remove. Measured 2026-07-27 on Klein 4B
 ::                         (1024/20 steps): with it, text-encode 3.55s and total 24.09s;
 ::                         WITHOUT it, text-encode 28.34s and total 51.68s (2.1x slower).
@@ -37,4 +42,4 @@ echo Closing any running Forge instance and freeing port 7860...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*launch.py*' -and $_.CommandLine -like '*forge-neo*' } | ForEach-Object { Write-Host ('  stopping Forge PID ' + $_.ProcessId); Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; $i = 0; while (($i -lt 15) -and (netstat -ano | Select-String ':7860 .*LISTENING')) { Start-Sleep -Seconds 2; $i++ }; if ($i -ge 15) { Write-Host '  WARNING: something else still listens on 7860; Forge will pick 7861' } else { Write-Host '  port 7860 is free' }"
 :: ---------------------------------------------------------------------------------------
 
-set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2
+set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2 --onnxruntime-gpu

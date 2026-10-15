@@ -3,7 +3,7 @@
 **For the person:** open Claude Code in an empty folder where you want Forge installed
 (for example `C:\AI`), paste this whole file into the chat (or give it this file's
 GitHub link), and say *"Follow this guide and set everything up."* It takes a while,
-mostly because of downloads (about **30 GB** in total).
+mostly because of downloads (about **45 GB** in total).
 
 Before starting, you need:
 - an NVIDIA GPU with 16 GB (this setup is tuned for an RTX 4060 Ti 16 GB) and 32 GB RAM;
@@ -33,7 +33,7 @@ Check each, install what's missing (`winget` is fine), and confirm versions:
 | GitHub CLI | `gh --version` | `winget install GitHub.cli`, then have the user run `! gh auth login` |
 | Python **3.13** (64-bit) | `py -3.13 --version` | `winget install Python.Python.3.13`. Must be 3.13 — the GPU packages are built for it. |
 | NVIDIA driver | `nvidia-smi` | Driver must support **CUDA 13** (the "CUDA Version" in `nvidia-smi` must read 13.0 or higher). If not, ask the user to update from nvidia.com. |
-| Free disk | ~60 GB on the target drive | Models ~30 GB + Python environment ~15 GB. |
+| Free disk | ~75 GB on the target drive | Models ~45 GB + Python environment ~15 GB. |
 
 Turn on long file paths for git, or `sd-dynamic-prompts` fails to check out
 ("Filename too long"): `git config --global core.longpaths true`
@@ -158,8 +158,14 @@ you got an error page, not the model.
 | `models\Stable-diffusion\eventHorizon_krea2V10.safetensors` | https://civitai.com/api/download/models/3104333?fileId=2984443 | 14,034,377,942 B | `7CCEE362F539DF3F059A17FC558BC39606CCC4DD377D033E4879ACD29C37256F` |
 | `models\text_encoder\TE Krea2-Engineer-V1 fp8_scaled (Krea 2).safetensors` | https://huggingface.co/AX1Y2JP/Krea-2-Engineer-V1-fp8/resolve/main/Krea2-Engineer-V1-fp8_scaled.safetensors | 5,242,458,644 B | `AC6BE5C901D05029DA1B30600413D64B76C21700E90EB1A89BC2D68CFB99B956` |
 | `models\VAE\VAE Qwen (Anima + PiD).safetensors` | https://civitai.com/api/download/models/3104333?fileId=2984118 | 253,806,246 B | `A70580F0213E67967EE9C95F05BB400E8FB08307E017A924BF3441223E023D1F` |
+| `models\Stable-diffusion\sickOllieKrea2GGUF_v10.gguf` | https://civitai.com/api/download/models/3188641?fileId=3069348 | 14,563,660,832 B | `FA7CAD68F65BC76F1FF0AD1EC8B7E906420FA86D3C3A0EB52856B8A3BB1C02DA` |
 
-Settings: **6–8 steps, CFG 1, sampler ER SDE, scheduler Simple**.
+**Sick Ollie** is a second Krea 2 checkpoint. It uses the same text encoder and VAE, so it
+needs no extra modules. Download the **14.56 GB GGUF** file (fileId 3069348) from the
+*Sick Ollie Krea2 – GGUF* page, not the safetensors files on the main Sick Ollie page
+(its nf4 file no longer loads in Forge, and the others are untested on this setup).
+
+Settings: **6–8 steps, CFG 1, sampler ER SDE, scheduler Simple** (both checkpoints).
 
 #### Anima (anime model)
 
@@ -244,6 +250,8 @@ $body = @{
 Invoke-RestMethod -Uri http://127.0.0.1:7860/sdapi/v1/txt2img -Method Post -ContentType 'application/json' -Body $body | Out-Null
 ```
 
+Repeat with `sd_model_checkpoint = "sickOllieKrea2GGUF_v10.gguf"` (same modules and settings).
+
 Then Anima: checkpoint `perfectrsbmixAnimaAIO_lambda.safetensors`, modules
 `VAE Qwen (Anima + PiD).safetensors` + `TE Qwen3-0.6B base (Anima).safetensors`, `steps` 32,
 `cfg_scale` 4, `scheduler` "Beta", and an anime-style prompt. Look at the images (saved under
@@ -261,6 +269,8 @@ Tell the user, briefly:
 - switch models with the **UI preset** dropdown (top-left), *not* the checkpoint dropdown —
   the preset also swaps in the matching text encoder and VAE;
 - **Krea 2**: 6–8 steps, CFG 1. **Anima**: ~32 steps, CFG 4;
+- with the **krea** preset selected, the checkpoint dropdown switches between Event Horizon
+  and Sick Ollie (both use the same text encoder and VAE);
 - LoRAs go in `forge-neo\models\Lora` (a LoRA only works with the model family it was made for);
 - update extensions from the **Extensions** tab. The four `silk-custom` ones will show
   "unknown" for updates; that's intentional, so their custom changes don't get wiped.

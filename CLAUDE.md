@@ -641,6 +641,21 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
       Forge was relaunched from outside the session mid-test (its `webui.settings.bat` pre-launch cleanup killed the headless launch)
       so the test ran against that instance and its console log was not captured.
       PDF report at `docs/updates/forge-neo-update-2026-10-06-2.29.2-6-gbd1d0159.pdf`.
+14. Latest merge: **2026-10-14** — upstream/neo, **19 commits**, `2.29.2-6` → **`2.30-11-g46af880c`**
+    (crosses new tag **2.30**). **2 conflicts**: README (kept ours) and `modules/processing.py` —
+    the line-ending false conflict again; took ours and hand-applied upstream's one real change
+    (`set_shift(...)` now also gets `width`/`height`, 3 call sites). All other customs auto-merged.
+    - **Upstream content:** Qwen-Image-2.1 engine (+ `qwen21_do_reference` setting), Qwen3-VL-**8B**
+      TE accepted for Krea 2 (`loader.py` now routes `qwen3vl_{4,8}b` by size), `batch_cond_uncond`
+      option (default on), resolution-aware shift, refiner dropdown rework, `sd_modules_dropdown_use_short`,
+      `scripts/degrid.py` (**needs triton — inert here**), `textual_inversion/autocrop.py` deleted.
+      README now shows "Nunchaku Support" unticked, but the nunchaku code is all still present.
+    - `set_shift` gained width/height: any engine overriding `set_shift(self, shift)` breaks. Only
+      offender found is third-party **minimax-h3-forge-neo** (disabled) — left unpatched.
+    - No dependency changes.
+    - **Verified live:** Krea 2 (`eventHorizon_krea2V10`) txt2img 512², 8 steps, seed 777 → clean PNG;
+      user also ran two browser batches on the merged build. PDF report at
+      `docs/updates/forge-neo-update-2026-10-14-2.30-11-g46af880c.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

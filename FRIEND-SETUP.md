@@ -83,14 +83,14 @@ git clone https://github.com/ruboard/smart-outpaint
 
 **Apply the custom patches.** Four extensions carry local changes. Each patch was made
 against a specific upstream commit, so start a local branch named `silk-custom` **at that
-commit** and apply the patch there. (Upstream has moved on since, and the ADetailer patch does
-*not* apply to its latest version.) The branch name matters too: it stops Forge's Extensions
+commit** and apply the patch there (upstream keeps moving, and a patch may stop applying to
+its newest version). The branch name matters too: it stops Forge's Extensions
 tab from wiping the changes on update.
 
 ```powershell
 cd ROOT\forge-neo\extensions
 $bases = @{
-  'ADetailer-Neo'                = '67e973e1c5'
+  'ADetailer-Neo'                = 'af228eba7a'
   'ForgeUI-MaskEraser-Extension' = '3f378b39f7'
   'sd-civitai-browser-neo'       = 'f9ef12b64c'
   'sd-dynamic-prompts'           = 'de056ff8d8'

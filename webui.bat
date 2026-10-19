@@ -1,13 +1,8 @@
 @echo off
 
 :: One Forge Neo at a time: a second copy loads its own model and runs the PC out of memory.
-:: The remote helper (forge_remote) makes the same check before it starts one.
-powershell -NoProfile -Command "if (Get-CimInstance Win32_Process -Filter 'Name=''python.exe''' | Where-Object { $_.CommandLine -like '*%~dp0*launch.py*' }) { exit 1 }"
-if %ERRORLEVEL% == 1 (
-    echo Forge Neo is already running. Open http://127.0.0.1:7860 instead of starting a second copy.
-    pause
-    exit /b
-)
+:: The newest launch wins: close the running copy, wait for its port to free up, then start.
+powershell -NoProfile -Command "$old = Get-CimInstance Win32_Process -Filter 'Name=''python.exe''' | Where-Object { $_.CommandLine -like '*%~dp0*launch.py*' }; if ($old) { Write-Host 'Closing the Forge Neo that is already running...'; $old | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; for ($i = 0; $i -lt 30 -and (Get-NetTCPConnection -LocalPort 7860 -State Listen -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 } }"
 
 if exist webui.settings.bat (
     call webui.settings.bat

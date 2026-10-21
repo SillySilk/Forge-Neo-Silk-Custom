@@ -380,6 +380,7 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   | Z-Image / Moody Pro Mix | `zit` | `VAE (Z-Image)` | `TE (Z-Image + Klein)` |
   | Anima | `anima` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Anima) heretic` (or `base` variant; + T5 tokenizer) |
   | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE (Klein + ERNIE)` | **`TE (Z-Image + Klein) heretic Q8.gguf`** — see "GGUF text encoders" below |
+  | **Flux.2-Klein 9B** (`snofs…Klein9b…fp8`, the current `klein` preset) | `klein` | `VAE (Klein + ERNIE)` | **`TE (Klein 9B) heretic Q8.gguf`** (Qwen3-8B, LuffyTheFox `Qwen3-8B-heretic-Genesis.Q8_0`, 8.7 GB) — the 4B TE fails with "You do not have Qwen3 state dict!" |
   | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
   | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE (Wan video)` | `TE (Wan video)` (G:) |
   | **Qwen-Image-2.1 Turbo** (Comfy-Org `int8_convrot`, 7.3 GB) | `qwen21` | `VAE (Qwen Image 2.1)` | `TE (Qwen Image 2.1)` (Comfy-Org `qwen3vl_8b_w4a8`, 6.3 GB) |
@@ -389,9 +390,11 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   > dropdown does NOT change modules — switch the **UI Preset** dropdown, which auto-loads that preset's
   > `forge_additional_modules_<preset>` list from `config.json` via `on_preset_change` (main_entry.py). An
   > empty/incomplete list = the TE/VAE won't auto-populate (that was the 2026-07 `krea` empty / `qwen` missing-TE bug).
-  > `TE Ministral3 (ERNIE).safetensors` (ex `ernie_ministral3_3b_textonly`) was converted
-  > locally from baidu's official multimodal TE (stripped `language_model.` prefix, dropped
-  > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").
+  > `TE Ministral3 (ERNIE).safetensors` was rebuilt 2026-10-21 (the old one had gone missing) from
+  > Comfy-Org/ERNIE-Image `text_encoders/ministral-3-3b.safetensors` with `vision_tower.*` and
+  > `multi_modal_projector.*` dropped — a missing ERNIE TE shows as "You do not have Mistral3 state dict!".
+  > Qwen 2.1 Turbo uses the **`Qwen 2.1 Turbo`** schedule type (`modules/sd_schedulers.py`, the
+  > checkpoint's official fixed sigmas) instead of Simple.
   > Unused spares: `TE CLIP-L (spare)`, `VAE (SDXL)`.
 - **Qwen-Image-2.1 Turbo replaced Qwen Image Edit 2511 (2026-10-20, user decision).** 2.1 is one model
   for generation *and* editing (up to 10 references, RGBA). Turbo = **8 steps, CFG 1, Euler/Simple**

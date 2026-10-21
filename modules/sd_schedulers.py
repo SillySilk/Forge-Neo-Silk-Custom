@@ -264,6 +264,18 @@ def flux2_scheduler(n: int, width: int, height: int, sigma_min, sigma_max, devic
     return torch.FloatTensor(sigmas).to(device)
 
 
+# CUSTOM (Forge Neo): the sampling schedule shipped with Qwen/Qwen-Image-2.1-Turbo (model_index.json
+# "sample_sigmas"; its scheduler has use_dynamic_shifting=false and shift=1.0, so the values are used
+# as-is at every resolution). Other step counts interpolate the same curve.
+QWEN21_TURBO_SIGMAS = [1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568]
+
+
+def qwen21_turbo_scheduler(n, sigma_min, sigma_max, device):
+    base = np.array(QWEN21_TURBO_SIGMAS)
+    sigmas = base if n == len(base) else np.interp(np.linspace(0, 1, n), np.linspace(0, 1, len(base)), base)
+    return torch.FloatTensor([*sigmas, 0.0]).to(device)
+
+
 all_schedulers = [
     Scheduler("automatic", "Automatic", None),
     Scheduler("karras", "Karras", k_diffusion.sampling.get_sigmas_karras, default_rho=7.0),
@@ -282,6 +294,7 @@ all_schedulers = [
     Scheduler("bong_tangent", "Bong Tangent", bong_tangent_scheduler),
     Scheduler("flow_match", "FlowMatchEulerDiscrete", flow_match_euler_discrete_scheduler, need_inner_model=True),
     Scheduler("flux2", "Flux2", flux2_scheduler),
+    Scheduler("qwen21_turbo", "Qwen 2.1 Turbo", qwen21_turbo_scheduler),
 ]
 
 schedulers = [s for s in all_schedulers if s.label not in shared.opts.hide_schedulers]

@@ -130,7 +130,15 @@ Edit **`webui.settings.bat`** — this is the file that holds the launch setting
 (`webui-user.bat` is NOT used). Replace the `set COMMANDLINE_ARGS=` line with:
 
 ```
-set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --reserve-vram 2 --onnxruntime-gpu
+set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --reserve-vram 2
+```
+
+Do **not** add `--onnxruntime-gpu`. Upstream removed that flag in October 2026, and Forge now
+refuses to start with it. It only installed the GPU onnxruntime that ReActor (face swap)
+needs. If the user wants ReActor, install it once after the first launch:
+
+```powershell
+venv\Scripts\python.exe -m pip install --pre onnxruntime-gpu --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/
 ```
 
 The original line points at `G:\` drives that only exist on the owner's PC, so they are
@@ -187,18 +195,15 @@ Launch for the user by double-clicking **`webui.bat`** in `forge-neo` (it reads
 PyTorch and everything else — it can take 15–30 minutes. It's ready when the console prints
 `Startup time:` and the browser opens `http://127.0.0.1:7860`.
 
-If you launch it yourself from Claude Code instead, **don't run `webui.bat` from your
-shell** — Claude Code's shell environment makes its call to `webui.settings.bat` fail
-silently, so Forge starts with no settings. Instead, after `webui.bat` has created `venv`
-once, run headless with the args written out in full:
+If you launch it yourself from Claude Code, start it in a window the user can see:
 
 ```powershell
-cd ROOT\forge-neo
-venv\Scripts\python.exe launch.py --api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --reserve-vram 2 --onnxruntime-gpu *> tmp\run.log
+Start-Process cmd.exe -ArgumentList '/c', 'start "Forge Neo" "ROOT\forge-neo\webui.bat"'
 ```
 
-Wait for `Startup time:` in `tmp\run.log` (not just "Running on local URL" — the API isn't
-ready until then), and read the log for tracebacks.
+(Since 2026-10-21 `webui.bat` loads `webui.settings.bat` by full path, so Claude Code's
+shell no longer makes it start without settings.) Forge is ready when
+`http://127.0.0.1:7860/sdapi/v1/cmd-flags` answers 200 and shows `"api":true`.
 
 ### 7. Wire the model presets
 

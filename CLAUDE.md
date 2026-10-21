@@ -395,11 +395,11 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").
   > Unused spares: `TE CLIP-L (spare)`, `VAE (SDXL)`.
 - **Qwen Image Edit 2511 + Lightning (2026-10-20).** `sd-forge-qwen-lightning` (self-authored,
-  in the extensions repo) appends `<lora:Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16:1>`
+  in the extensions repo) appends `<lora:Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16:1>`
   (from `lightx2v/Qwen-Image-Edit-2511-Lightning`, in `G:\LORAS\Qwen`) whenever the loaded
   checkpoint name contains `qwen_image_edit_2511`. It registers the LoRA itself because the
   "Active Lora folder" picker otherwise hides `Qwen` while e.g. `krea2` is selected
-  ("Failed to load LoRA"). `qwen`/`qwen21` presets default to **4 steps, CFG 1, Euler/Simple**;
+  ("Failed to load LoRA"). `qwen`/`qwen21` presets default to **8 steps, CFG 1, Euler/Simple** (switched from the 4-step LoRA 2026-10-20: 4 steps left soft detail; 4-step file deleted). No ready-made 8-step merged checkpoint runs here: the only nunchaku one (`tonera/...-Lightning-Nunchaku`) needs a nunchaku fork, and lightx2v's fp8 merge is 20.5 GB (won't fit 16 GB). The `qwen21` preset is for the separate Qwen-Image-2.1 model, not Edit 2511 — use `qwen`;
   without the LoRA the model needs ~40 steps at CFG 4. Verified live: 512² edit, 4 steps,
   "[Qwen] LoRAs Composed", clean image. A weight of 0 in the prompt, or unticking the
   accordion, turns it off.

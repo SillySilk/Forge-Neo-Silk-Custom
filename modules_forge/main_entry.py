@@ -41,8 +41,9 @@ forge_unet_storage_dtype_options: dict[str, tuple[torch.dtype, bool]] = {
 }
 
 
-# CUSTOM (Forge Neo): "qwen" = Qwen-Image 1 / Edit 2511, replaced by "qwen21" (Qwen-Image-2.1) on 2026-10-20
-HIDDEN_PRESETS: tuple[str, ...] = ("qwen",)
+# CUSTOM (Forge Neo): "qwen" = Qwen-Image 1 / Edit 2511, replaced by "qwen21" (Qwen-Image-2.1) on 2026-10-20.
+# "xl" (Pony), "flux" (Chroma) and "zit" (Z-Image) retired 2026-10-21 - their checkpoints are gone.
+HIDDEN_PRESETS: tuple[str, ...] = ("qwen", "xl", "flux", "zit")
 
 module_list: dict[str, os.PathLike] = {}
 module_map: dict[str, str] = {}

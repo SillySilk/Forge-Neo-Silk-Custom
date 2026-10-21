@@ -29,6 +29,7 @@ ui_checkpoint: gr.Dropdown
 ui_vae: gr.Dropdown
 ui_forge_unet_dtype: gr.Radio
 _event_refresh: Dependency
+_event_load: Dependency
 
 forge_unet_storage_dtype_options: dict[str, tuple[torch.dtype, bool]] = {
     "Automatic": (None, False),
@@ -45,7 +46,7 @@ module_map: dict[str, str] = {}
 
 
 def make_checkpoint_manager_ui():
-    global ui_forge_preset, ui_checkpoint, ui_vae, ui_forge_unet_dtype, _event_refresh
+    global ui_forge_preset, ui_checkpoint, ui_vae, ui_forge_unet_dtype, _event_refresh, _event_load
 
     if shared.opts.sd_model_checkpoint in [None, "None", "none", ""]:
         if len(sd_models.checkpoints_list) == 0:
@@ -65,7 +66,7 @@ def make_checkpoint_manager_ui():
 
     refresh_button = ui_common.ToolButton(value=ui_common.refresh_symbol, elem_id="forge_refresh_checkpoint", tooltip="Refresh")
     _event_refresh = refresh_button.click(fn=refresh_model_list, outputs=[ui_checkpoint, ui_vae], queue=False)
-    Context.root_block.load(fn=refresh_model_list, outputs=[ui_checkpoint, ui_vae], queue=False)
+    _event_load = Context.root_block.load(fn=refresh_model_list, outputs=[ui_checkpoint, ui_vae], queue=False)
 
     ui_forge_unet_dtype = gr.Dropdown(label="Diffusion in Low Bits", value=None, choices=list(forge_unet_storage_dtype_options.keys()), elem_id="forge_ui_dtype")
 
@@ -264,7 +265,11 @@ def forge_main_entry():
         queue=False,
         show_progress=False,
     ).then(js="clickLoraRefresh", fn=None, queue=False, show_progress=False)
-    Context.root_block.load(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False)
+    # CUSTOM (Forge Neo): chained after the page-load model-list refresh instead of a second,
+    # parallel load event -- otherwise the preset's values could land before the dropdown
+    # choices existed (and race refresh_models() clearing module_list), so the first preset
+    # after a launch sometimes did not apply.
+    _event_load.then(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False)
 
     refresh_model_loading_parameters()
     _refreshed_callback()
@@ -273,7 +278,13 @@ def forge_main_entry():
 def _load_presets(ui_checkpoint: str, ui_vae: list[str], ui_forge_unet_dtype: str, ui_forge_preset: str):
     dtype_change(ui_forge_unet_dtype, ui_forge_preset, save=False, refresh=False)
     modules_change(ui_vae, ui_forge_preset, save=False, refresh=False)
-    checkpoint_change(ui_checkpoint, ui_forge_preset, save=True, refresh=True)
+    checkpoint_change(ui_checkpoint, ui_forge_preset, save=False, refresh=False)
+    # CUSTOM (Forge Neo): upstream refreshed only through checkpoint_change(), which returns
+    # early when the preset keeps the same checkpoint -- the new preset's VAE / TE were saved
+    # to opts but never reached the loader (e.g. Qwen checkpoint still paired with Klein's VAE
+    # -> "You do not have Qwen 2.5 state dict!"). Always save and refresh after a preset load.
+    shared.opts.save(shared.config_filename)
+    refresh_model_loading_parameters()
 
 
 def on_preset_change(preset: str):

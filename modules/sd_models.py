@@ -318,6 +318,21 @@ def apply_token_merging(sd_model, token_merging_ratio):
         print(f"eps_scaling_factor = {opts.scaling_factor}")
 
 
+def _preset_modules_for(checkpoint_info, failed_modules: list[str]) -> tuple[str, list[str]] | None:
+    """CUSTOM (Forge Neo): `(preset, modules)` of a UI Preset whose saved checkpoint is `checkpoint_info`
+    and whose VAE / TE differ from `failed_modules`; the active preset is tried first"""
+    from modules_forge.presets import PresetArch
+
+    presets = [shared.opts.forge_preset] + [p for p in PresetArch.choices() if p != shared.opts.forge_preset]
+    for preset in presets:
+        if get_closet_checkpoint_match(getattr(shared.opts, f"forge_checkpoint_{preset}", None) or "") != checkpoint_info:
+            continue
+        modules = getattr(shared.opts, f"forge_additional_modules_{preset}", [])
+        if modules and sorted(modules) != sorted(failed_modules) and all(os.path.isfile(m) for m in modules):
+            return preset, list(modules)
+    return None
+
+
 @torch.inference_mode()
 def forge_model_reload():
     current_hash = str(model_data.forge_loading_parameters)
@@ -358,7 +373,21 @@ def forge_model_reload():
     dynamic_args.embedding_dir = cmd_opts.embeddings_dir
 
     try:
-        sd_model = forge_loader(state_dict, additional_state_dicts=additional_state_dicts)
+        try:
+            sd_model = forge_loader(state_dict, additional_state_dicts=additional_state_dicts)
+        except AssertionError as e:
+            # CUSTOM (Forge Neo): the selected VAE / TE don't fit this checkpoint (e.g. a Qwen
+            # checkpoint left paired with Klein's VAE -> "You do not have Qwen 2.5 state dict!").
+            # Retry once with the modules of a UI Preset saved with this same checkpoint.
+            if "state dict!" not in str(e) or (preset_modules := _preset_modules_for(checkpoint_info, additional_state_dicts)) is None:
+                raise
+            preset, additional_state_dicts = preset_modules
+            print(f'[Forge Neo] "{e}" with {[os.path.basename(m) for m in model_data.forge_loading_parameters.get("additional_modules", [])]}; retrying with the "{preset}" preset\'s VAE / TE: {[os.path.basename(m) for m in additional_state_dicts]}')
+            sd_model = forge_loader(state_dict, additional_state_dicts=additional_state_dicts)
+            model_data.forge_loading_parameters["additional_modules"] = additional_state_dicts
+            current_hash = str(model_data.forge_loading_parameters)
+            shared.opts.set("forge_additional_modules", additional_state_dicts)
+            shared.opts.save(shared.config_filename)
     except Exception:
         model_data.sd_model = FakeInitialModel()
         model_data.forge_hash = ""

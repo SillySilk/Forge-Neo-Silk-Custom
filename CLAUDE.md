@@ -367,21 +367,24 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
 - **GPU** RTX 4060 Ti 16 GB · **RAM** 32 GB · **Python** 3.13 · main drive (C:) space freed up 2026-07-06, no longer near-full — still worth checking before large downloads.
 - **LoRAs** live on `G:\LORAS` (685 files, moved off SSD; served via `--lora-dirs`).
 - **Per-model modules** (selected as "additional modules" for each UI preset). All VAE /
-  text-encoder files were **renamed 2026-07-02** to a self-describing scheme —
-  `TE <arch> (<models it serves>)` / `VAE <arch> (<models it serves>)` — so the module
-  dropdown groups TEs and VAEs and says what pairs with what. Renaming these files is safe:
+  text-encoder files are named `TE (<models it serves>)` / `VAE (<models it serves>)` —
+  just the models that need them, plus a variant word only where two would collide
+  (`TE (Anima) heretic`). Set by the user 2026-10-20 (was `TE <arch> (...)` since 2026-07-02);
+  the dropdown groups TEs and VAEs and says what pairs with what. Lora Forge's training sets
+  also store these paths — update `C:\AI\Apps\Lora Forge\sets\*.json` on any rename. Renaming these files is safe:
   Forge detects module type from state-dict contents, not filename; only `config.json`
   (per-preset module lists), `ui-config.json` (PiD defaults), and this doc reference the names.
   | Model | Preset | VAE | Text encoder |
   |---|---|---|---|
-  | Chroma1-HD | `flux` | `VAE Flux1 (Chroma)` | `TE T5-XXL fp8 (Chroma)` (T5 only, no CLIP-L) |
-  | Z-Image / Moody Pro Mix | `zit` | `VAE Z-Image` | `TE Qwen3-4B (Z-Image + Klein)` |
-  | Anima | `anima` | `VAE Qwen (Anima + PiD)` | `TE Qwen3-0.6B heretic (Anima)` (or `base` variant; + T5 tokenizer) |
-  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE Flux2 (Klein + ERNIE)` | **`TE Qwen3-4B heretic Q8 (Z-Image + Klein).gguf`** — see "GGUF text encoders" below |
-  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE Flux2 (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
-  | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE Wan 2.1 (Wan video)` | `TE UMT5-XXL (Wan)` (G:) |
-  | Qwen-Image (Q4 GGUF; opt. `qwen-image-2512-Q4_K_M` upgrade) | `qwen` | `VAE Qwen (Anima + PiD)` | `qwen_2.5_vl_7b_fp8_scaled` (Qwen2.5-VL-7B) |
-  | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE Qwen (Anima + PiD)` | `TE Qwen3-VL-4B (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
+  | Chroma1-HD | `flux` | `VAE (Chroma)` | `TE T5-XXL fp8 (Chroma)` (T5 only, no CLIP-L) |
+  | Z-Image / Moody Pro Mix | `zit` | `VAE (Z-Image)` | `TE (Z-Image + Klein)` |
+  | Anima | `anima` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Anima) heretic` (or `base` variant; + T5 tokenizer) |
+  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE (Klein + ERNIE)` | **`TE (Z-Image + Klein) heretic Q8.gguf`** — see "GGUF text encoders" below |
+  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
+  | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE (Wan video)` | `TE (Wan video)` (G:) |
+  | Qwen Image Edit 2511 (Nunchaku int4 `balance`) | `qwen` / `qwen21` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Qwen Image Edit)` |
+  | Qwen-Image (Q4 GGUF; opt. `qwen-image-2512-Q4_K_M` upgrade) | `qwen` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Qwen Image Edit)` (Qwen2.5-VL-7B) |
+  | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
   > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE/**Krea 2 Turbo** are
   > distilled → CFG 1, ~8 steps (**Krea 2 Raw** would need CFG 3–5, ~28 steps). Switching the **checkpoint**
   > dropdown does NOT change modules — switch the **UI Preset** dropdown, which auto-loads that preset's
@@ -390,12 +393,21 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   > `TE Ministral3 (ERNIE).safetensors` (ex `ernie_ministral3_3b_textonly`) was converted
   > locally from baidu's official multimodal TE (stripped `language_model.` prefix, dropped
   > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").
-  > Unused spares: `TE CLIP-L (spare)`, `VAE SDXL (standard)`.
+  > Unused spares: `TE CLIP-L (spare)`, `VAE (SDXL)`.
+- **Qwen Image Edit 2511 + Lightning (2026-10-20).** `sd-forge-qwen-lightning` (self-authored,
+  in the extensions repo) appends `<lora:Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16:1>`
+  (from `lightx2v/Qwen-Image-Edit-2511-Lightning`, in `G:\LORAS\Qwen`) whenever the loaded
+  checkpoint name contains `qwen_image_edit_2511`. It registers the LoRA itself because the
+  "Active Lora folder" picker otherwise hides `Qwen` while e.g. `krea2` is selected
+  ("Failed to load LoRA"). `qwen`/`qwen21` presets default to **4 steps, CFG 1, Euler/Simple**;
+  without the LoRA the model needs ~40 steps at CFG 4. Verified live: 512² edit, 4 steps,
+  "[Qwen] LoRAs Composed", clean image. A weight of 0 in the prompt, or unticking the
+  accordion, turns it off.
 - **GGUF text encoders are supported — and are a big win for Klein** (verified 2026-07-27).
   A `.gguf` TE dropped in `models/text_encoder/` appears in the additional-modules dropdown
   (`main_entry.py:98`), gets llama.cpp→HF key remapping (`loader_gguf.py:46-72`, the `blk.*`
   branch), and routes on hidden size to `qwen3_06b/4b/8b` (`loader.py:742-746`).
-  **Klein 4B now uses `TE Qwen3-4B heretic Q8 (Z-Image + Klein).gguf`** (4.28 GB, from
+  **Klein 4B now uses `TE (Z-Image + Klein) heretic Q8.gguf`** (4.28 GB, from
   [LuffyTheFox/Qwen3-Uncensored-TextEncoders-Klein-Z-Image-Anima-GGUF](https://huggingface.co/LuffyTheFox/Qwen3-Uncensored-TextEncoders-Klein-Z-Image-Anima-GGUF),
   Heretic-abliterated) instead of the 7.49 GB bf16 safetensors. Measured, 1024², same session:
 
@@ -427,9 +439,9 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   per-image via the "PiD Integrated" accordion checkbox in txt2img/img2img — the Anima
   model/VAE defaults are still preconfigured in `ui-config.json`. 4 steps, ~6 s at 512²,
   ~1 min extra at 1280² (5120² output, model-swap each gen). Variants are per-latent-family:
-  `pid_qwenimage_*` + `VAE Qwen (Anima + PiD)` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
+  `pid_qwenimage_*` + `VAE (Anima + PiD + Qwen Image Edit)` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
   VAE for **Pony** — switch both dropdowns together. Incompatible with Hires Fix (skips itself).
-  TE = `TE Gemma2 (PiD)` (ex `gemma_2_2b_it_elm_fp8_scaled`). New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
+  TE = `TE (PiD)` (ex `gemma_2_2b_it_elm_fp8_scaled`). New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
 - **Model research + Civitai vetted picks:** `docs/model-research.md`.
   **Civitai API helper:** `tools/civitai_search.py` (use `--insecure` on Windows; `--nsfw` needs a token).
 - **LoRA preset filtering** — Settings → Extra Networks → "Filter Lora based on selected Preset"
@@ -749,8 +761,8 @@ ignores it. To truly disable triton, uninstall the package.
   "cannot reshape array..."). The old `umt5_xxl` on G: was also a **truncated download**
   (1.9 GB of 6.74 GB) and was replaced with the full Comfy-Org file.
 - Current working set (installed 2026-07-01): `Wan2.2-T2V-A14B-{High,Low}Noise-Q4_K_M.gguf`
-  on `G:\Wan\checkpoints` + `models/VAE/VAE Wan 2.1 (Wan video).safetensors` + fixed
-  `G:\Wan\text_encoders\TE UMT5-XXL (Wan).safetensors` (ex `umt5_xxl_fp8_e4m3fn_scaled`).
+  on `G:\Wan\checkpoints` + `models/VAE/VAE (Wan video).safetensors` + fixed
+  `G:\Wan\text_encoders\TE (Wan video).safetensors` (ex `umt5_xxl_fp8_e4m3fn_scaled`).
   Select `wan` preset; HighNoise as checkpoint, LowNoise via the **Refiner** accordion
   (`refiner_checkpoint`, switch_at ≈ **0.875** for T2V / 0.9 for I2V — Forge's own UI
   tooltip gives these values; `show_refiner` must be `true` in config.json for the

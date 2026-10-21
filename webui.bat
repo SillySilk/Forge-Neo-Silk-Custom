@@ -2,7 +2,7 @@
 
 :: One Forge Neo at a time: a second copy loads its own model and runs the PC out of memory.
 :: The newest launch wins: close the running copy, wait for its port to free up, then start.
-powershell -NoProfile -Command "$old = Get-CimInstance Win32_Process -Filter 'Name=''python.exe''' | Where-Object { $_.CommandLine -like '*%~dp0*launch.py*' }; if ($old) { Write-Host 'Closing the Forge Neo that is already running...'; $old | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; for ($i = 0; $i -lt 30 -and (Get-NetTCPConnection -LocalPort 7860 -State Listen -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 } }"
+powershell -NoProfile -Command "$old = Get-CimInstance Win32_Process -Filter 'Name=''python.exe''' | Where-Object { $_.ExecutablePath -like '%~dp0venv\*' -and $_.CommandLine -like '*launch.py*' }; if ($old) { Write-Host 'Closing the Forge Neo that is already running...'; $old | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; for ($i = 0; $i -lt 30 -and (Get-NetTCPConnection -LocalPort 7860 -State Listen -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 } }"
 
 if exist webui.settings.bat (
     call webui.settings.bat

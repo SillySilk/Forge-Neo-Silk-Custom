@@ -36,9 +36,11 @@
 :: Stop any Forge instance already running from this install (stale, crashed, or forgotten
 :: on 7861) and wait until nothing is listening on 7860, so a relaunch always lands on 7860.
 :: Only python processes running this repo's launch.py are touched; the forge-neo MCP
-:: server and unrelated python are left alone.
+:: server and unrelated python are left alone. Matched on the venv's ExecutablePath, not the
+:: command line: a launch.py started as "venv\Scripts\python.exe launch.py" has a relative
+:: command line with no "forge-neo" in it, so such instances used to survive and pile up.
 echo Closing any running Forge instance and freeing port 7860...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*launch.py*' -and $_.CommandLine -like '*forge-neo*' } | ForEach-Object { Write-Host ('  stopping Forge PID ' + $_.ProcessId); Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; $i = 0; while (($i -lt 15) -and (netstat -ano | Select-String ':7860 .*LISTENING')) { Start-Sleep -Seconds 2; $i++ }; if ($i -ge 15) { Write-Host '  WARNING: something else still listens on 7860; Forge will pick 7861' } else { Write-Host '  port 7860 is free' }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -like '*launch.py*' -and $_.ExecutablePath -like '*\forge-neo\venv\*' } | ForEach-Object { Write-Host ('  stopping Forge PID ' + $_.ProcessId); Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; $i = 0; while (($i -lt 15) -and (netstat -ano | Select-String ':7860 .*LISTENING')) { Start-Sleep -Seconds 2; $i++ }; if ($i -ge 15) { Write-Host '  WARNING: something else still listens on 7860; Forge will pick 7861' } else { Write-Host '  port 7860 is free' }"
 :: ---------------------------------------------------------------------------------------
 
 set COMMANDLINE_ARGS=--api --cuda-malloc --cuda-stream --pin-shared-memory --flash --bf16-unet --autotune --nunchaku --lora-dirs "G:\LORAS" --gradio-allowed-path "G:\LORAS" --ckpt-dirs "G:\Wan\checkpoints" --text-encoder-dirs "G:\Wan\text_encoders" --reserve-vram 2

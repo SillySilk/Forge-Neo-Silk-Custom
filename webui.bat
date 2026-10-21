@@ -2,10 +2,13 @@
 
 :: One Forge Neo at a time: a second copy loads its own model and runs the PC out of memory.
 :: The newest launch wins: close the running copy, wait for its port to free up, then start.
-powershell -NoProfile -Command "$old = Get-CimInstance Win32_Process -Filter 'Name=''python.exe''' | Where-Object { $_.ExecutablePath -like '%~dp0venv\*' -and $_.CommandLine -like '*launch.py*' }; if ($old) { Write-Host 'Closing the Forge Neo that is already running...'; $old | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; for ($i = 0; $i -lt 30 -and (Get-NetTCPConnection -LocalPort 7860 -State Listen -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 } }"
+:: Also stop the CivitAI Browser's aria2 download helpers, which outlive a killed Forge and pile up.
+powershell -NoProfile -Command "$old = Get-CimInstance Win32_Process -Filter 'Name=''python.exe''' | Where-Object { $_.ExecutablePath -like '%~dp0venv\*' -and $_.CommandLine -like '*launch.py*' }; if ($old) { Write-Host 'Closing the Forge Neo that is already running...'; $old | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; for ($i = 0; $i -lt 30 -and (Get-NetTCPConnection -LocalPort 7860 -State Listen -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Milliseconds 500 } }; Get-CimInstance Win32_Process -Filter 'Name=''aria2.exe''' | Where-Object { $_.ExecutablePath -like '%~dp0extensions\*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 
-if exist webui.settings.bat (
-    call webui.settings.bat
+:: CUSTOM (Forge Neo): full path, because with NoDefaultCurrentDirectoryInExePath set (as some tool
+:: shells do) a bare "call webui.settings.bat" is not found and Forge starts with no arguments.
+if exist "%~dp0webui.settings.bat" (
+    call "%~dp0webui.settings.bat"
 )
 
 if not defined PYTHON (set PYTHON=python)

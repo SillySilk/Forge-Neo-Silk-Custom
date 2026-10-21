@@ -384,6 +384,7 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
   | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE (Wan video)` | `TE (Wan video)` (G:) |
   | **Qwen-Image-2.1 Turbo** (Comfy-Org `int8_convrot`, 7.3 GB) | `qwen21` | `VAE (Qwen Image 2.1)` | `TE (Qwen Image 2.1)` (Comfy-Org `qwen3vl_8b_w4a8`, 6.3 GB) |
+  | **MOSS-Image SFT** (Comfy-Org `moss_image_sft_int8_convrot`, 5.4 GB; added 2026-10-21) | `moss` | `VAE (MOSS-Image)` (Comfy-Org `flux2-vae_small`) | `TE (MOSS-Image)` (Comfy-Org `qwen3.5_9b_w4a8_gptq`, 7.3 GB). Preset defaults are 50 steps, CFG 3, Euler/Simple: about 57 s at 1024² on the 4060 Ti |
   | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
   > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE/**Krea 2 Turbo** are
   > distilled → CFG 1, ~8 steps (**Krea 2 Raw** would need CFG 3–5, ~28 steps). Switching the **checkpoint**

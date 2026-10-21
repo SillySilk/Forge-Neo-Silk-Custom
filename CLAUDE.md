@@ -382,8 +382,7 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE (Klein + ERNIE)` | **`TE (Z-Image + Klein) heretic Q8.gguf`** — see "GGUF text encoders" below |
   | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
   | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE (Wan video)` | `TE (Wan video)` (G:) |
-  | Qwen Image Edit 2511 (Nunchaku int4 `balance`) | `qwen` / `qwen21` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Qwen Image Edit)` |
-  | Qwen-Image (Q4 GGUF; opt. `qwen-image-2512-Q4_K_M` upgrade) | `qwen` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Qwen Image Edit)` (Qwen2.5-VL-7B) |
+  | **Qwen-Image-2.1 Turbo** (Comfy-Org `int8_convrot`, 7.3 GB) | `qwen21` | `VAE (Qwen Image 2.1)` | `TE (Qwen Image 2.1)` (Comfy-Org `qwen3vl_8b_w4a8`, 6.3 GB) |
   | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
   > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE/**Krea 2 Turbo** are
   > distilled → CFG 1, ~8 steps (**Krea 2 Raw** would need CFG 3–5, ~28 steps). Switching the **checkpoint**
@@ -394,15 +393,15 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   > locally from baidu's official multimodal TE (stripped `language_model.` prefix, dropped
   > vision tower) — Forge rejects the raw baidu file ("You do not have Mistral3 state dict!").
   > Unused spares: `TE CLIP-L (spare)`, `VAE (SDXL)`.
-- **Qwen Image Edit 2511 + Lightning (2026-10-20).** `sd-forge-qwen-lightning` (self-authored,
-  in the extensions repo) appends `<lora:Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16:1>`
-  (from `lightx2v/Qwen-Image-Edit-2511-Lightning`, in `G:\LORAS\Qwen`) whenever the loaded
-  checkpoint name contains `qwen_image_edit_2511`. It registers the LoRA itself because the
-  "Active Lora folder" picker otherwise hides `Qwen` while e.g. `krea2` is selected
-  ("Failed to load LoRA"). `qwen`/`qwen21` presets default to **8 steps, CFG 1, Euler/Simple** (switched from the 4-step LoRA 2026-10-20: 4 steps left soft detail; 4-step file deleted). No ready-made 8-step merged checkpoint runs here: the only nunchaku one (`tonera/...-Lightning-Nunchaku`) needs a nunchaku fork, and lightx2v's fp8 merge is 20.5 GB (won't fit 16 GB). The `qwen21` preset is for the separate Qwen-Image-2.1 model, not Edit 2511 — use `qwen`;
-  without the LoRA the model needs ~40 steps at CFG 4. Verified live: 512² edit, 4 steps,
-  "[Qwen] LoRAs Composed", clean image. A weight of 0 in the prompt, or unticking the
-  accordion, turns it off.
+- **Qwen-Image-2.1 Turbo replaced Qwen Image Edit 2511 (2026-10-20, user decision).** 2.1 is one model
+  for generation *and* editing (up to 10 references, RGBA). Turbo = **8 steps, CFG 1, Euler/Simple**
+  (the engine computes its own shift). Measured 1024²: 7 s warm, ~35 s cold; edit via ImageStitch
+  Integrated with `qwen21_do_reference` (default ON) — 23 s, kept the source photo intact. Qwen-Image-3.0
+  (2026-07) is API-only, no weights. Removed: the nunchaku Edit 2511 checkpoint, `TE (Qwen Image Edit)`,
+  both Lightning LoRAs and `G:\LORAS\Qwen`, and the `sd-forge-qwen-lightning` extension. The `qwen`
+  preset is hidden from the dropdown (`HIDDEN_PRESETS` in `main_entry.py`); the enum stays for LoRA
+  tags. `VAE (Anima + PiD + Qwen Image Edit)` is **kept** — Anima, PiD and Krea 2 still use it.
+  Licence: Qwen Research License (non-commercial).
 - **GGUF text encoders are supported — and are a big win for Klein** (verified 2026-07-27).
   A `.gguf` TE dropped in `models/text_encoder/` appears in the additional-modules dropdown
   (`main_entry.py:98`), gets llama.cpp→HF key remapping (`loader_gguf.py:46-72`, the `blk.*`

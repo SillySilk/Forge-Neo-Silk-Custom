@@ -41,6 +41,9 @@ forge_unet_storage_dtype_options: dict[str, tuple[torch.dtype, bool]] = {
 }
 
 
+# CUSTOM (Forge Neo): "qwen" = Qwen-Image 1 / Edit 2511, replaced by "qwen21" (Qwen-Image-2.1) on 2026-10-20
+HIDDEN_PRESETS: tuple[str, ...] = ("qwen",)
+
 module_list: dict[str, os.PathLike] = {}
 module_map: dict[str, str] = {}
 
@@ -54,7 +57,9 @@ def make_checkpoint_manager_ui():
         if len(sd_models.checkpoints_list) > 0:
             shared.opts.set("sd_model_checkpoint", next(iter(sd_models.checkpoints_list.values())).name)
 
-    ui_forge_preset = gr.Dropdown(label="UI Preset", value=shared.opts.forge_preset, choices=PresetArch.choices(), elem_id="forge_ui_preset")
+    # CUSTOM (Forge Neo): presets for model families the user has retired are hidden from the dropdown
+    # (the enum itself is upstream's and is still used for LoRA tagging)
+    ui_forge_preset = gr.Dropdown(label="UI Preset", value=shared.opts.forge_preset, choices=[p for p in PresetArch.choices() if p not in HIDDEN_PRESETS], elem_id="forge_ui_preset")
 
     ui_checkpoint = gr.Dropdown(label="Checkpoint", value=None, choices=None, elem_id="setting_sd_model_checkpoint", elem_classes=["model_selection"])
 

@@ -670,6 +670,20 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** Krea 2 (`eventHorizon_krea2V10`) txt2img 512², 8 steps, seed 777 → clean PNG;
       user also ran two browser batches on the merged build. PDF report at
       `docs/updates/forge-neo-update-2026-10-14-2.30-11-g46af880c.pdf`.
+15. Latest merge: **2026-10-21**: upstream/neo, **17 commits**, `2.30-90` → **`2.31-1-g2c24de16`**
+    (crosses the new tag **2.31**). **2 conflicts**: README (kept ours) and `modules/processing.py`,
+    the line-ending false conflict for the third time. Took ours and hand-applied upstream's one
+    real hunk (a simpler VAE-override swap in `process_images`).
+    - **Upstream content:** **MOSS-Image** (`moss` preset, Qwen3.5-9B TE `Qwen35_9B`, `slg.py`
+      Skip Layer Guidance settings, and the `sd_forge_json_builder` layout extension), a Spectrum
+      rewrite, and xyz_grid/gguf/cpu fixes.
+    - **Removed launch flag `--onnxruntime-gpu`**: launch.py now exits with "unrecognized arguments".
+      It has been dropped from `webui.settings.bat`. onnxruntime-gpu 1.28 dev is already in the venv.
+    - **Dependency bumps:** comfy-kitchen 0.2.37 → 0.2.39, Pillow 12.3 → 13.0, accelerate 1.15,
+      GitPython, pillow-heif and tqdm (`pip install -r requirements.txt`).
+    - All customs verified intact: the canvas markers, the fp8 TE upcast, the wrong-module retry,
+      and the `Qwen 2.1 Turbo` schedule. **Verified live:** Qwen 2.1 and Klein 9B txt2img at 1024²,
+      0 tracebacks.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

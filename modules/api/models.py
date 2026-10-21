@@ -211,6 +211,10 @@ for key in _options:
         _type = str | None
         if _options[key].default is not None:
             _type = type(_options[key].default)
+        # CUSTOM (Forge Neo): numeric flags with no default (--reserve-vram, --cuda-stream) were typed
+        # str, so /sdapi/v1/cmd-flags crashed with ResponseValidationError whenever they were set.
+        elif flag.type in (int, float):
+            _type = flag.type | None
         flags.update({flag.dest: (_type, Field(default=flag.default, description=flag.help))})
 
 FlagsModel = create_model("Flags", **flags)

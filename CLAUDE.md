@@ -397,6 +397,12 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   > Qwen 2.1 Turbo uses the **`Qwen 2.1 Turbo`** schedule type (`modules/sd_schedulers.py`, the
   > checkpoint's official fixed sigmas) instead of Simple.
   > Unused spares: `TE CLIP-L (spare)`, `VAE (SDXL)`.
+  > **MOSS runs on Forge's built-in support; the `moss-image-forge-neo` extension is DISABLED (2026-10-22).**
+  > Since the 2026-10-21 merge both claim `image_model: moss_image`. Upstream's `MOSSImage` sits earlier in
+  > `model_list.models`, so it wins the match, but it receives the extension's detected config (`freq_dim`,
+  > `fused_qkv`, ...) → `TypeError: MOSSImage.__init__() got an unexpected keyword argument 'freq_dim'` on load.
+  > With the extension off: same checkpoint/TE/VAE, 1024², 50 steps, CFG 3 → clean image, 81 s cold.
+  > Re-enabling it needs the extension to insert its model at the *front* of `model_list.models`.
 - **Qwen-Image-2.1 Turbo replaced Qwen Image Edit 2511 (2026-10-20, user decision).** 2.1 is one model
   for generation *and* editing (up to 10 references, RGBA). Turbo = **8 steps, CFG 1, Euler/Simple**
   (the engine computes its own shift). Measured 1024²: 7 s warm, ~35 s cold; edit via ImageStitch

@@ -214,6 +214,20 @@ Verified live 2026-08-25: picker renders in txt2img **and** img2img next to Sear
 to `Anima` gives 129 cards, `krea2` gives 167, matching disk exactly; selection survives a
 refresh; 0 tracebacks.
 
+### Checkpoint dropdown filtered by UI Preset ⚠ (added 2026-10-22)
+The Checkpoint dropdown lists only checkpoints of the selected preset (anima → Anima files, moss →
+MOSS files, ...). The type is read from **inside** each file, not the filename: `modules_forge/checkpoint_arch.py`
+builds meta tensors from the safetensors/GGUF header and runs `huggingface_guess.guess` on them
+(all 28 files in ~1 s, cached by path+size+mtime), then maps the guess class to a `PresetArch` name.
+Files it cannot recognize are listed under every preset, with a warning in the log.
+- ⚠ `modules_forge/main_entry.py` — `checkpoint_choices(preset)`; `refresh_model_list()` and
+  `on_preset_change()` use it. `refresh_models()` still returns the **full** list on purpose
+  (ADetailer, merge-studio and `modules/ui.py` call it). If the preset's remembered checkpoint is of
+  another type, `on_preset_change()` picks the first matching one.
+- `modules/shared_options.py` — `forge_filter_checkpoints_by_preset` (Settings, on by default) turns it off.
+- A new upstream model class needs a line in `_CLASS_TO_PRESET`, or its files show under every preset.
+- Verified live: moss 5, anima 3, krea 6, klein 3, wan 5, qwen21 3, matching the files on disk exactly.
+
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`
 branch that upcasts fp8 text-encoder weights to float16 (fp8 loses text-comprehension

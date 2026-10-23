@@ -67,8 +67,8 @@ def make_checkpoint_manager_ui():
     ui_vae = gr.Dropdown(label="VAE / Text Encoder", value=None, choices=None, multiselect=True, elem_id="setting_sd_modules", elem_classes=["model_selection"])
 
     def refresh_model_list():
-        ckpt_list, vae_list = refresh_models()
-        return [gr.update(choices=ckpt_list), gr.update(choices=vae_list)]
+        _, vae_list = refresh_models()
+        return [gr.update(choices=checkpoint_choices(shared.opts.forge_preset)), gr.update(choices=vae_list)]
 
     refresh_button = ui_common.ToolButton(value=ui_common.refresh_symbol, elem_id="forge_refresh_checkpoint", tooltip="Refresh")
     _event_refresh = refresh_button.click(fn=refresh_model_list, outputs=[ui_checkpoint, ui_vae], queue=False)
@@ -120,6 +120,18 @@ def refresh_models() -> tuple[list[os.PathLike], list[os.PathLike]]:
         return sorted(ckpt_list), sorted(module_list.keys())
     else:
         return sorted(ckpt_list), sorted(module_map.values())
+
+
+def checkpoint_choices(preset: str | None) -> list[str]:
+    """CUSTOM (Forge Neo): the Checkpoint dropdown lists only the models of the selected UI Preset;
+    files whose type cannot be detected are listed under every preset"""
+    from modules_forge.checkpoint_arch import preset_of
+
+    use_short = shared.opts.sd_checkpoint_dropdown_use_short
+    infos = list(sd_models.checkpoints_list.values())
+    if preset is not None and shared.opts.forge_filter_checkpoints_by_preset:
+        infos = [info for info in infos if preset_of(info.filename) in (None, preset)]
+    return sorted(info.short_title if use_short else info.name for info in infos)
 
 
 def refresh_model_loading_parameters(*, refresh: bool = True):
@@ -317,9 +329,16 @@ def on_preset_change(preset: str):
     if not shared.opts.sd_modules_dropdown_use_short:
         modules_value = [module_map[m] for m in modules_value]
 
+    # CUSTOM (Forge Neo): only this preset's checkpoints; a remembered checkpoint of another type
+    # (e.g. a preset never used before, which inherits the current model) gives way to the first match
+    ckpt_choices = checkpoint_choices(preset)
+    ckpt_value = getattr(shared.opts, f"forge_checkpoint_{preset}", shared.opts.sd_model_checkpoint)
+    if ckpt_choices and ckpt_value not in ckpt_choices:
+        ckpt_value = ckpt_choices[0]
+
     return [
         # ui_checkpoint, ui_vae, ui_forge_unet_dtype
-        gr.update(value=getattr(shared.opts, f"forge_checkpoint_{preset}", shared.opts.sd_model_checkpoint)),
+        gr.update(choices=ckpt_choices, value=ckpt_value),
         gr.update(value=modules_value),
         gr.update(value=getattr(shared.opts, f"forge_unet_storage_dtype_{preset}", "Automatic")),
         # ui_txt2img_steps, ui_txt2img_hr_steps, ui_img2img_steps

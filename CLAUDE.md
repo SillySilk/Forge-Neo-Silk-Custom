@@ -369,7 +369,7 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
 - **Per-model modules** (selected as "additional modules" for each UI preset). All VAE /
   text-encoder files are named `TE (<models it serves>)` / `VAE (<models it serves>)` —
   just the models that need them, plus a variant word only where two would collide
-  (`TE (Anima) heretic`). Set by the user 2026-10-20 (was `TE <arch> (...)` since 2026-07-02);
+  (`TE (Anima) heretic`). Set by the user 2026-10-20 (was `TE <arch> (...)` since 2026-07-02); the list must name **every** model a file serves, so adding a model means renaming its shared files (done 2026-10-22: `+ MOSS`, `+ Krea 2`, `Klein 4B`). Unused leftovers are named `... (spare)`;
   the dropdown groups TEs and VAEs and says what pairs with what. Lora Forge's training sets
   also store these paths — update `C:\AI\Apps\Lora Forge\sets\*.json` on any rename. Renaming these files is safe:
   Forge detects module type from state-dict contents, not filename; only `config.json`
@@ -378,20 +378,20 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   |---|---|---|---|
   | Chroma1-HD | `flux` | `VAE (Chroma)` | `TE T5-XXL fp8 (Chroma)` (T5 only, no CLIP-L) |
   | Z-Image / Moody Pro Mix | `zit` | `VAE (Z-Image)` | `TE (Z-Image + Klein)` |
-  | Anima | `anima` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Anima) heretic` (or `base` variant; + T5 tokenizer) |
-  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE (Klein + ERNIE)` | **`TE (Z-Image + Klein) heretic Q8.gguf`** — see "GGUF text encoders" below |
-  | **Flux.2-Klein 9B** (`snofs…Klein9b…fp8`, the current `klein` preset) | `klein` | `VAE (Klein + ERNIE)` | **`TE (Klein 9B) heretic Q8.gguf`** (Qwen3-8B, LuffyTheFox `Qwen3-8B-heretic-Genesis.Q8_0`, 8.7 GB) — the 4B TE fails with "You do not have Qwen3 state dict!" |
-  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE (Klein + ERNIE)` | `TE Ministral3 (ERNIE)` |
+  | Anima | `anima` | `VAE (Anima + Krea 2 + PiD)` | `TE (Anima) heretic` (or `base` variant; + T5 tokenizer) |
+  | Flux.2-Klein 4B (Q8 GGUF) | `klein` | `VAE (Klein + ERNIE + MOSS)` | **`TE (Z-Image + Klein 4B) heretic Q8.gguf`** — see "GGUF text encoders" below |
+  | **Flux.2-Klein 9B** (`snofs…Klein9b…fp8`, the current `klein` preset) | `klein` | `VAE (Klein + ERNIE + MOSS)` | **`TE (Klein 9B) heretic Q8.gguf`** (Qwen3-8B, LuffyTheFox `Qwen3-8B-heretic-Genesis.Q8_0`, 8.7 GB) — the 4B TE fails with "You do not have Qwen3 state dict!" |
+  | ERNIE-Image-Turbo (Q6 GGUF) | `ernie` | `VAE (Klein + ERNIE + MOSS)` | `TE (ERNIE)` |
   | Wan 2.2 14B T2V (Q4 GGUF ×2, G:) | `wan` | `VAE (Wan video)` | `TE (Wan video)` (G:) |
   | **Qwen-Image-2.1 Turbo** (Comfy-Org `int8_convrot`, 7.3 GB) | `qwen21` | `VAE (Qwen Image 2.1)` | `TE (Qwen Image 2.1)` (Comfy-Org `qwen3vl_8b_w4a8`, 6.3 GB) |
-  | **MOSS-Image SFT** (Comfy-Org `moss_image_sft_int8_convrot`, 5.4 GB; added 2026-10-21) | `moss` | `VAE (Klein + ERNIE)` (the full FLUX.2 VAE, as the moss-image-forge-neo extension asks; switched 2026-10-22. `VAE (MOSS-Image)` is Comfy-Org `flux2-vae_small`, a slimmer decoder, kept as a spare) | `TE (MOSS-Image)` (Comfy-Org `qwen3.5_9b_w4a8_gptq`, 7.3 GB). Preset defaults are 50 steps, CFG 3, Euler/Simple: about 57 s at 1024² on the 4060 Ti |
-  | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE (Anima + PiD + Qwen Image Edit)` | `TE (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
+  | **MOSS-Image SFT** (Comfy-Org `moss_image_sft_int8_convrot`, 5.4 GB; added 2026-10-21) | `moss` | `VAE (Klein + ERNIE + MOSS)` (the full FLUX.2 VAE, as the moss-image-forge-neo extension asks; switched 2026-10-22. `VAE FLUX.2 small (spare)` is Comfy-Org `flux2-vae_small`, a slimmer decoder, kept as a spare) | `TE (MOSS-Image)` (Comfy-Org `qwen3.5_9b_w4a8_gptq`, 7.3 GB). Preset defaults are 50 steps, CFG 3, Euler/Simple: about 57 s at 1024² on the 4060 Ti |
+  | Krea 2 Turbo (Q6 GGUF, `krea2_turbo-Q6_K`) | `krea` | `VAE (Anima + Krea 2 + PiD)` | `TE (Krea 2)` (Qwen3-VL-4B multimodal — **not** the text-only `Qwen3-4B`) |
   > Chroma is *de-distilled* → use real **CFG 4–5** (not 1.0), ~30 steps. Klein/ERNIE/**Krea 2 Turbo** are
   > distilled → CFG 1, ~8 steps (**Krea 2 Raw** would need CFG 3–5, ~28 steps). Switching the **checkpoint**
   > dropdown does NOT change modules — switch the **UI Preset** dropdown, which auto-loads that preset's
   > `forge_additional_modules_<preset>` list from `config.json` via `on_preset_change` (main_entry.py). An
   > empty/incomplete list = the TE/VAE won't auto-populate (that was the 2026-07 `krea` empty / `qwen` missing-TE bug).
-  > `TE Ministral3 (ERNIE).safetensors` was rebuilt 2026-10-21 (the old one had gone missing) from
+  > `TE (ERNIE).safetensors` was rebuilt 2026-10-21 (the old one had gone missing) from
   > Comfy-Org/ERNIE-Image `text_encoders/ministral-3-3b.safetensors` with `vision_tower.*` and
   > `multi_modal_projector.*` dropped — a missing ERNIE TE shows as "You do not have Mistral3 state dict!".
   > Qwen 2.1 Turbo uses the **`Qwen 2.1 Turbo`** schedule type (`modules/sd_schedulers.py`, the
@@ -404,13 +404,13 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   (2026-07) is API-only, no weights. Removed: the nunchaku Edit 2511 checkpoint, `TE (Qwen Image Edit)`,
   both Lightning LoRAs and `G:\LORAS\Qwen`, and the `sd-forge-qwen-lightning` extension. The `qwen`
   preset is hidden from the dropdown (`HIDDEN_PRESETS` in `main_entry.py`); the enum stays for LoRA
-  tags. `VAE (Anima + PiD + Qwen Image Edit)` is **kept** — Anima, PiD and Krea 2 still use it.
+  tags. `VAE (Anima + Krea 2 + PiD)` is **kept** — Anima, PiD and Krea 2 still use it.
   Licence: Qwen Research License (non-commercial).
 - **GGUF text encoders are supported — and are a big win for Klein** (verified 2026-07-27).
   A `.gguf` TE dropped in `models/text_encoder/` appears in the additional-modules dropdown
   (`main_entry.py:98`), gets llama.cpp→HF key remapping (`loader_gguf.py:46-72`, the `blk.*`
   branch), and routes on hidden size to `qwen3_06b/4b/8b` (`loader.py:742-746`).
-  **Klein 4B now uses `TE (Z-Image + Klein) heretic Q8.gguf`** (4.28 GB, from
+  **Klein 4B now uses `TE (Z-Image + Klein 4B) heretic Q8.gguf`** (4.28 GB, from
   [LuffyTheFox/Qwen3-Uncensored-TextEncoders-Klein-Z-Image-Anima-GGUF](https://huggingface.co/LuffyTheFox/Qwen3-Uncensored-TextEncoders-Klein-Z-Image-Anima-GGUF),
   Heretic-abliterated) instead of the 7.49 GB bf16 safetensors. Measured, 1024², same session:
 
@@ -442,7 +442,7 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
   per-image via the "PiD Integrated" accordion checkbox in txt2img/img2img — the Anima
   model/VAE defaults are still preconfigured in `ui-config.json`. 4 steps, ~6 s at 512²,
   ~1 min extra at 1280² (5120² output, model-swap each gen). Variants are per-latent-family:
-  `pid_qwenimage_*` + `VAE (Anima + PiD + Qwen Image Edit)` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
+  `pid_qwenimage_*` + `VAE (Anima + Krea 2 + PiD)` for **Anima** (the default), `pid_sdxl_*` + SDXL/Pony
   VAE for **Pony** — switch both dropdowns together. Incompatible with Hires Fix (skips itself).
   TE = `TE (PiD)` (ex `gemma_2_2b_it_elm_fp8_scaled`). New files went to `models/Stable-diffusion/` + `models/text_encoder/`.
 - **Model research + Civitai vetted picks:** `docs/model-research.md`.

@@ -705,6 +705,15 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - All customs verified intact: the canvas markers, the fp8 TE upcast, the wrong-module retry,
       and the `Qwen 2.1 Turbo` schedule. **Verified live:** Qwen 2.1 and Klein 9B txt2img at 1024²,
       0 tracebacks.
+16. Latest merge: **2026-10-23**: upstream/neo, **7 commits, UNTAGGED**, `2.31-1` → **`2.31-8-g0c388f8b`**.
+    **Clean merge, zero conflicts**; no ⚠ file touched. All 8 canvas markers present (1989 lines).
+    - **Upstream content:** Skip Layer Guidance clean-up (`slg.py` now restores the sampling hook
+      when scripts unload), a LoRA patch addition in `modules_forge/packages/comfy/lora.py`, preset
+      sampler/scheduler dropdowns accept custom values, small attention / memory / degrid tweaks.
+    - **Dependency bump:** comfy-kitchen 0.2.39 → 0.2.40.
+    - **Verified live:** MOSS (`artiusMoss_v10`) txt2img 768², 30 steps, CFG 3, seed 777 → HTTP 200,
+      clean image, **0 tracebacks** (exercises the changed SLG path). PDF report at
+      `docs/updates/forge-neo-update-2026-10-23-2.31-8-g0c388f8b.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

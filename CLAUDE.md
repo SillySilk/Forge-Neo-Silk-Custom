@@ -233,6 +233,8 @@ Files it cannot recognize are listed under every preset, with a warning in the l
 width/height take txt2img's each time the JSON Builder tab is shown, until the user changes the
 size in the builder (typing, Set Resolution, or Load Prompt). Sending to txt2img resumes following.
 Edits marked `// CUSTOM (Forge Neo)` (`resPinned`, `syncFromTxt2img`, an IntersectionObserver on the tab).
+Also `style.css` (CUSTOM-marked): `.jb-list-section` min-height 240px + `.jb-side` scrolls. Upstream's
+`min-height: 0` crushed the item list to 0 px in a short window, hiding every object.
 
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`

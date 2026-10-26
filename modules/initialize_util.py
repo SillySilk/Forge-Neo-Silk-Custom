@@ -198,7 +198,7 @@ def setup_middleware(app):
 
     app.user_middleware.insert(0, starlette.middleware.Middleware(GZipMiddleware, minimum_size=1000))
     configure_cors_middleware(app)
-    app.build_middleware_stack()  # rebuild middleware stack on-the-fly
+    app.middleware_stack = app.build_middleware_stack()  # rebuild middleware stack on-the-fly; newer Starlette only returns it, so assign it or GZip is dropped
 
 
 def configure_cors_middleware(app):

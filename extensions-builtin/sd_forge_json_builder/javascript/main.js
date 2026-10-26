@@ -582,7 +582,18 @@ onUiLoaded(() => {
 
     function createBox(item) {
         const el = h("div", { class: "jb-box", dataset: { id: String(item.id) } });
-        el.appendChild(h("div", { class: "jb-box-tag" }, [item.label]));
+        // CUSTOM (Forge Neo): the tag is a dropdown to change the item's type
+        const tag = h(
+            "select",
+            { class: "jb-box-tag", title: "Item type" },
+            LABELS.map((label) => h("option", { value: label }, [label])),
+        );
+        tag.value = item.label;
+        tag.addEventListener("change", () => {
+            item.label = tag.value;
+            renderAll();
+        });
+        el.appendChild(tag);
 
         const caption = makeEditable(item, "caption");
         el.appendChild(caption);
@@ -670,6 +681,7 @@ onUiLoaded(() => {
             });
             row.appendChild(textInput);
         }
+            if (ev.target === tag) return; // CUSTOM (Forge Neo)
 
         const placeholders = ["x1", "y1", "x2", "y2"];
         const nums = h("div", { class: "jb-item-nums" });

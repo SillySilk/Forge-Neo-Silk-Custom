@@ -387,22 +387,27 @@ onUiLoaded(() => {
 
     // ----- background image (CUSTOM (Forge Neo)) -----
 
-    let bgImage = null; // data URL of the loaded reference image
+    // an <img> with a blob: URL, not a CSS data: URL, which Chrome silently drops past ~2 MB
+    const bgEl = h("img", { class: "jb-bg", alt: "", draggable: "false" });
+    let bgFile = null; // the loaded reference image, sent to img2img
 
-    function setBackground(dataUrl) {
-        bgImage = dataUrl;
-        stage.style.setProperty("--jb-bg-image", dataUrl ? `url("${dataUrl}")` : "none");
-        stage.classList.toggle("jb-has-image", !!dataUrl);
-        clearImageBtn.disabled = !dataUrl;
-        imageOpacity.disabled = !dataUrl;
+    function setBackground(file, url) {
+        if (bgEl.src.startsWith("blob:")) URL.revokeObjectURL(bgEl.src);
+        bgFile = file;
+        if (url) bgEl.src = url;
+        else bgEl.removeAttribute("src");
+        stage.classList.toggle("jb-has-image", !!file);
+        clearImageBtn.disabled = !file;
+        imageOpacity.disabled = !file;
     }
 
     // preview only; the image sent to img2img stays untouched
     imageOpacity.addEventListener("input", () => {
-        stage.style.setProperty("--jb-bg-opacity", String(imageOpacity.value / 100));
+        bgEl.style.opacity = String(imageOpacity.value / 100);
     });
 
     loadImageBtn.addEventListener("click", () => {
+        loadImageBtn.classList.remove("jb-invalid");
         imageInput.value = "";
         imageInput.click();
     });
@@ -410,38 +415,44 @@ onUiLoaded(() => {
     imageInput.addEventListener("change", () => {
         const file = imageInput.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.addEventListener("load", () => {
-            const img = new Image();
-            img.onload = () => {
-                // boxes keep their place relative to the frame
-                const sx = img.naturalWidth / state.width;
-                const sy = img.naturalHeight / state.height;
-                for (const item of state.items) {
-                    const [x1, y1, x2, y2] = item.bbox;
-                    item.bbox = [Math.round(x1 * sx), Math.round(y1 * sy), Math.round(x2 * sx), Math.round(y2 * sy)];
-                }
-                resPinned = true;
-                widthInput.value = img.naturalWidth;
-                heightInput.value = img.naturalHeight;
-                setBackground(reader.result);
-                applyResolution(img.naturalWidth, img.naturalHeight);
-                clampItemsToCanvas();
-                renderList();
-            };
-            img.src = reader.result;
-        });
-        reader.readAsDataURL(file);
+        loadImageBtn.classList.remove("jb-invalid");
+        setBackground(null); // a new pick always replaces the last one, even if it fails to load
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            // boxes keep their place relative to the frame
+            const sx = img.naturalWidth / state.width;
+            const sy = img.naturalHeight / state.height;
+            for (const item of state.items) {
+                const [x1, y1, x2, y2] = item.bbox;
+                item.bbox = [Math.round(x1 * sx), Math.round(y1 * sy), Math.round(x2 * sx), Math.round(y2 * sy)];
+            }
+            resPinned = true;
+            widthInput.value = img.naturalWidth;
+            heightInput.value = img.naturalHeight;
+            setBackground(file, url);
+            applyResolution(img.naturalWidth, img.naturalHeight);
+            clampItemsToCanvas();
+            renderList();
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            loadImageBtn.classList.add("jb-invalid");
+        };
+        img.src = url;
     });
 
     clearImageBtn.addEventListener("click", () => setBackground(null));
 
     // puts the reference image into img2img's input canvas
     function sendImageToImg2img() {
-        if (!bgImage) return;
+        if (!bgFile) return;
         const target = document.getElementById("img2img_image");
         const canvas = Object.values(window.forgeCanvasInstances ?? {}).find((c) => target?.contains(document.getElementById(`drawingCanvas_${c.uuid}`)));
-        canvas?.loadImage(bgImage);
+        if (!canvas) return;
+        const reader = new FileReader();
+        reader.addEventListener("load", () => canvas.loadImage(reader.result));
+        reader.readAsDataURL(bgFile);
     }
 
     // ----- canvas sizing -----
@@ -694,6 +705,7 @@ onUiLoaded(() => {
 
     function renderCanvas() {
         stage.textContent = "";
+        stage.appendChild(bgEl); // CUSTOM (Forge Neo)
         canvasRefs.clear();
         for (const item of state.items) stage.appendChild(createBox(item));
     }

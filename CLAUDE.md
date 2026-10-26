@@ -242,7 +242,7 @@ original card's own `onclick` with `window.cardClicked` swapped out for a moment
 the tab would insert (weight, trigger words), then appends it to Extra. The modal wraps the grid in
 `.extra-network-pane` to borrow the tab's card CSS.
 **Canvas extras (2026-10-26, not offered upstream):** a box's type tag is a `<select>` (object / character /
-text). **Load Image** puts a reference image under the boxes (stage `::before`, `--jb-bg-image`), sets the builder
+text). **Load Image** puts a reference image under the boxes (an `<img class="jb-bg">` with a `blob:` URL — a CSS `url(data:...)` silently fails past ~2 MB in Chrome), sets the builder
 to the image's exact size and scales existing boxes with it; an **Opacity** slider fades it in the preview only;
 **Send to img2img** also loads it into `#img2img_image` via `window.forgeCanvasInstances[...].loadImage()`.
 **Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:

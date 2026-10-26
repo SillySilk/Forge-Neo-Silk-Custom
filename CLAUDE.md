@@ -235,6 +235,12 @@ size in the builder (typing, Set Resolution, or Load Prompt). Sending to txt2img
 Edits marked `// CUSTOM (Forge Neo)` (`resPinned`, `syncFromTxt2img`, an IntersectionObserver on the tab).
 Also `style.css` (CUSTOM-marked): `.jb-list-section` min-height 240px + `.jb-side` scrolls. Upstream's
 `min-height: 0` crushed the item list to 0 px in a short window, hiding every object.
+**LoRA picker:** Extra is a 3-line auto-growing textarea on its own row, with a **+ LoRA** button. It opens a
+modal that clones the txt2img LoRA tab's cards (`#txt2img_lora_cards_html .card`, so the active-folder picker
+applies) plus a search box and a folder select mirroring `#txt2img_lora_folder_select`. A click runs the
+original card's own `onclick` with `window.cardClicked` swapped out for a moment, so the tag is exactly what
+the tab would insert (weight, trigger words), then appends it to Extra. The modal wraps the grid in
+`.extra-network-pane` to borrow the tab's card CSS.
 
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`

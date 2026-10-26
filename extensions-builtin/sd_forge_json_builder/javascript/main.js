@@ -115,7 +115,8 @@ onUiLoaded(() => {
 
     const sumCaption = h("textarea", { class: "jb-sum-caption", placeholder: "global caption", rows: "1" });
     const sumMeta = h("input", { type: "text", class: "jb-sum-meta", placeholder: "meta tags (comma separated)" });
-    const sumExtra = h("input", { type: "text", class: "jb-sum-extra", placeholder: "e.g. LoRA" });
+    const sumExtra = h("textarea", { class: "jb-sum-extra", placeholder: "e.g. LoRA", rows: "3" }); // CUSTOM (Forge Neo): 3-line box, was a one-line input
+    const loraBtn = h("button", { type: "button", class: "jb-lora-btn", title: "Pick a LoRA" }, ["+ LoRA"]); // CUSTOM (Forge Neo)
     const canvasRadioInputs = [];
     const canvasRadios = CANVAS_TYPES.map((t) => {
         const id = `jb-canvas-${t}`;
@@ -132,10 +133,11 @@ onUiLoaded(() => {
         h("div", { class: "jb-row" }, canvasRadios),
         h("label", { class: "jb-fld-label", for: "jb-sum-caption" }, ["Caption"]),
         sumCaption,
-        h("div", { class: "jb-row" }, [
-            h("div", { class: "jb-half" }, [h("label", { class: "jb-fld-label", for: "jb-sum-meta" }, ["Meta"]), sumMeta]),
-            h("div", { class: "jb-half" }, [h("label", { class: "jb-fld-label", for: "jb-sum-extra" }, ["Extra"]), sumExtra]),
-        ]),
+        // CUSTOM (Forge Neo): Meta and Extra on their own rows (Extra is ~3x wider), plus a LoRA picker
+        h("label", { class: "jb-fld-label", for: "jb-sum-meta" }, ["Meta"]),
+        sumMeta,
+        h("label", { class: "jb-fld-label", for: "jb-sum-extra" }, ["Extra"]),
+        h("div", { class: "jb-row jb-extra-row" }, [sumExtra, loraBtn]),
     ]);
     sumCaption.id = "jb-sum-caption";
     sumMeta.id = "jb-sum-meta";
@@ -179,11 +181,25 @@ onUiLoaded(() => {
 
     const topRow = h("div", { class: "jb-top" }, [resolutionSection, saveLoadSection]);
     const side = h("div", { class: "jb-side" }, [topRow, summarySection, listSection, submitSection]);
-    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, fileInput]);
+    // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
+    const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
+    const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });
+    const loraClose = h("button", { type: "button", class: "jb-dialog-close", title: "Close" }, ["×"]);
+    const loraGrid = h("div", { class: "extra-network-cards jb-lora-grid" });
+    const loraModal = h("div", { class: "jb-modal jb-hidden" }, [
+        h("div", { class: "jb-dialog jb-lora-dialog" }, [
+            loraClose,
+            h("div", { class: "jb-row jb-lora-controls" }, [loraSearch, loraFolder]),
+            h("div", { class: "extra-network-pane jb-lora-pane" }, [loraGrid]), // borrows the LoRA tab's card styling
+        ]),
+    ]);
+
+    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, loraModal, fileInput]);
 
     tab.textContent = "";
     tab.appendChild(root);
     addGrowable(sumCaption);
+    addGrowable(sumExtra); // CUSTOM (Forge Neo)
 
     function loadDraft(draft) {
         resPinned = true; // CUSTOM (Forge Neo)
@@ -207,6 +223,7 @@ onUiLoaded(() => {
         sumMeta.value = state.summary.meta;
         sumExtra.value = state.summary.extra;
         autoGrow(sumCaption);
+        autoGrow(sumExtra); // CUSTOM (Forge Neo)
         canvasRadioInputs.forEach((radio) => {
             radio.checked = radio.value === state.summary.canvas;
         });
@@ -242,6 +259,87 @@ onUiLoaded(() => {
         }
         closeDialog();
     }
+
+    // ----- LoRA picker (CUSTOM (Forge Neo)) -----
+
+    const loraCardsHtml = () => document.getElementById("txt2img_lora_cards_html");
+    const loraFolderSource = () => document.querySelector("#txt2img_lora_folder_select");
+
+    function renderLoraCards() {
+        loraGrid.textContent = "";
+        const query = loraSearch.value.trim().toLowerCase();
+        const cards = loraCardsHtml()?.querySelectorAll(".card") ?? [];
+        for (const card of cards) {
+            if (query && !card.textContent.toLowerCase().includes(query)) continue;
+            const clone = card.cloneNode(true);
+            clone.removeAttribute("onclick");
+            clone.removeAttribute("style");
+            clone.querySelector(".button-row")?.remove();
+            clone.addEventListener("click", () => pickLora(card));
+            loraGrid.appendChild(clone);
+        }
+        if (!loraGrid.childElementCount) loraGrid.appendChild(h("div", { class: "jb-lora-empty" }, ["No LoRA found"]));
+    }
+
+    function syncLoraFolders() {
+        const source = loraFolderSource();
+        loraFolder.textContent = "";
+        loraFolder.classList.toggle("jb-hidden", !source);
+        if (!source) return;
+        for (const opt of source.options) loraFolder.appendChild(h("option", { value: opt.value }, [opt.textContent]));
+        loraFolder.value = source.value;
+    }
+
+    // the LoRA tab's own click handler builds the tag (weight, trigger words, ...); capture it instead of inserting into txt2img
+    function pickLora(card) {
+        const original = window.cardClicked;
+        let tag = null;
+        window.cardClicked = (_tabname, textToAdd) => {
+            tag = textToAdd;
+        };
+        try {
+            card.click();
+        } finally {
+            window.cardClicked = original;
+        }
+        if (!tag) return;
+        const current = sumExtra.value.trim();
+        sumExtra.value = current ? `${current} ${tag}` : tag;
+        state.summary.extra = sumExtra.value;
+        autoGrow(sumExtra);
+        closeLoraPicker();
+    }
+
+    const loraObserver = new MutationObserver(() => {
+        if (!loraModal.classList.contains("jb-hidden")) renderLoraCards();
+    });
+
+    function openLoraPicker() {
+        syncLoraFolders();
+        renderLoraCards();
+        const cardsHtml = loraCardsHtml();
+        if (cardsHtml) loraObserver.observe(cardsHtml, { childList: true, subtree: true });
+        loraModal.classList.remove("jb-hidden");
+        loraSearch.focus();
+    }
+
+    function closeLoraPicker() {
+        loraObserver.disconnect();
+        loraModal.classList.add("jb-hidden");
+    }
+
+    loraBtn.addEventListener("click", openLoraPicker);
+    loraClose.addEventListener("click", closeLoraPicker);
+    loraModal.addEventListener("click", (ev) => {
+        if (ev.target === loraModal) closeLoraPicker();
+    });
+    loraSearch.addEventListener("input", renderLoraCards);
+    loraFolder.addEventListener("change", () => {
+        const source = loraFolderSource();
+        if (!source) return;
+        source.value = loraFolder.value;
+        source.dispatchEvent(new Event("change", { bubbles: true }));
+    });
 
     loadPromptBtn.addEventListener("click", openDialog);
     dialogClose.addEventListener("click", closeDialog);
@@ -696,6 +794,7 @@ onUiLoaded(() => {
     });
     sumExtra.addEventListener("input", () => {
         state.summary.extra = sumExtra.value;
+        autoGrow(sumExtra); // CUSTOM (Forge Neo)
     });
 
     addBtn.addEventListener("click", addItem);

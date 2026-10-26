@@ -241,6 +241,10 @@ applies) plus a search box and a folder select mirroring `#txt2img_lora_folder_s
 original card's own `onclick` with `window.cardClicked` swapped out for a moment, so the tag is exactly what
 the tab would insert (weight, trigger words), then appends it to Extra. The modal wraps the grid in
 `.extra-network-pane` to borrow the tab's card CSS.
+**Canvas extras (2026-10-26, not offered upstream):** a box's type tag is a `<select>` (object / character /
+text). **Load Image** puts a reference image under the boxes (stage `::before`, `--jb-bg-image`), sets the builder
+to the image's exact size and scales existing boxes with it; an **Opacity** slider fades it in the preview only;
+**Send to img2img** also loads it into `#img2img_image` via `window.forgeCanvasInstances[...].loadImage()`.
 **Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:
 [#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
 follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they

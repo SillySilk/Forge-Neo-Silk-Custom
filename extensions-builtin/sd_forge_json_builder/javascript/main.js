@@ -157,10 +157,15 @@ onUiLoaded(() => {
     const loadPromptBtn = h("button", { type: "button", class: "jb-load-prompt" }, ["Load Prompt"]);
     const saveJsonBtn = h("button", { type: "button", class: "jb-save-json" }, ["Save JSON"]);
     const loadJsonBtn = h("button", { type: "button", class: "jb-load-json" }, ["Load JSON"]);
+    const loadImageBtn = h("button", { type: "button", class: "jb-load-image", title: "Trace boxes over an image; takes its resolution" }, ["Load Image"]); // CUSTOM (Forge Neo)
+    const clearImageBtn = h("button", { type: "button", class: "jb-clear-image", disabled: "" }, ["Clear Image"]); // CUSTOM (Forge Neo)
+    const imageOpacity = h("input", { type: "range", class: "jb-image-opacity", min: "0", max: "100", step: "1", value: "100", disabled: "", title: "Image opacity (preview only)" }); // CUSTOM (Forge Neo)
     const saveLoadSection = h("div", { class: "jb-section jb-save" }, [
         h("div", { class: "jb-section-title" }, ["Save/Load"]),
         h("div", { class: "jb-row" }, [loadPromptBtn]),
         h("div", { class: "jb-row" }, [saveJsonBtn, loadJsonBtn]),
+        h("div", { class: "jb-row" }, [loadImageBtn, clearImageBtn]), // CUSTOM (Forge Neo)
+        h("div", { class: "jb-row" }, [h("label", {}, ["Opacity"]), imageOpacity]), // CUSTOM (Forge Neo)
     ]);
 
     const dialogInput = h("textarea", { class: "jb-dialog-input", placeholder: "Compiled Prompt or Layout Draft", spellcheck: "false" });
@@ -178,6 +183,8 @@ onUiLoaded(() => {
 
     const fileInput = h("input", { type: "file", accept: ".json,application/json", class: "jb-file" });
     fileInput.style.display = "none";
+    const imageInput = h("input", { type: "file", accept: "image/*", class: "jb-file" }); // CUSTOM (Forge Neo)
+    imageInput.style.display = "none";
 
     const topRow = h("div", { class: "jb-top" }, [resolutionSection, saveLoadSection]);
     const side = h("div", { class: "jb-side" }, [topRow, summarySection, listSection, submitSection]);
@@ -194,7 +201,7 @@ onUiLoaded(() => {
         ]),
     ]);
 
-    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, loraModal, fileInput]);
+    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, loraModal, fileInput, imageInput]);
 
     tab.textContent = "";
     tab.appendChild(root);
@@ -377,6 +384,65 @@ onUiLoaded(() => {
         });
         reader.readAsText(file);
     });
+
+    // ----- background image (CUSTOM (Forge Neo)) -----
+
+    let bgImage = null; // data URL of the loaded reference image
+
+    function setBackground(dataUrl) {
+        bgImage = dataUrl;
+        stage.style.setProperty("--jb-bg-image", dataUrl ? `url("${dataUrl}")` : "none");
+        stage.classList.toggle("jb-has-image", !!dataUrl);
+        clearImageBtn.disabled = !dataUrl;
+        imageOpacity.disabled = !dataUrl;
+    }
+
+    // preview only; the image sent to img2img stays untouched
+    imageOpacity.addEventListener("input", () => {
+        stage.style.setProperty("--jb-bg-opacity", String(imageOpacity.value / 100));
+    });
+
+    loadImageBtn.addEventListener("click", () => {
+        imageInput.value = "";
+        imageInput.click();
+    });
+
+    imageInput.addEventListener("change", () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+            const img = new Image();
+            img.onload = () => {
+                // boxes keep their place relative to the frame
+                const sx = img.naturalWidth / state.width;
+                const sy = img.naturalHeight / state.height;
+                for (const item of state.items) {
+                    const [x1, y1, x2, y2] = item.bbox;
+                    item.bbox = [Math.round(x1 * sx), Math.round(y1 * sy), Math.round(x2 * sx), Math.round(y2 * sy)];
+                }
+                resPinned = true;
+                widthInput.value = img.naturalWidth;
+                heightInput.value = img.naturalHeight;
+                setBackground(reader.result);
+                applyResolution(img.naturalWidth, img.naturalHeight);
+                clampItemsToCanvas();
+                renderList();
+            };
+            img.src = reader.result;
+        });
+        reader.readAsDataURL(file);
+    });
+
+    clearImageBtn.addEventListener("click", () => setBackground(null));
+
+    // puts the reference image into img2img's input canvas
+    function sendImageToImg2img() {
+        if (!bgImage) return;
+        const target = document.getElementById("img2img_image");
+        const canvas = Object.values(window.forgeCanvasInstances ?? {}).find((c) => target?.contains(document.getElementById(`drawingCanvas_${c.uuid}`)));
+        canvas?.loadImage(bgImage);
+    }
 
     // ----- canvas sizing -----
 
@@ -615,6 +681,7 @@ onUiLoaded(() => {
         el.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
             if (ev.target === handle) return;
+            if (ev.target === tag) return; // CUSTOM (Forge Neo)
             if (ev.target.tagName === "TEXTAREA" && !ev.target.readOnly) return;
             ev.preventDefault();
             startDrag(item, ev);
@@ -681,7 +748,6 @@ onUiLoaded(() => {
             });
             row.appendChild(textInput);
         }
-            if (ev.target === tag) return; // CUSTOM (Forge Neo)
 
         const placeholders = ["x1", "y1", "x2", "y2"];
         const nums = h("div", { class: "jb-item-nums" });
@@ -893,7 +959,10 @@ onUiLoaded(() => {
         if (which === "t2i") resPinned = false; // CUSTOM (Forge Neo): sizes match again, resume following txt2img
 
         if (which === "t2i") switch_to_txt2img();
-        else switch_to_img2img();
+        else {
+            switch_to_img2img();
+            sendImageToImg2img(); // CUSTOM (Forge Neo)
+        }
     }
 
     sendT2I.addEventListener("click", () => submit("t2i"));

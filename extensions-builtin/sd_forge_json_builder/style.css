@@ -43,6 +43,16 @@
     cursor: grab;
 }
 
+/* CUSTOM (Forge Neo): reference image under the boxes, opacity set by the slider */
+.jb-stage.jb-has-image::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--jb-bg-image) center / 100% 100% no-repeat;
+    opacity: var(--jb-bg-opacity, 1);
+    pointer-events: none;
+}
+
 .jb-stage.jb-panning {
     cursor: grabbing;
 }
@@ -92,16 +102,6 @@
     color: var(--button-primary-text-color);
 }
 
-.jb-field {
-    flex: 1 1 auto;
-    min-height: 0;
-    min-width: 0;
-    width: auto;
-    box-sizing: border-box;
-    resize: none !important;
-    border: none;
-    outline: none;
-    margin: 8px !important;
 /* CUSTOM (Forge Neo): the tag is a <select> */
 select.jb-box-tag {
     align-self: flex-start;
@@ -121,6 +121,16 @@ select.jb-box-tag option {
     text-transform: none;
 }
 
+.jb-field {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    width: auto;
+    box-sizing: border-box;
+    resize: none !important;
+    border: none;
+    outline: none;
+    margin: 8px !important;
     padding: 3px 6px !important;
     border-radius: 4px !important;
     background: color-mix(in srgb, var(--input-background-fill) 50%, transparent) !important;
@@ -275,6 +285,18 @@ select.jb-box-tag option {
 .jb-save .jb-row>button {
     flex: 1 1 0;
     min-width: 0;
+}
+
+/* CUSTOM (Forge Neo) */
+.jb-save .jb-image-opacity {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.jb-save .jb-row>button:disabled,
+.jb-save .jb-image-opacity:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 /* ----- inputs ----- */

@@ -228,6 +228,12 @@ Files it cannot recognize are listed under every preset, with a warning in the l
 - A new upstream model class needs a line in `_CLASS_TO_PRESET`, or its files show under every preset.
 - Verified live: moss 5, anima 3, krea 6, klein 3, wan 5, qwen21 3, matching the files on disk exactly.
 
+### JSON Builder follows txt2img resolution (added 2026-10-25)
+`extensions-builtin/sd_forge_json_builder/javascript/main.js` (upstream's): the builder's
+width/height take txt2img's each time the JSON Builder tab is shown, until the user changes the
+size in the builder (typing, Set Resolution, or Load Prompt). Sending to txt2img resumes following.
+Edits marked `// CUSTOM (Forge Neo)` (`resPinned`, `syncFromTxt2img`, an IntersectionObserver on the tab).
+
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`
 branch that upcasts fp8 text-encoder weights to float16 (fp8 loses text-comprehension

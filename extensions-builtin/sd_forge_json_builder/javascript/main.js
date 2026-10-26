@@ -186,6 +186,7 @@ onUiLoaded(() => {
     addGrowable(sumCaption);
 
     function loadDraft(draft) {
+        resPinned = true; // CUSTOM (Forge Neo)
         state.width = draft.width;
         state.height = draft.height;
         state.summary.caption = draft.summary.caption;
@@ -623,6 +624,20 @@ onUiLoaded(() => {
 
     // ----- inputs -----
 
+    // CUSTOM (Forge Neo): default to the txt2img resolution until the user sets one here
+    let resPinned = false;
+
+    function syncFromTxt2img() {
+        if (resPinned) return;
+        const w = parseInt(t2i_width.value, 10);
+        const hgt = parseInt(t2i_height.value, 10);
+        if (!(w > 0 && hgt > 0) || (w === state.width && hgt === state.height)) return;
+        widthInput.value = w;
+        heightInput.value = hgt;
+        applyResolution(w, hgt);
+        clampItemsToCanvas();
+    }
+
     function applyResolution(w, h) {
         state.width = w;
         state.height = h;
@@ -643,12 +658,14 @@ onUiLoaded(() => {
     }
 
     widthInput.addEventListener("input", () => {
+        resPinned = true; // CUSTOM (Forge Neo)
         const v = parseInt(widthInput.value, 10);
         if (v > 0) applyResolution(v, state.height);
     });
     widthInput.addEventListener("change", clampItemsToCanvas);
 
     heightInput.addEventListener("input", () => {
+        resPinned = true; // CUSTOM (Forge Neo)
         const v = parseInt(heightInput.value, 10);
         if (v > 0) applyResolution(state.width, v);
     });
@@ -657,6 +674,7 @@ onUiLoaded(() => {
     setResBtn.addEventListener("click", () => {
         const mp = parseFloat(mpInput.value);
         if (!(mp > 0)) return;
+        resPinned = true; // CUSTOM (Forge Neo)
         const [aw, ah] = arSelect.value.split(":").map(Number);
         const area = mp * MP_PIXELS;
         const w = Math.sqrt((area * aw) / ah);
@@ -761,6 +779,7 @@ onUiLoaded(() => {
         updateInput(promptEl);
         updateInput(widthEl);
         updateInput(heightEl);
+        if (which === "t2i") resPinned = false; // CUSTOM (Forge Neo): sizes match again, resume following txt2img
 
         if (which === "t2i") switch_to_txt2img();
         else switch_to_img2img();
@@ -772,7 +791,13 @@ onUiLoaded(() => {
     // ----- init -----
 
     renderAll();
+    syncFromTxt2img(); // CUSTOM (Forge Neo)
     fitStage();
     requestAnimationFrame(fitStage);
+    // CUSTOM (Forge Neo): re-read txt2img's resolution each time this tab is shown
+    if (window.IntersectionObserver)
+        new IntersectionObserver((entries) => {
+            if (entries.some((e) => e.isIntersecting)) syncFromTxt2img();
+        }).observe(tab);
     if (window.ResizeObserver) new ResizeObserver(fitStage).observe(canvasSection);
 });

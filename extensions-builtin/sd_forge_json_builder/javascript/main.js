@@ -420,18 +420,21 @@ onUiLoaded(() => {
         const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
+            // the prompt format needs multiples of 16; the image stretches by at most 8 px a side
+            const width = round16(img.naturalWidth);
+            const height = round16(img.naturalHeight);
             // boxes keep their place relative to the frame
-            const sx = img.naturalWidth / state.width;
-            const sy = img.naturalHeight / state.height;
+            const sx = width / state.width;
+            const sy = height / state.height;
             for (const item of state.items) {
                 const [x1, y1, x2, y2] = item.bbox;
                 item.bbox = [Math.round(x1 * sx), Math.round(y1 * sy), Math.round(x2 * sx), Math.round(y2 * sy)];
             }
             resPinned = true;
-            widthInput.value = img.naturalWidth;
-            heightInput.value = img.naturalHeight;
+            widthInput.value = width;
+            heightInput.value = height;
             setBackground(file, url);
-            applyResolution(img.naturalWidth, img.naturalHeight);
+            applyResolution(width, height);
             clampItemsToCanvas();
             renderList();
         };

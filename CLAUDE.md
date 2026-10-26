@@ -241,6 +241,10 @@ applies) plus a search box and a folder select mirroring `#txt2img_lora_folder_s
 original card's own `onclick` with `window.cardClicked` swapped out for a moment, so the tag is exactly what
 the tab would insert (weight, trigger words), then appends it to Extra. The modal wraps the grid in
 `.extra-network-pane` to borrow the tab's card CSS.
+**Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:
+[#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
+follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they
+merge, take upstream's version on the next merge and re-add only the folder select. Delete the `json-builder-*` branches once all three are closed.
 
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`

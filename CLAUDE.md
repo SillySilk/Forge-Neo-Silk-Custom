@@ -736,6 +736,16 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** MOSS (`artiusMoss_v10`) txt2img 768², 30 steps, CFG 3, seed 777 → HTTP 200,
       clean image, **0 tracebacks** (exercises the changed SLG path). PDF report at
       `docs/updates/forge-neo-update-2026-10-23-2.31-8-g0c388f8b.pdf`.
+17. Latest merge: **2026-10-27**: upstream/neo, **2 commits, UNTAGGED**, `2.31-8` → **`2.31-10-gc6c2b43d`**.
+    **Clean merge, zero conflicts**; no ⚠ file touched. Canvas markers present, fp8 TE upcast intact.
+    - **Upstream content:** **Moss-Image-Edit** — new Settings option `moss_do_reference`
+      ("[Moss-Image] Reference Method": Disable / ai-toolkit / Moss-Image-Edit, default Disable),
+      reference K/V caching in `backend/nn/moss_image.py`, and `loader.py` no longer skips the
+      Qwen3.5 TE's `visual` weights (needed for edit references).
+    - No dependency changes.
+    - **Verified live:** MOSS (`MOSS Artius`) txt2img 768², 8 steps, CFG 1, seed 777 → HTTP 200,
+      clean image, **0 tracebacks** (exercises the changed TE load path). PDF report at
+      `docs/updates/forge-neo-update-2026-10-27-2.31-10-gc6c2b43d.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

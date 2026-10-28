@@ -12,6 +12,30 @@ from backend.quant_ops import ck
 from backend.utils import resize_to_batch_size
 
 
+# CUSTOM (Forge Neo)
+def _real_length(tokens):
+    """Length of one prompt's own tokens in a batched (T, D) context. Forge tiles a shorter prompt whole to match a
+    longer one (ConditionCrossAttn.concat) and pads one by repeating its last token (prompt_parser.stack_conds);
+    an encoded prompt never holds two identical consecutive hidden states, so both are recognisable."""
+    t = tokens.shape[0]
+    period = next(p for p in range(1, t + 1) if t % p == 0 and torch.equal(tokens, tokens[:p].repeat(t // p, 1)))
+    own = tokens[:period]
+    same = (own[1:] == own[:-1]).all(dim=-1)
+    padding = int(same.flip(0).int().cumprod(0).sum())
+    return period - padding
+
+
+# CUSTOM (Forge Neo)
+def prompt_lengths(context):
+    """Per-sample prompt lengths when some sample in the batch carries last-token padding, else None."""
+    if context.shape[0] < 2 or context.shape[1] < 2:
+        return None
+    padded = (context[:, -1] == context[:, -2]).all(dim=-1)
+    if not bool(padded.any()):
+        return None
+    return [_real_length(c) for c in context]
+
+
 def situ(hidden, gate):
     return (4.0 * torch.tanh(gate / 4.0) * torch.sigmoid(gate)) * (25.0 * torch.tanh(hidden / 25.0))
 
@@ -162,6 +186,22 @@ class MOSSImage(nn.Module):
         return kv
 
     def forward(self, x, timestep, context, transformer_options={}, **kwargs):
+        # CUSTOM (Forge Neo): MOSS-Image reads every text token, so a batch whose prompts differ in length
+        # (sd-dynamic-prompts gives each image its own prompt) cannot share one padded context; each such
+        # sample runs on its own at its real length. A batch without padded prompts is unchanged.
+        lengths = prompt_lengths(context) if context.shape[0] == x.shape[0] else None
+        if lengths is None:
+            return self._forward(x, timestep, context, transformer_options)
+        chunks = transformer_options.get("cond_or_uncond") or []
+        per_chunk = x.shape[0] // len(chunks) if chunks and x.shape[0] % len(chunks) == 0 else 0
+        outs = []
+        for i, n in enumerate(lengths):
+            options = {**transformer_options, "cond_or_uncond": [chunks[i // per_chunk]]} if per_chunk else transformer_options
+            t = timestep[i : i + 1] if timestep.shape[0] == x.shape[0] else timestep
+            outs.append(self._forward(x[i : i + 1], t, context[i : i + 1, :n], options))
+        return torch.cat(outs)
+
+    def _forward(self, x, timestep, context, transformer_options={}):
         B, _, H, W = x.shape
         dtype, device = x.dtype, x.device
         transformer_options = transformer_options.copy()

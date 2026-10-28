@@ -255,6 +255,16 @@ Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e
 branch that upcasts fp8 text-encoder weights to float16 (fp8 loses text-comprehension
 precision; matters for Z-Image). Upstream folds fp8 in with nf4/fp4/gguf. Marked `# CUSTOM (Forge Neo)`.
 
+### `backend/nn/moss_image.py` — mixed-length prompt batches (added 2026-10-28)
+MOSS-Image reads every text token, but Forge pads a shorter prompt in a batch by repeating its last
+token (`prompt_parser.stack_conds`). With sd-dynamic-prompts and batch size > 1 each image has its own
+prompt, so those images came out wrong. `prompt_lengths()` spots the padding (also when the padded
+prompt was then tiled against the negative by `ConditionCrossAttn.concat`), and `forward()` runs each
+such sample alone at its real length, with `cond_or_uncond` sliced to match. A batch with no padding
+takes the unchanged path (`_forward`). Marked `# CUSTOM (Forge Neo)`; upstream edits this file, so
+expect conflicts. Verified on a tiny CPU model: patched batch = per-sample runs exactly (diff 0.0),
+unpatched differs.
+
 ### `modules_forge/utils.py` — resolution guard ⚠
 `resize_image_with_pad` has a custom `if resolution <= 0:` guard (avoids div-by-zero /
 negative resize on odd ControlNet inputs). Upstream lacks it. Marked `# CUSTOM (Forge Neo)`.

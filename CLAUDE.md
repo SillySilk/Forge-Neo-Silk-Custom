@@ -756,6 +756,15 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** MOSS (`MOSS Artius`) txt2img 768², 8 steps, CFG 1, seed 777 → HTTP 200,
       clean image, **0 tracebacks** (exercises the changed TE load path). PDF report at
       `docs/updates/forge-neo-update-2026-10-27-2.31-10-gc6c2b43d.pdf`.
+18. Latest merge: **2026-10-28**: upstream/neo, **3 commits, UNTAGGED**, `2.31-10` → **`2.31-13-g2900d594`**.
+    **1 conflict:** README (kept ours). `backend/nn/moss_image.py` auto-merged (upstream only added
+    early `del` of attention tensors); our CUSTOM mixed-length batch code is intact.
+    - **Upstream content:** AMD ROCm Dockerfile, gfx11 VAE attention opt-out (AMD only, inert here),
+      MOSS memory frees.
+    - No dependency changes.
+    - **Verified live:** MOSS Artius txt2img 768², 8 steps, CFG 1, seed 777 → HTTP 200, clean image;
+      batch of 2 at 512² → HTTP 200; **0 tracebacks**. PDF report at
+      `docs/updates/forge-neo-update-2026-10-28-2.31-13-g2900d594.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

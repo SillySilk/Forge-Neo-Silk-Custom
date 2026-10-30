@@ -243,6 +243,8 @@ the tab would insert (weight, trigger words), then appends it to Extra. Each obj
 (2026-10-30) that appends the tag to that item's caption. Forge still applies it to the **whole image** (it pulls
 `<lora:...>` tags from anywhere in the prompt); it only keeps the tag and its trigger words next to that item. The modal wraps the grid in
 `.extra-network-pane` to borrow the tab's card CSS.
+**Item toolbar + default (2026-10-30):** Add Item / Clear All sit under the Resolution/Save row (above
+Summary), not inside the list; new items default to `character`, not `object`.
 **Canvas extras (2026-10-26, not offered upstream):** a box's type tag is a `<select>` (object / character /
 text). **Load Image** puts a reference image under the boxes (an `<img class="jb-bg">` with a `blob:` URL — a CSS `url(data:...)` silently fails past ~2 MB in Chrome), sets the builder
 to the image's exact size and scales existing boxes with it; an **Opacity** slider fades it in the preview only;

@@ -84,7 +84,7 @@ onUiLoaded(() => {
     }
 
     function newItem() {
-        return { id: ++idCounter, label: "object", caption: "", text: "", bbox: defaultBbox() };
+        return { id: ++idCounter, label: "character", caption: "", text: "", bbox: defaultBbox() }; // CUSTOM (Forge Neo): was "object"
     }
 
     state.items.push(newItem());
@@ -146,7 +146,8 @@ onUiLoaded(() => {
     const addBtn = h("button", { type: "button", class: "jb-add" }, ["Add Item"]);
     const clearBtn = h("button", { type: "button", class: "jb-clear" }, ["Clear All"]);
     const listEl = h("div", { class: "jb-list" });
-    const listSection = h("div", { class: "jb-section jb-list-section" }, [h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn]), listEl]);
+    const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn]); // CUSTOM (Forge Neo): sits above Summary, not inside the list
+    const listSection = h("div", { class: "jb-section jb-list-section" }, [listEl]);
 
     const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, ["Send to txt2img"]);
     const sendI2I = h("button", { type: "button", class: "jb-send-i2i" }, ["Send to img2img"]);
@@ -187,7 +188,7 @@ onUiLoaded(() => {
     imageInput.style.display = "none";
 
     const topRow = h("div", { class: "jb-top" }, [resolutionSection, saveLoadSection]);
-    const side = h("div", { class: "jb-side" }, [topRow, summarySection, listSection, submitSection]);
+    const side = h("div", { class: "jb-side" }, [topRow, listToolbar, summarySection, listSection, submitSection]);
     // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
     const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
     const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });

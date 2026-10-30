@@ -239,7 +239,9 @@ Also `style.css` (CUSTOM-marked): `.jb-list-section` min-height 240px + `.jb-sid
 modal that clones the txt2img LoRA tab's cards (`#txt2img_lora_cards_html .card`, so the active-folder picker
 applies) plus a search box and a folder select mirroring `#txt2img_lora_folder_select`. A click runs the
 original card's own `onclick` with `window.cardClicked` swapped out for a moment, so the tag is exactly what
-the tab would insert (weight, trigger words), then appends it to Extra. The modal wraps the grid in
+the tab would insert (weight, trigger words), then appends it to Extra. Each object / character / text row also has a **+ LoRA** button
+(2026-10-30) that appends the tag to that item's caption. Forge still applies it to the **whole image** (it pulls
+`<lora:...>` tags from anywhere in the prompt); it only keeps the tag and its trigger words next to that item. The modal wraps the grid in
 `.extra-network-pane` to borrow the tab's card CSS.
 **Canvas extras (2026-10-26, not offered upstream):** a box's type tag is a `<select>` (object / character /
 text). **Load Image** puts a reference image under the boxes (an `<img class="jb-bg">` with a `blob:` URL — a CSS `url(data:...)` silently fails past ~2 MB in Chrome), sets the builder

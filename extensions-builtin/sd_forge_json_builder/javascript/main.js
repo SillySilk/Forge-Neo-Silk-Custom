@@ -310,18 +310,26 @@ onUiLoaded(() => {
             window.cardClicked = original;
         }
         if (!tag) return;
-        const current = sumExtra.value.trim();
-        sumExtra.value = current ? `${current} ${tag}` : tag;
-        state.summary.extra = sumExtra.value;
-        autoGrow(sumExtra);
+        const onPick = loraTarget;
         closeLoraPicker();
+        onPick?.(tag);
+    }
+
+    function appendTag(field, tag) {
+        const current = field.value.trim();
+        field.value = current ? `${current} ${tag}` : tag;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        autoGrow(field);
     }
 
     const loraObserver = new MutationObserver(() => {
         if (!loraModal.classList.contains("jb-hidden")) renderLoraCards();
     });
 
-    function openLoraPicker() {
+    let loraTarget = null; // where the picked tag goes: the summary's Extra or an item's caption
+
+    function openLoraPicker(onPick) {
+        loraTarget = onPick;
         syncLoraFolders();
         renderLoraCards();
         const cardsHtml = loraCardsHtml();
@@ -332,10 +340,16 @@ onUiLoaded(() => {
 
     function closeLoraPicker() {
         loraObserver.disconnect();
+        loraTarget = null;
         loraModal.classList.add("jb-hidden");
     }
 
-    loraBtn.addEventListener("click", openLoraPicker);
+    loraBtn.addEventListener("click", () =>
+        openLoraPicker((tag) => {
+            appendTag(sumExtra, tag);
+            state.summary.extra = sumExtra.value;
+        }),
+    );
     loraClose.addEventListener("click", closeLoraPicker);
     loraModal.addEventListener("click", (ev) => {
         if (ev.target === loraModal) closeLoraPicker();
@@ -740,7 +754,9 @@ onUiLoaded(() => {
 
         const remove = h("button", { type: "button", class: "jb-remove", title: "Remove" }, ["\u00D7"]);
         remove.addEventListener("click", () => removeItem(item.id));
-        top.appendChild(remove);
+        // CUSTOM (Forge Neo): LoRA picker for this item's caption
+        const itemLoraBtn = h("button", { type: "button", class: "jb-item-lora", title: "Add a LoRA to this item's caption" }, ["+ LoRA"]);
+        top.append(itemLoraBtn, remove);
         row.appendChild(top);
 
         const caption = h("textarea", { class: "jb-item-caption", placeholder: "caption", rows: "1", value: item.caption });
@@ -752,6 +768,7 @@ onUiLoaded(() => {
         });
         row.appendChild(caption);
         addGrowable(caption);
+        itemLoraBtn.addEventListener("click", () => openLoraPicker((tag) => appendTag(caption, tag))); // CUSTOM (Forge Neo)
 
         let textInput = null;
         if (item.label === "text") {

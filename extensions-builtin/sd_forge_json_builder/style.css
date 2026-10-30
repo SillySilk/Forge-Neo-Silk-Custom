@@ -471,6 +471,17 @@ select.jb-box-tag option {
     background: var(--checkbox-label-background-fill-hover);
 }
 
+/* CUSTOM (Forge Neo): per-item LoRA button, pushes itself and the remove button right */
+button.jb-item-lora {
+    margin-left: auto;
+    padding: 1px 8px;
+    font-size: var(--checkbox-label-text-size);
+}
+
+button.jb-item-lora + button.jb-remove {
+    margin-left: 0;
+}
+
 button.jb-remove {
     margin-left: auto;
     padding: 1px 9px;

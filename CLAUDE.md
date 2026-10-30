@@ -257,6 +257,25 @@ Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e
 branch that upcasts fp8 text-encoder weights to float16 (fp8 loses text-comprehension
 precision; matters for Z-Image). Upstream folds fp8 in with nf4/fp4/gguf. Marked `# CUSTOM (Forge Neo)`.
 
+### MOSS regional LoRA — `extensions-builtin/sd_forge_moss_regional_lora` (added 2026-10-30)
+Our own add-on, no upstream files touched. A `<lora:...>` tag inside a JSON Builder **item** caption
+(the per-item **+ LoRA** button) acts only inside that item's box; tags in the summary caption or
+Extra stay global. Same subtraction as the Couple Krea 2 fork's `krea_lora.py`: Forge merges the LoRA
+everywhere, then its low-rank delta is subtracted from every token outside the item's box, and from
+every text token outside that item's `{...}`. No attention bias: MOSS already places items from
+the bboxes. On/off: Settings → MOSS Regional LoRA (`moss_regional_lora`, on). Infotext:
+`MOSS regional LoRA: name: item N`. Tests: run `tests/test_*.py` directly with the venv python.
+- Patches swap `MOSSImage._forward` and `moss_image.linear_input_act` (the int8 `ffn_down` path never
+  calls the module's forward). Restored in `postprocess`. Reference-in-sequence edit modes are skipped.
+- Forge loads the **slow** Qwen tokenizer (no character offsets); the add-on loads the fast one from
+  the same folder and refuses to run if the two disagree on ids.
+- LoRAs trained on separate `q`/`k`/`v` (e.g. ComicMIX) reach MOSS's fused `qkv` as offset patches;
+  they are stacked into one low-rank pair. Before that fix 126 layers stayed global.
+- ⚠ **sd-dynamic-prompts strips every `{ }` from a JSON Builder prompt** (its variant syntax), so MOSS
+  gets a broken layout and the add-on finds no items. Disable Dynamic Prompts for layout prompts.
+- Verified 2026-10-30 (Artius 8 steps and Base CFG 3): Homer + plain woman, ComicMIX on one person,
+  Homer + Marge each in its box; no tracebacks, no slowdown.
+
 ### `backend/nn/moss_image.py` — mixed-length prompt batches (added 2026-10-28)
 MOSS-Image reads every text token, but Forge pads a shorter prompt in a batch by repeating its last
 token (`prompt_parser.stack_conds`). With sd-dynamic-prompts and batch size > 1 each image has its own

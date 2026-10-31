@@ -273,8 +273,10 @@ the bboxes. On/off: Settings → MOSS Regional LoRA (`moss_regional_lora`, on). 
   the same folder and refuses to run if the two disagree on ids.
 - LoRAs trained on separate `q`/`k`/`v` (e.g. ComicMIX) reach MOSS's fused `qkv` as offset patches;
   they are stacked into one low-rank pair. Before that fix 126 layers stayed global.
-- ⚠ **sd-dynamic-prompts strips every `{ }` from a JSON Builder prompt** (its variant syntax), so MOSS
-  gets a broken layout and the add-on finds no items. Disable Dynamic Prompts for layout prompts.
+- sd-dynamic-prompts used to strip every `{ }` from a JSON Builder prompt (its variant syntax), breaking
+  the layout. **Fixed 2026-10-30** in its `silk-custom` branch (`_protect_layout` in `dynamic_prompting.py`):
+  the layout's own braces are hidden from the parser, so `{a|b}` and `@@wildcards@@` inside captions still work.
+  If that extension is ever reset to upstream, the bug comes back.
 - Verified 2026-10-30 (Artius 8 steps and Base CFG 3): Homer + plain woman, ComicMIX on one person,
   Homer + Marge each in its box; no tracebacks, no slowdown.
 
@@ -382,6 +384,7 @@ error. One real `git fetch` in that extension fixes it permanently.
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).
   Deliberately **kept** on 2026-08-29; upstream is dormant so there is nothing to take.
+  Also (2026-10-30) leaves JSON Builder layout braces alone (`_protect_layout`), see the MOSS regional LoRA section.
 - **ADetailer-Neo**: adds a `"None"` entry to the ADetailer-checkpoint dropdown
   (`lib_adetailer/ui.py`) and treats it as unset (`scripts/adetailer.py`), so enabling
   "Use separate Checkpoint" no longer force-overrides the model. Upstream still lacks this.

@@ -791,6 +791,21 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** MOSS Artius txt2img 768², 8 steps, CFG 1, seed 777 → HTTP 200, clean image;
       batch of 2 at 512² → HTTP 200; **0 tracebacks**. PDF report at
       `docs/updates/forge-neo-update-2026-10-28-2.31-13-g2900d594.pdf`.
+19. Latest merge: **2026-10-31**: upstream/neo, **9 commits, UNTAGGED**, `2.31-13` → **`2.31-22-g2d79fc2f`**.
+    **Clean merge, zero conflicts**; no ⚠ file touched. Canvas markers present (1989 lines), fp8 TE
+    upcast, resolution guard, folder picker and MOSS customs intact.
+    - **Upstream content:** mixed-shape batching. `prompt_parser.stack_conds` no longer pads a shorter
+      prompt by repeating its last token; prompts of different lengths are now grouped by shape and run
+      as separate sub-batches (`backend/sampling/condition.py` `batch_indices`, `sampling_function.py`).
+      So our MOSS mixed-length custom in `moss_image.py` now normally sees no padding and takes its
+      unchanged path. Kept anyway (harmless, still covers any padded input). Also: failed LoRAs are
+      remembered and skipped (`failed_networks` in `networks.py`, auto-merged beside the folder picker),
+      shared Wan/Qwen 2.1 VAE cache (`backend/nn/_wan_cache.py`), nunchaku UNet detection, checkpoint
+      metadata editor, settings tweaks.
+    - No dependency changes.
+    - **Verified live:** Krea 2 (`Krea Sick Ollie`) txt2img 512², 8 steps, CFG 1, seed 777, batch of 2 →
+      2 images; same with a Krea 2 LoRA → image; **0 tracebacks**. MOSS regional LoRA unit tests pass (9).
+      PDF report at `docs/updates/forge-neo-update-2026-10-31-2.31-22-g2d79fc2f.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

@@ -74,12 +74,36 @@ function decompilePrompt(input, width, height) {
         return prompt.replace(/(?<!\\)((?:\\\\)*)\\([()])/g, (match, runs, paren) => runs + "\\\\" + paren);
     }
 
-    const draft = typeof input === "string" ? JSON.parse(restoreJsonParens(input)) : input;
+    // CUSTOM (Forge Neo): the compiled prompt is the JSON object, then "\n" + Extra; split the two
+    function splitExtra(prompt) {
+        const start = prompt.indexOf("{");
+        if (start < 0) return [prompt, ""];
+        let depth = 0;
+        let inString = false;
+        for (let i = start; i < prompt.length; i++) {
+            const c = prompt[i];
+            if (inString) {
+                if (c === "\\") i++;
+                else if (c === '"') inString = false;
+            } else if (c === '"') inString = true;
+            else if (c === "{") depth++;
+            else if (c === "}" && --depth === 0) return [prompt.slice(0, i + 1), prompt.slice(i + 1).trim()];
+        }
+        return [prompt, ""];
+    }
+
+    let extra = "";
+    let draft = input;
+    if (typeof input === "string") {
+        let json;
+        [json, extra] = splitExtra(input);
+        draft = JSON.parse(restoreJsonParens(json));
+    }
 
     require(draft !== null && typeof draft === "object" && !Array.isArray(draft), "Prompt must be a JSON object");
 
     if (typeof draft.width === "number" && typeof draft.height === "number") {
-        return normalizeDraft(draft);
+        return { ...normalizeDraft(draft), extra };
     }
 
     require(Number.isFinite(width) && width > 0, "A valid width is required to decompile a prompt");
@@ -102,7 +126,7 @@ function decompilePrompt(input, width, height) {
         return { ...item, bbox: [x1 + halfWidth, y1 + halfHeight, x2 + halfWidth, y2 + halfHeight] };
     });
 
-    return normalizeDraft({
+    const result = normalizeDraft({
         width,
         height,
         bbox_coord_space: "abs",
@@ -110,4 +134,5 @@ function decompilePrompt(input, width, height) {
         summary: draft.summary,
         items,
     });
+    return { ...result, extra }; // CUSTOM (Forge Neo)
 }

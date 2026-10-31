@@ -216,7 +216,7 @@ onUiLoaded(() => {
         state.summary.caption = draft.summary.caption;
         state.summary.meta = draft.summary.meta.join(", ");
         state.summary.canvas = draft.summary.canvas;
-        state.summary.extra = "";
+        state.summary.extra = draft.extra || ""; // CUSTOM (Forge Neo): was always ""
         state.items = draft.items.map((item) => ({
             id: ++idCounter,
             label: item.label,

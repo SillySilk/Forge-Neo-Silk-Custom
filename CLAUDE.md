@@ -295,6 +295,13 @@ takes the unchanged path (`_forward`). Marked `# CUSTOM (Forge Neo)`; upstream e
 expect conflicts. Verified on a tiny CPU model: patched batch = per-sample runs exactly (diff 0.0),
 unpatched differs.
 
+### `modules/shared_options.py` — MOSS edit method trimmed (2026-11-01)
+`moss_do_reference` offers only **Disable / ai-toolkit**; upstream's `Moss-Image-Edit` choice is removed
+(`# CUSTOM (Forge Neo)`). A/B on MOSS Moody (seed 777, 25 steps, CFG 3): armV5 + ai-toolkit did the full edit
+(red shirt *and* snow; cat + glasses), chinoll + Moss-Image-Edit missed the snow, and no LoRA could not edit.
+The chinoll LoRA was deleted from `G:\LORAS\Moss`. The engine's `REFERENCE_METHODS` entry is upstream and left alone.
+Upstream edits this options block, so expect the line to conflict on a merge; keep our two-choice tuple.
+
 ### `modules_forge/utils.py` — resolution guard ⚠
 `resize_image_with_pad` has a custom `if resolution <= 0:` guard (avoids div-by-zero /
 negative resize on odd ControlNet inputs). Upstream lacks it. Marked `# CUSTOM (Forge Neo)`.

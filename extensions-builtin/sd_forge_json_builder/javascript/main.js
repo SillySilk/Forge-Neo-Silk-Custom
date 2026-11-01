@@ -744,7 +744,7 @@ onUiLoaded(() => {
         // CUSTOM (Forge Neo): delete button in the top-right corner
         const trash = h("button", { type: "button", class: "jb-box-trash", title: "Delete this box" });
         trash.innerHTML =
-            '<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
         trash.addEventListener("pointerdown", (ev) => ev.stopPropagation());
         trash.addEventListener("click", (ev) => {
             ev.stopPropagation();

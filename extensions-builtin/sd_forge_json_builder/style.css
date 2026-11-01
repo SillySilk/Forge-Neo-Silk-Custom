@@ -705,31 +705,43 @@ button.jb-remove:hover {
 }
 
 /* CUSTOM (Forge Neo): delete button in a box's top-right corner */
-.jb-box-trash {
+.jb-root .jb-box-trash {
     position: absolute;
-    top: 2px;
-    right: 2px;
+    top: 3px;
+    right: 3px;
     z-index: 2;
-    width: calc(20px * var(--jb-text-scale));
-    height: calc(20px * var(--jb-text-scale));
-    padding: calc(3px * var(--jb-text-scale));
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(22px * var(--jb-text-scale));
+    height: calc(22px * var(--jb-text-scale));
+    min-width: 0;
+    padding: 0;
     border: none;
     border-radius: 4px;
-    background: color-mix(in srgb, var(--background-fill-primary) 80%, transparent);
+    background: var(--background-fill-primary);
     color: var(--body-text-color);
     cursor: pointer;
-    opacity: 0.55;
+    opacity: 0.8;
     transition:
         opacity 0.15s ease,
         background 0.15s ease,
         color 0.15s ease;
 }
 
-.jb-box:hover .jb-box-trash {
+.jb-root .jb-box-trash svg {
+    flex: 0 0 auto;
+    width: calc(14px * var(--jb-text-scale));
+    height: calc(14px * var(--jb-text-scale));
+    pointer-events: none;
+}
+
+.jb-root .jb-box:hover .jb-box-trash {
     opacity: 1;
 }
 
-.jb-box-trash:hover {
+.jb-root .jb-box-trash:hover {
     background: var(--error-background-fill, #dc2626);
     color: var(--error-text-color, #fff);
 }

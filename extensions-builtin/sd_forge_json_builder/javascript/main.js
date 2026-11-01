@@ -160,12 +160,15 @@ onUiLoaded(() => {
     const loadJsonBtn = h("button", { type: "button", class: "jb-load-json" }, ["Load JSON"]);
     const loadImageBtn = h("button", { type: "button", class: "jb-load-image", title: "Trace boxes over an image; takes its resolution" }, ["Load Image"]); // CUSTOM (Forge Neo)
     const clearImageBtn = h("button", { type: "button", class: "jb-clear-image", disabled: "" }, ["Clear Image"]); // CUSTOM (Forge Neo)
+    const fromT2IBtn = h("button", { type: "button", class: "jb-from-t2i", title: "Use the selected (or latest) txt2img result as the reference image" }, ["From txt2img"]); // CUSTOM (Forge Neo)
+    const fromI2IBtn = h("button", { type: "button", class: "jb-from-i2i", title: "Use img2img's input image as the reference image" }, ["From img2img"]); // CUSTOM (Forge Neo)
     const imageOpacity = h("input", { type: "range", class: "jb-image-opacity", min: "0", max: "100", step: "1", value: "100", disabled: "", title: "Image opacity (preview only)" }); // CUSTOM (Forge Neo)
     const saveLoadSection = h("div", { class: "jb-section jb-save" }, [
         h("div", { class: "jb-section-title" }, ["Save/Load"]),
         h("div", { class: "jb-row" }, [loadPromptBtn]),
         h("div", { class: "jb-row" }, [saveJsonBtn, loadJsonBtn]),
         h("div", { class: "jb-row" }, [loadImageBtn, clearImageBtn]), // CUSTOM (Forge Neo)
+        h("div", { class: "jb-row" }, [fromT2IBtn, fromI2IBtn]), // CUSTOM (Forge Neo)
         h("div", { class: "jb-row" }, [h("label", {}, ["Opacity"]), imageOpacity]), // CUSTOM (Forge Neo)
     ]);
 
@@ -427,10 +430,9 @@ onUiLoaded(() => {
         imageInput.click();
     });
 
-    imageInput.addEventListener("change", () => {
-        const file = imageInput.files?.[0];
-        if (!file) return;
-        loadImageBtn.classList.remove("jb-invalid");
+    // takes the image's resolution and scales the boxes with it; `button` turns red if it cannot be read
+    function loadBackground(file, button) {
+        [loadImageBtn, fromT2IBtn, fromI2IBtn].forEach((b) => b.classList.remove("jb-invalid"));
         setBackground(null); // a new pick always replaces the last one, even if it fails to load
         const url = URL.createObjectURL(file);
         const img = new Image();
@@ -455,18 +457,57 @@ onUiLoaded(() => {
         };
         img.onerror = () => {
             URL.revokeObjectURL(url);
-            loadImageBtn.classList.add("jb-invalid");
+            button.classList.add("jb-invalid");
         };
         img.src = url;
+    }
+
+    imageInput.addEventListener("change", () => {
+        const file = imageInput.files?.[0];
+        if (file) loadBackground(file, loadImageBtn);
     });
+
+    async function loadBackgroundFromUrl(src, button) {
+        button.classList.remove("jb-invalid");
+        if (!src) {
+            button.classList.add("jb-invalid");
+            return;
+        }
+        try {
+            const res = await fetch(src);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            loadBackground(await res.blob(), button);
+        } catch (e) {
+            console.error("[JSON Builder] could not grab the image:", e);
+            button.classList.add("jb-invalid");
+        }
+    }
+
+    // the result the txt2img gallery shows: the selected thumbnail, else the open preview, else the first result
+    function txt2imgImageSrc() {
+        const gallery = document.getElementById("txt2img_gallery");
+        if (!gallery) return null;
+        const img =
+            gallery.querySelector(".thumbnail-item.selected img") ??
+            gallery.querySelector(".preview img:not(.thumbnail-item img)") ??
+            gallery.querySelector(".thumbnail-item img, .grid-wrap img");
+        return img?.src || null;
+    }
+
+    function img2imgCanvas() {
+        const target = document.getElementById("img2img_image");
+        return Object.values(window.forgeCanvasInstances ?? {}).find((c) => target?.contains(document.getElementById(`drawingCanvas_${c.uuid}`)));
+    }
+
+    fromT2IBtn.addEventListener("click", () => loadBackgroundFromUrl(txt2imgImageSrc(), fromT2IBtn));
+    fromI2IBtn.addEventListener("click", () => loadBackgroundFromUrl(img2imgCanvas()?.img || null, fromI2IBtn));
 
     clearImageBtn.addEventListener("click", () => setBackground(null));
 
     // puts the reference image into img2img's input canvas
     function sendImageToImg2img() {
         if (!bgFile) return;
-        const target = document.getElementById("img2img_image");
-        const canvas = Object.values(window.forgeCanvasInstances ?? {}).find((c) => target?.contains(document.getElementById(`drawingCanvas_${c.uuid}`)));
+        const canvas = img2imgCanvas();
         if (!canvas) return;
         const reader = new FileReader();
         reader.addEventListener("load", () => canvas.loadImage(reader.result));
@@ -699,6 +740,17 @@ onUiLoaded(() => {
             text.classList.add("jb-box-text");
             el.appendChild(text);
         }
+
+        // CUSTOM (Forge Neo): delete button in the top-right corner
+        const trash = h("button", { type: "button", class: "jb-box-trash", title: "Delete this box" });
+        trash.innerHTML =
+            '<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+        trash.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+        trash.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            removeItem(item.id);
+        });
+        el.appendChild(trash);
 
         const handle = h("div", { class: "jb-box-handle" });
         handle.addEventListener("pointerdown", (ev) => {

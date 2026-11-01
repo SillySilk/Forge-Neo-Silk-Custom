@@ -249,6 +249,8 @@ Summary), not inside the list; new items default to `character`, not `object`.
 text). **Load Image** puts a reference image under the boxes (an `<img class="jb-bg">` with a `blob:` URL — a CSS `url(data:...)` silently fails past ~2 MB in Chrome), sets the builder
 to the image's exact size and scales existing boxes with it; an **Opacity** slider fades it in the preview only;
 **Send to img2img** also loads it into `#img2img_image` via `window.forgeCanvasInstances[...].loadImage()`.
+**From txt2img / From img2img** (2026-11-01) grab the reference image from the selected txt2img result or the
+img2img input canvas (`.img`). Each box has a trash button (`.jb-box-trash`) in its top-right corner.
 **Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:
 [#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
 follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they

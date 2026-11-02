@@ -752,6 +752,17 @@ onUiLoaded(() => {
         });
         el.appendChild(trash);
 
+        // CUSTOM (Forge Neo): duplicate button, left of the trash button
+        const copy = h("button", { type: "button", class: "jb-box-copy", title: "Duplicate this box" });
+        copy.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
+        copy.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+        copy.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            duplicateItem(item.id);
+        });
+        el.appendChild(copy);
+
         const handle = h("div", { class: "jb-box-handle" });
         handle.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
@@ -875,6 +886,22 @@ onUiLoaded(() => {
         const index = state.items.findIndex((it) => it.id === id);
         if (index >= 0) state.items.splice(index, 1);
         if (state.items.length === 0) state.items.push(newItem());
+        renderAll();
+    }
+
+    // CUSTOM (Forge Neo): copy a box (type, caption, text, size), offset so it doesn't sit on top
+    function duplicateItem(id) {
+        const index = state.items.findIndex((it) => it.id === id);
+        if (index < 0) return;
+        const src = state.items[index];
+        const [x1, y1, x2, y2] = src.bbox;
+        const w = x2 - x1;
+        const ht = y2 - y1;
+        const off = Math.max(16, Math.round(Math.min(state.width, state.height) * 0.04));
+        const nx1 = clamp(x1 + off, 0, Math.max(0, state.width - w));
+        const ny1 = clamp(y1 + off, 0, Math.max(0, state.height - ht));
+        const copy = { ...src, id: ++idCounter, bbox: [nx1, ny1, nx1 + w, ny1 + ht] };
+        state.items.splice(index + 1, 0, copy);
         renderAll();
     }
 

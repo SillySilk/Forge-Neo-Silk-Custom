@@ -832,6 +832,13 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** MOSS Moody txt2img 512², 12 steps, CFG 3, seed 777 → HTTP 200, clean image,
       **0 tracebacks**; LoRA list (active folder) 42, checkpoints 19, modules 24. MOSS regional LoRA tests pass (9).
       PDF report at `docs/updates/forge-neo-update-2026-11-02-2.31-27-gb59500ed.pdf`.
+21. Latest merge: **2026-11-03**: upstream/neo, **1 commit, UNTAGGED**, `2.31-27` → **`2.31-28-g286a244e`**.
+    **Clean merge, zero conflicts**; only `modules/scripts.py` changed (upstream deleted a second, identical
+    `ScriptRunner.process_before_every_sampling`; Python already used the later copy, so no behaviour change).
+    No ⚠ file touched; all canvas markers and CUSTOM markers intact. No dependency changes.
+    - **Verified live:** MOSS Moody txt2img 512², 8 steps, seed 777 → HTTP 200, clean image, **0 tracebacks**.
+      MOSS regional LoRA tests pass (9). PDF report at
+      `docs/updates/forge-neo-update-2026-11-03-2.31-28-g286a244e.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

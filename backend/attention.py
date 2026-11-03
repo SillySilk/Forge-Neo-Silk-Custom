@@ -380,8 +380,18 @@ def attention_flash(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         if mask.ndim == 3:
             mask = mask.unsqueeze(1)
 
+    causal = kwargs.get("causal", False)
+
+    # CUSTOM (Forge Neo): flash_attn only takes fp16/bf16. The Qwen vision towers
+    # (MOSS / Krea 2 / Qwen edit references) run in fp32, which logged one error per
+    # attention call before falling back. Go straight to SDPA for those, quietly.
+    if q.dtype not in (torch.float16, torch.bfloat16):
+        out = operations.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=causal and mask is None)
+        if not skip_output_reshape:
+            out = out.transpose(1, 2).reshape(b, -1, heads * dim_head)
+        return out
+
     try:
-        causal = kwargs.get("causal", False)
         assert mask is None or causal
         out = flash_attn_wrapper(
             q.transpose(1, 2),

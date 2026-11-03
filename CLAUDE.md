@@ -819,6 +819,19 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** Krea 2 (`Krea Sick Ollie`) txt2img 512², 8 steps, CFG 1, seed 777, batch of 2 →
       2 images; same with a Krea 2 LoRA → image; **0 tracebacks**. MOSS regional LoRA unit tests pass (9).
       PDF report at `docs/updates/forge-neo-update-2026-10-31-2.31-22-g2d79fc2f.pdf`.
+20. Latest merge: **2026-11-02**: upstream/neo, **5 commits, UNTAGGED**, `2.31-22` → **`2.31-27-gb59500ed`**.
+    **2 conflicts**, both hand-merged:
+    - `extensions-builtin/sd_forge_lora/networks.py`: upstream made `process_network_files()` collect into a
+      `set` and sort naturally. Kept our `active_lora_dirs()` loop (folder picker) with upstream's `set.update`.
+    - `modules_forge/main_entry.py`: upstream turned `module_list`/`module_map` into sorted `OrderedDict`s.
+      Kept our `HIDDEN_PRESETS` line above them; `checkpoint_choices()` untouched (it sorts on its own).
+    - **Upstream content:** `get_attn_precision()` was missing its `return` (attention upcast never applied),
+      new `javascript/dimRounding.js` (width/height rounding), natural sort for checkpoint/VAE/LoRA lists,
+      xyz_grid and PiD tweaks. Our flash_attn fp32 skip in `attention.py` auto-merged intact.
+    - No dependency changes.
+    - **Verified live:** MOSS Moody txt2img 512², 12 steps, CFG 3, seed 777 → HTTP 200, clean image,
+      **0 tracebacks**; LoRA list (active folder) 42, checkpoints 19, modules 24. MOSS regional LoRA tests pass (9).
+      PDF report at `docs/updates/forge-neo-update-2026-11-02-2.31-27-gb59500ed.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

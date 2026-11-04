@@ -839,6 +839,14 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** MOSS Moody txt2img 512², 8 steps, seed 777 → HTTP 200, clean image, **0 tracebacks**.
       MOSS regional LoRA tests pass (9). PDF report at
       `docs/updates/forge-neo-update-2026-11-03-2.31-28-g286a244e.pdf`.
+22. Latest merge: **2026-11-04**: upstream/neo, **2 commits, UNTAGGED**, `2.31-28` → **`2.31-30-g936d9dac`**.
+    **Clean merge, zero conflicts**; only `backend/args.py` and `scripts/xyz_grid.py` changed. No ⚠ file touched;
+    all canvas markers and CUSTOM markers intact. No dependency changes.
+    - **Upstream content:** new XYZ axis **Prompt S/R (LoRA)** (labels grid cells with LoRA name and weight);
+      `EnumAction` removed from `args.py`, so `--sage-function` converts through the enum directly. We don't pass that flag.
+    - **Verified live:** MOSS Moody txt2img 512², 8 steps, CFG 3, seed 777 → HTTP 200, clean image, **0 tracebacks**.
+      MOSS regional LoRA tests pass (9). New label function checked directly on sample strings; no full XYZ grid run.
+      PDF report at `docs/updates/forge-neo-update-2026-11-04-2.31-30-g936d9dac.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

@@ -847,6 +847,17 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** MOSS Moody txt2img 512², 8 steps, CFG 3, seed 777 → HTTP 200, clean image, **0 tracebacks**.
       MOSS regional LoRA tests pass (9). New label function checked directly on sample strings; no full XYZ grid run.
       PDF report at `docs/updates/forge-neo-update-2026-11-04-2.31-30-g936d9dac.pdf`.
+23. Latest merge: **2026-11-05**: upstream/neo, **8 commits, UNTAGGED**, `2.31-30` → **`2.31-38-g51c0b26a`**.
+    **2 conflicts**, both hand-merged; no ⚠ file besides `main_entry.py`. Canvas markers (1989 lines) and CUSTOM markers intact.
+    - `modules/processing.py`: the line-ending false conflict again. Took ours and applied upstream's two `disable_log=hasattr(p, "is_xyz_pass")` edits.
+    - `modules_forge/main_entry.py`: upstream's `preset_choices()` (`--disable-preset`, `--sort-preset`) now also leaves out our `HIDDEN_PRESETS`;
+      `checkpoint_choices()` kept above upstream's new `refresh_model_loading_parameters(disable_log=)` signature. Note the conflicted working copy is CRLF, so a scripted resolve must handle `
+`.
+    - **Upstream content:** XYZ grid gains a **Text Encoder** axis and module handling through `override_settings` (quieter logs via `is_xyz_pass`), Anima 4-channel (RGBA) VAE support (`wan_vae.py`, `patcher/vae.py`, `loader.py`), new launch flags `--disable-preset` / `--sort-preset`, an RGBA fix when sending images between tabs, a small card margin in `style.css`, lint in `sysinfo.py`.
+    - **Dependency bump:** comfy-kitchen 0.2.40 → 0.2.41.
+    - **Verified live:** 512² txt2img, seed 777, on MOSS Moody, Anima (`waiANIMA`, exercises the changed Wan-VAE load) and Krea 2 (`Krea Sick Ollie`) → clean images; XYZ grid across two MOSS checkpoints plus the new Text Encoder axis → grid image; **0 tracebacks**. Preset dropdown hides `qwen`/`xl`/`flux`/`zit`; checkpoint filter gave moss 5, anima 2, krea 2, wan 5, qwen21 2. Unit tests pass: MOSS regional LoRA (9), Couple Krea (28).
+      RGBA Anima itself not run (no such model here). PDF report at
+      `docs/updates/forge-neo-update-2026-11-05-2.31-38-g51c0b26a.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

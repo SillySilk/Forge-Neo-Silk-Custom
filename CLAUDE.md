@@ -858,6 +858,20 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** 512² txt2img, seed 777, on MOSS Moody, Anima (`waiANIMA`, exercises the changed Wan-VAE load) and Krea 2 (`Krea Sick Ollie`) → clean images; XYZ grid across two MOSS checkpoints plus the new Text Encoder axis → grid image; **0 tracebacks**. Preset dropdown hides `qwen`/`xl`/`flux`/`zit`; checkpoint filter gave moss 5, anima 2, krea 2, wan 5, qwen21 2. Unit tests pass: MOSS regional LoRA (9), Couple Krea (28).
       RGBA Anima itself not run (no such model here). PDF report at
       `docs/updates/forge-neo-update-2026-11-05-2.31-38-g51c0b26a.pdf`.
+24. Latest merge: **2026-11-06**: upstream/neo, **2 commits, UNTAGGED**, `2.31-38` → **`2.31-40-g4f4284b0`**.
+    **Clean merge, zero conflicts**; only `backend/nn/krea.py` and `backend/patcher/vae.py` changed. No ⚠ file touched;
+    all canvas markers (1989 lines) and CUSTOM markers intact. No dependency changes.
+    - **Upstream content:** faster Krea 2 attention and norm paths (`ck.rms_adaln`, `ck.rms_rope_`, already in comfy-kitchen 0.2.41);
+      `DiT.last` now receives **only the image tokens**; a VAE without `decoder.head` no longer crashes.
+    - **The clean merge still broke a custom.** Couple's regional LoRA (`extensions/sd-forge-couple/lib_couple/krea.py`,
+      `_lora_linear_forward`) skips any layer whose token count differs from the full sequence, so `last.linear` silently went global
+      for the 11 of 528 Krea LoRAs that train it. No error, no log line. Fixed by using the image-token tail of the weights for that layer.
+      Committed locally on the `krea2-lora` branch of the Couple repo, **not pushed yet**: the Extensions-tab updater could erase it
+      if origin's branch ever moves first, so push it to `SillySilk/sd-forge-couple`.
+    - **Verified live:** Krea 2 (`Krea Sick Ollie`) plain, Couple regional, regional at CFG 3 + negative, and regional LoRA (`AfterHours`, one of the 11;
+      same seed gives a different image once the fix is in, as expected) → all clean; Anima (`waiANIMA`) and MOSS Moody 512² → clean; **0 tracebacks**.
+      Unit tests pass: MOSS regional LoRA (9), Couple Krea (28). PDF report at
+      `docs/updates/forge-neo-update-2026-11-06-2.31-40-g4f4284b0.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

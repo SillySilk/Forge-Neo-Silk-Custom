@@ -132,6 +132,11 @@ upstream ~750):
 - Shape **stroke/outline was removed 2026-11-08** (user decision; it never drew right): no Stroke
   Color picker, no Stroke Width slider, no Fill/Outline toggle (`H`, `Shift+E`). Stamped shapes are
   always filled with the one brush colour. Do not bring it back on a merge.
+- **Inpaint mask look: grey only (2026-11-08, user choice).** `drawWithStamps` (rect/triangle brush,
+  rotation, width ≠ height, scatter) ignores `contrast_scribbles` and paints the solid mask colour,
+  so with "Use high-contrast brush" on, one mask mixed checkerboard and grey. That setting
+  (`img2img_inpaint_mask_high_contrast`) is now **off**: everything paints `#808080` at 75%.
+  Display only; the mask sent to generation is just the painted alpha. Sketch canvases start black.
 
 ### ControlNet — `sd_forge_controlnet` ⚠ `controlnet_ui_group.py`, `controlnet.py`
 - Tabbed batch UI: **Single Image / Batch Folder / Batch Upload** (galleries). Keep the

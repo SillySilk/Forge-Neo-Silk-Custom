@@ -31,11 +31,8 @@
                 <span class="forge-toolbar-hint">Hold Ctrl + Click for straight line</span>
             </div>
             <div class="forge-toolbar-box-b">
-                <div class="forge-color-picker-block" title="Fill Color [E]" id="scribbleColorBlock_forge_mixin">
+                <div class="forge-color-picker-block" title="Color [E]" id="scribbleColorBlock_forge_mixin">
                     <input type="color" id="scribbleColor_forge_mixin" class="forge-toolbar-color" value="#000000">
-                </div>
-                <div class="forge-color-picker-block" title="Stroke Color [Shift + E]" id="strokeColorBlock_forge_mixin">
-                    <input type="color" id="strokeColor_forge_mixin" class="forge-toolbar-color" value="#ffffff">
                 </div>
                 <button id="brushShapeButton_forge_mixin" class="forge-btn" title="Cycle Brush Shape: Circle/Rectangle/Triangle [B]" style="font-size: 20px; width: 40px; height: 40px;">○</button>
                 <button id="scatterButton_forge_mixin" class="forge-btn" title="Toggle Scatter Brush [N] — random offset & size per stamp" style="font-size: 16px; width: 40px; height: 40px;">⋯</button>
@@ -43,7 +40,6 @@
                     <button id="shapePickerButton_forge_mixin" class="forge-btn" title="Select Custom Shape [G]" style="font-size: 18px; width: 40px; height: 40px;">▲</button>
                     <div id="shapePalette_forge_mixin" class="forge-shape-palette" style="display: none;"></div>
                 </div>
-                <button id="shapeFillModeButton_forge_mixin" class="forge-btn" title="Toggle Fill/Outline Mode [H]" style="font-size: 20px; width: 40px; height: 40px;">■</button>
                 <div class="forge-range-row" title="adjust with [W] + [Scroll Wheel]"
                     id="scribbleWidthBlock_forge_mixin">
                     <div id="widthLabel_forge_mixin" class="forge-toolbar-label">Brush Width</div>
@@ -86,12 +82,6 @@
                         <option value="315"></option>
                         <option value="360"></option>
                     </datalist>
-                </div>
-                <div class="forge-range-row" title="Stroke/outline width for shapes"
-                    id="strokeWidthBlock_forge_mixin">
-                    <div id="strokeWidthLabel_forge_mixin" class="forge-toolbar-label">Stroke Width</div>
-                    <input type="range" id="strokeWidth_forge_mixin" class="forge-toolbar-range" min="0" max="5"
-                        value="0">
                 </div>
             </div>
         </div>

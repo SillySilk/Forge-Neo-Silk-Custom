@@ -129,6 +129,9 @@ upstream ~750):
 - built-in Shift-key eraser left **commented out** (it conflicts with ForgeUI-MaskEraser)
 - 50-step undo (`MAX_HISTORY`) vs upstream's `HISTORY_LIMIT = 16`; history entries are PNG
   data URLs, not raw ImageData
+- Shape **stroke/outline was removed 2026-11-08** (user decision; it never drew right): no Stroke
+  Color picker, no Stroke Width slider, no Fill/Outline toggle (`H`, `Shift+E`). Stamped shapes are
+  always filled with the one brush colour. Do not bring it back on a merge.
 
 ### ControlNet — `sd_forge_controlnet` ⚠ `controlnet_ui_group.py`, `controlnet.py`
 - Tabbed batch UI: **Single Image / Batch Folder / Batch Upload** (galleries). Keep the

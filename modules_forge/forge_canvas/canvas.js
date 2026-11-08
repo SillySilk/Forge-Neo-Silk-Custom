@@ -135,9 +135,6 @@ class ForgeCanvas {
 
         // Shape system state
         this.selectedShape = null;  // Current custom shape or null for brush
-        this.shapeFillMode = true;  // true = filled, false = outline
-        this.shapeOutlineWidth = 0;  // Stroke width for outline mode
-        this.strokeColor = "#ffffff";  // Stroke/outline color (separate from fill)
         this.customShapes = [];  // User-imported shapes (future)
     }
 
@@ -236,21 +233,9 @@ class ForgeCanvas {
             ctx.beginPath();
             ctx.arc(0, 0, 40, 0, Math.PI * 2);  // radius 40 in 100x100 system
 
-            // Draw stroke first at double width (since half will be covered by fill)
-            if (this.shapeOutlineWidth > 0) {
-                ctx.globalAlpha = this.scribbleAlpha / 100;
-                ctx.strokeStyle = this.strokeColor;
-                // Double the width and scale to get outer edge effect
-                ctx.lineWidth = this.shapeOutlineWidth * 2 * (100 / Math.max(width, height));
-                ctx.stroke();
-            }
-
-            // Draw fill on top if enabled (this covers inner half of stroke)
-            if (this.shapeFillMode) {
-                ctx.fillStyle = this.scribbleColor;
-                ctx.globalAlpha = this.scribbleAlpha / 100;
-                ctx.fill();
-            }
+            ctx.fillStyle = this.scribbleColor;
+            ctx.globalAlpha = this.scribbleAlpha / 100;
+            ctx.fill();
         } else if (path === "gradient_circle") {
             // Soft-edged radial fill — useful for feathered inpaint masks
             ctx.translate(50, 50);
@@ -259,31 +244,11 @@ class ForgeCanvas {
             ctx.globalAlpha = this.scribbleAlpha / 100;
             ctx.fillStyle = this._buildRadialGradient(ctx, this.scribbleColor);
             ctx.fill();
-            // Optional outline still respected
-            if (this.shapeOutlineWidth > 0) {
-                ctx.globalAlpha = this.scribbleAlpha / 100;
-                ctx.strokeStyle = this.strokeColor;
-                ctx.lineWidth = this.shapeOutlineWidth * 2 * (100 / Math.max(width, height));
-                ctx.stroke();
-            }
         } else {
             // Regular path shapes
-
-            // Draw stroke first at double width (since half will be covered by fill)
-            if (this.shapeOutlineWidth > 0) {
-                ctx.globalAlpha = this.scribbleAlpha / 100;
-                ctx.strokeStyle = this.strokeColor;
-                // Double the width and scale to get outer edge effect
-                ctx.lineWidth = this.shapeOutlineWidth * 2 * (100 / Math.max(width, height));
-                ctx.stroke(path);
-            }
-
-            // Draw fill on top if enabled (this covers inner half of stroke)
-            if (this.shapeFillMode) {
-                ctx.globalAlpha = this.scribbleAlpha / 100;
-                ctx.fillStyle = this.scribbleColor;
-                ctx.fill(path);
-            }
+            ctx.globalAlpha = this.scribbleAlpha / 100;
+            ctx.fillStyle = this.scribbleColor;
+            ctx.fill(path);
         }
 
         ctx.restore();
@@ -475,44 +440,17 @@ class ForgeCanvas {
                 ctx.beginPath();
                 ctx.arc(0, 0, 40, 0, Math.PI * 2);
 
-                // Draw stroke first at double width (since half will be covered by fill)
-                if (this.shapeOutlineWidth > 0) {
-                    ctx.strokeStyle = this.strokeColor;
-                    // Double the width to get outer edge effect
-                    ctx.lineWidth = this.shapeOutlineWidth * 2 * (100 / Math.max(this.scribbleWidth, this.scribbleHeight));
-                    ctx.stroke();
-                }
-
-                // Draw fill on top if enabled (this covers inner half of stroke)
-                if (this.shapeFillMode) {
-                    ctx.fillStyle = this.scribbleColor;
-                    ctx.fill();
-                }
+                ctx.fillStyle = this.scribbleColor;
+                ctx.fill();
             } else if (path === "gradient_circle") {
                 ctx.translate(50, 50);
                 ctx.beginPath();
                 ctx.arc(0, 0, 50, 0, Math.PI * 2);
                 ctx.fillStyle = this._buildRadialGradient(ctx, this.scribbleColor);
                 ctx.fill();
-                if (this.shapeOutlineWidth > 0) {
-                    ctx.strokeStyle = this.strokeColor;
-                    ctx.lineWidth = this.shapeOutlineWidth * 2 * (100 / Math.max(this.scribbleWidth, this.scribbleHeight));
-                    ctx.stroke();
-                }
             } else {
-                // Draw stroke first at double width (since half will be covered by fill)
-                if (this.shapeOutlineWidth > 0) {
-                    ctx.strokeStyle = this.strokeColor;
-                    // Double the width to get outer edge effect
-                    ctx.lineWidth = this.shapeOutlineWidth * 2 * (100 / Math.max(this.scribbleWidth, this.scribbleHeight));
-                    ctx.stroke(path);
-                }
-
-                // Draw fill on top if enabled (this covers inner half of stroke)
-                if (this.shapeFillMode) {
-                    ctx.fillStyle = this.scribbleColor;
-                    ctx.fill(path);
-                }
+                ctx.fillStyle = this.scribbleColor;
+                ctx.fill(path);
             }
 
             ctx.restore();
@@ -604,14 +542,12 @@ class ForgeCanvas {
         const scatterButton = document.getElementById(`scatterButton_${self.uuid}`);
         const shapePickerButton = document.getElementById(`shapePickerButton_${self.uuid}`);
         const shapePalette = document.getElementById(`shapePalette_${self.uuid}`);
-        const shapeFillModeButton = document.getElementById(`shapeFillModeButton_${self.uuid}`);
         const sizeLinkButton = document.getElementById(`sizeLinkButton_${self.uuid}`);
         const equalizeButton = document.getElementById(`equalizeButton_${self.uuid}`);
 
         // Hide shape-related UI elements if shapes are disabled
         if (self.no_shapes) {
             if (shapePickerButton) shapePickerButton.style.display = "none";
-            if (shapeFillModeButton) shapeFillModeButton.style.display = "none";
         }
 
         const uploadHint = document.getElementById(`uploadHint_${self.uuid}`);
@@ -624,11 +560,6 @@ class ForgeCanvas {
         if (self.scribbleColorFixed) scribbleColorBlock.style.display = "none";
         const scribbleColor = document.getElementById(`scribbleColor_${self.uuid}`);
         scribbleColor.value = self.scribbleColor;
-
-        const strokeColorBlock = document.getElementById(`strokeColorBlock_${self.uuid}`);
-        const strokeColor = document.getElementById(`strokeColor_${self.uuid}`);
-        strokeColor.value = self.strokeColor;
-        if (self.no_shapes && strokeColorBlock) strokeColorBlock.style.display = "none";
 
         const scribbleWidthBlock = document.getElementById(`scribbleWidthBlock_${self.uuid}`);
         if (self.scribbleWidthFixed) scribbleWidthBlock.style.display = "none";
@@ -664,13 +595,6 @@ class ForgeCanvas {
         const scribbleHeightLabel = document.getElementById(`heightLabel_${self.uuid}`);
         scribbleHeight.value = self.scribbleHeight;
         scribbleHeightLabel.textContent = `Brush Height (${self.scribbleHeight})`;
-
-        const strokeWidthBlock = document.getElementById(`strokeWidthBlock_${self.uuid}`);
-        const strokeWidth = document.getElementById(`strokeWidth_${self.uuid}`);
-        const strokeWidthLabel = document.getElementById(`strokeWidthLabel_${self.uuid}`);
-        strokeWidth.value = self.shapeOutlineWidth;
-        strokeWidthLabel.textContent = `Stroke Width (${self.shapeOutlineWidth})`;
-        if (self.no_shapes && strokeWidthBlock) strokeWidthBlock.style.display = "none";
 
         const indicatorWidth = self.scribbleWidth;
         const indicatorHeight = self.scribbleHeight;
@@ -821,12 +745,6 @@ class ForgeCanvas {
             }
         });
 
-        // Fill/outline mode toggle button
-        shapeFillModeButton.addEventListener("click", () => {
-            self.shapeFillMode = !self.shapeFillMode;
-            shapeFillModeButton.textContent = self.shapeFillMode ? "■" : "□";
-        });
-
         // Size link button - toggle width/height linking
         sizeLinkButton.addEventListener("click", () => {
             self.scribbleSizeLinked = !self.scribbleSizeLinked;
@@ -882,10 +800,6 @@ class ForgeCanvas {
         scribbleColor.addEventListener("input", (e) => {
             self.scribbleColor = e.target.value;
             scribbleIndicator.style.borderColor = self.scribbleColor;
-        });
-
-        strokeColor.addEventListener("input", (e) => {
-            self.strokeColor = e.target.value;
         });
 
         scribbleWidth.addEventListener("input", (e) => {
@@ -989,7 +903,6 @@ class ForgeCanvas {
         makeSliderEditable(scribbleAlphaLabel, scribbleAlpha);
         makeSliderEditable(scribbleSoftnessLabel, scribbleSoftness);
         makeSliderEditable(scribbleRotationLabel, scribbleRotation);
-        makeSliderEditable(strokeWidthLabel, strokeWidth);
 
         scribbleHeight.addEventListener("input", (e) => {
             self.scribbleHeight = e.target.value;
@@ -1012,15 +925,6 @@ class ForgeCanvas {
             // Maintain brush shape and rotation
             self.applyBrushIndicatorShape(scribbleIndicator);
             scribbleIndicator.style.transform = `translate(-50%, -50%) rotate(${self.scribbleRotation}deg)`;
-            // Update shape preview if shape is selected
-            if (self.selectedShape) {
-                self.updateCursorIndicator();
-            }
-        });
-
-        strokeWidth.addEventListener("input", (e) => {
-            self.shapeOutlineWidth = parseFloat(e.target.value);
-            strokeWidthLabel.textContent = `Stroke Width (${self.shapeOutlineWidth})`;
             // Update shape preview if shape is selected
             if (self.selectedShape) {
                 self.updateCursorIndicator();
@@ -1293,9 +1197,6 @@ class ForgeCanvas {
             if (e.key === "e") {
                 scribbleColor.click();
             }
-            if (e.key === "E" && !self.no_shapes) {
-                strokeColor.click();
-            }
             if (e.key === "r") {
                 centerButton.click();
             }
@@ -1312,9 +1213,6 @@ class ForgeCanvas {
             }
             if (e.key === "g") {
                 shapePickerButton.click();
-            }
-            if (e.key === "h") {
-                shapeFillModeButton.click();
             }
             if (e.key === "l") {
                 sizeLinkButton.click();

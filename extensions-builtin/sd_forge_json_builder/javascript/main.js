@@ -163,13 +163,16 @@ onUiLoaded(() => {
     const fromT2IBtn = h("button", { type: "button", class: "jb-from-t2i", title: "Use the selected (or latest) txt2img result as the reference image" }, ["From txt2img"]); // CUSTOM (Forge Neo)
     const fromI2IBtn = h("button", { type: "button", class: "jb-from-i2i", title: "Use img2img's input image as the reference image" }, ["From img2img"]); // CUSTOM (Forge Neo)
     const imageOpacity = h("input", { type: "range", class: "jb-image-opacity", min: "0", max: "100", step: "1", value: "100", disabled: "", title: "Image opacity (preview only)" }); // CUSTOM (Forge Neo)
-    const saveLoadSection = h("div", { class: "jb-section jb-save" }, [
-        h("div", { class: "jb-section-title" }, ["Save/Load"]),
+    // CUSTOM (Forge Neo): Save/Load split into Prompt (beside Resolution) and Reference image (full width below)
+    const promptSection = h("div", { class: "jb-section jb-save" }, [
+        h("div", { class: "jb-section-title" }, ["Prompt"]),
         h("div", { class: "jb-row" }, [loadPromptBtn]),
         h("div", { class: "jb-row" }, [saveJsonBtn, loadJsonBtn]),
-        h("div", { class: "jb-row" }, [loadImageBtn, clearImageBtn]), // CUSTOM (Forge Neo)
-        h("div", { class: "jb-row" }, [fromT2IBtn, fromI2IBtn]), // CUSTOM (Forge Neo)
-        h("div", { class: "jb-row" }, [h("label", {}, ["Opacity"]), imageOpacity]), // CUSTOM (Forge Neo)
+    ]);
+    const imageSection = h("div", { class: "jb-section jb-save jb-image" }, [
+        h("div", { class: "jb-section-title" }, ["Reference image"]),
+        h("div", { class: "jb-row" }, [loadImageBtn, clearImageBtn, fromT2IBtn, fromI2IBtn]),
+        h("div", { class: "jb-row" }, [h("label", {}, ["Opacity"]), imageOpacity]),
     ]);
 
     const dialogInput = h("textarea", { class: "jb-dialog-input", placeholder: "Compiled Prompt or Layout Draft", spellcheck: "false" });
@@ -190,8 +193,8 @@ onUiLoaded(() => {
     const imageInput = h("input", { type: "file", accept: "image/*", class: "jb-file" }); // CUSTOM (Forge Neo)
     imageInput.style.display = "none";
 
-    const topRow = h("div", { class: "jb-top" }, [resolutionSection, saveLoadSection]);
-    const side = h("div", { class: "jb-side" }, [topRow, listToolbar, summarySection, listSection, submitSection]);
+    const topRow = h("div", { class: "jb-top" }, [resolutionSection, promptSection]); // CUSTOM (Forge Neo)
+    const side = h("div", { class: "jb-side" }, [topRow, imageSection, listToolbar, summarySection, listSection, submitSection]); // CUSTOM (Forge Neo)
     // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
     const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
     const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });

@@ -354,6 +354,14 @@ onUiLoaded(() => {
             state.summary.extra = sumExtra.value;
         }),
     );
+    // shared by the list row and the canvas box; the row's input event keeps item.caption and the box in step
+    function pickLoraForItem(item) {
+        openLoraPicker((tag) => {
+            const input = listRefs.get(item.id)?.captionInput;
+            if (input) appendTag(input, tag);
+        });
+    }
+
     loraClose.addEventListener("click", closeLoraPicker);
     loraModal.addEventListener("click", (ev) => {
         if (ev.target === loraModal) closeLoraPicker();
@@ -763,6 +771,15 @@ onUiLoaded(() => {
         });
         el.appendChild(copy);
 
+        // CUSTOM (Forge Neo): LoRA picker along the box's bottom edge, same as the row's button
+        const boxLora = h("button", { type: "button", class: "jb-box-lora", title: "Add a LoRA to this item's caption" }, ["+ LoRA"]);
+        boxLora.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+        boxLora.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            pickLoraForItem(item);
+        });
+        el.appendChild(boxLora);
+
         const handle = h("div", { class: "jb-box-handle" });
         handle.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
@@ -832,7 +849,7 @@ onUiLoaded(() => {
         });
         row.appendChild(caption);
         addGrowable(caption);
-        itemLoraBtn.addEventListener("click", () => openLoraPicker((tag) => appendTag(caption, tag))); // CUSTOM (Forge Neo)
+        itemLoraBtn.addEventListener("click", () => pickLoraForItem(item)); // CUSTOM (Forge Neo)
 
         let textInput = null;
         if (item.label === "text") {

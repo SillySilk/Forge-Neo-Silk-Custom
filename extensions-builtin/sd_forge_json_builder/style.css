@@ -758,3 +758,36 @@ button.jb-remove:hover {
     background: var(--error-background-fill, #dc2626);
     color: var(--error-text-color, #fff);
 }
+
+/* CUSTOM (Forge Neo): LoRA button under the caption, bottom-left (the resize handle has bottom-right).
+   In the flow, not absolute, so it never covers caption text; the caption gives up the height. */
+.jb-root .jb-box-lora {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin: calc(2px * var(--jb-text-scale)) 0 calc(3px * var(--jb-text-scale)) calc(3px * var(--jb-text-scale));
+    box-sizing: border-box;
+    min-width: 0;
+    padding: calc(1px * var(--jb-text-scale)) calc(7px * var(--jb-text-scale));
+    border: none;
+    border-radius: 4px;
+    background: var(--background-fill-primary);
+    color: var(--body-text-color);
+    font-size: calc(12px * var(--jb-text-scale));
+    line-height: 1.5;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.8;
+    transition:
+        opacity 0.15s ease,
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.jb-root .jb-box:hover .jb-box-lora {
+    opacity: 1;
+}
+
+.jb-root .jb-box-lora:hover {
+    background: var(--button-primary-background-fill, #2563eb);
+    color: var(--button-primary-text-color, #fff);
+}

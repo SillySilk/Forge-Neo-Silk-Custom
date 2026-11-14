@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "example": true,
+  "characters": [
+    {
+      "abbr": "MR",
+      "name": "Example: Mira Reed",
+      "description": "a tall bicycle courier with a shaved head, freckles, a bright orange flight jacket and a canvas satchel"
+    },
+    {
+      "abbr": "OB",
+      "name": "Example: Old Bram",
+      "description": "a stout lighthouse keeper with a thick white beard, a yellow oilskin coat and a brass lantern"
+    }
+  ]
+}

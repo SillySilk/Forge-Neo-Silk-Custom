@@ -193,8 +193,213 @@ onUiLoaded(() => {
     const imageInput = h("input", { type: "file", accept: "image/*", class: "jb-file" }); // CUSTOM (Forge Neo)
     imageInput.style.display = "none";
 
+    // ----- CUSTOM (Forge Neo): characters -----
+    // saved characters live in .jbcast files on the server (scripts/builder.py); Add puts
+    // "(ABBR) Full name, description" into the Summary caption (javascript/characters.js)
+
+    const CHAR_API = "/json_builder/characters";
+    const charFileSelect = h("select", { class: "jb-char-file", title: "Character file" });
+    const charNewFileBtn = h("button", { type: "button", class: "jb-char-new" }, ["New file"]);
+    const charImportBtn = h("button", { type: "button", class: "jb-char-import", title: "Copy a .jbcast file into the character folder" }, ["Import…"]);
+    const charImportInput = h("input", { type: "file", accept: ".jbcast", class: "jb-file" });
+    charImportInput.style.display = "none";
+    const charSelect = h("select", { class: "jb-char-select", title: "Saved characters" });
+    const charAddBtn = h("button", { type: "button", class: "jb-char-add" }, ["Add to caption"]);
+    const charAbbr = h("input", { type: "text", class: "jb-char-abbr", maxlength: "5", placeholder: "LS" });
+    const charName = h("input", { type: "text", class: "jb-char-name", placeholder: "Full name" });
+    const charDesc = h("textarea", { class: "jb-char-desc", rows: "2", placeholder: "Description" });
+    const charSaveBtn = h("button", { type: "button", class: "jb-char-save" }, ["Save"]);
+    const charDeleteBtn = h("button", { type: "button", class: "jb-char-delete" }, ["Delete"]);
+    const charMsg = h("div", { class: "jb-char-msg" });
+    const charFoldBtn = h("button", { type: "button", class: "jb-char-fold", title: "Show or hide the character editor" });
+    const charEditor = h("div", { class: "jb-char-editor" }, [
+        h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
+        charDesc,
+        h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
+    ]);
+    const charactersSection = h("div", { class: "jb-section jb-chars" }, [
+        h("div", { class: "jb-section-title" }, ["Characters", charFoldBtn]),
+        h("div", { class: "jb-row" }, [charFileSelect, charNewFileBtn, charImportBtn]),
+        h("div", { class: "jb-row" }, [charSelect, charAddBtn]),
+        charEditor,
+        charMsg,
+    ]);
+
+    const charState = { file: null, example: false, characters: [] };
+
+    function storeGet(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch {
+            return null;
+        }
+    }
+
+    function storeSet(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch {
+            /* storage unavailable: the choice just isn't remembered */
+        }
+    }
+
+    function charMessage(text, isError = false) {
+        charMsg.textContent = text;
+        charMsg.classList.toggle("jb-char-error", isError);
+    }
+
+    function flash(button) {
+        button.classList.add("jb-invalid");
+        setTimeout(() => button.classList.remove("jb-invalid"), 1200);
+    }
+
+    async function charRequest(path, body) {
+        const res = await fetch(`${CHAR_API}${path}`, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
+        return data;
+    }
+
+    function setFolded(folded) {
+        charEditor.classList.toggle("jb-hidden", folded);
+        charFoldBtn.textContent = folded ? "Edit ▸" : "Edit ▾";
+        storeSet("jb-char-folded", folded ? "1" : "0");
+    }
+
+    function renderCharacters(selectAbbr) {
+        const sorted = [...charState.characters].sort((a, b) => a.abbr.localeCompare(b.abbr, undefined, { sensitivity: "base" }));
+        charSelect.textContent = "";
+        if (!sorted.length) charSelect.appendChild(h("option", { value: "" }, ["(no characters yet)"]));
+        for (const c of sorted) charSelect.appendChild(h("option", { value: c.abbr }, [`${c.abbr} — ${c.name}`]));
+        if (selectAbbr && sorted.some((c) => c.abbr === selectAbbr)) charSelect.value = selectAbbr;
+        charAddBtn.disabled = !sorted.length;
+        charSaveBtn.disabled = charState.example;
+        charDeleteBtn.disabled = charState.example;
+        if (charState.example) charMessage("Examples are read-only. Use New file to make your own.");
+        fillEditor();
+    }
+
+    function selectedCharacter() {
+        return charState.characters.find((c) => c.abbr === charSelect.value) || null;
+    }
+
+    function fillEditor() {
+        const c = selectedCharacter();
+        charAbbr.value = c ? c.abbr : "";
+        charName.value = c ? c.name : "";
+        charDesc.value = c ? c.description : "";
+        autoGrow(charDesc);
+    }
+
+    function applyFile(data, selectAbbr) {
+        charState.file = data.name;
+        charState.example = data.example;
+        charState.characters = data.characters;
+        charFileSelect.value = data.name;
+        storeSet("jb-char-file", data.name);
+        renderCharacters(selectAbbr);
+    }
+
+    async function openCharFile(name) {
+        charMessage("");
+        try {
+            applyFile(await charRequest(`/file?name=${encodeURIComponent(name)}`));
+        } catch (e) {
+            charState.file = name;
+            charState.example = false;
+            charState.characters = [];
+            renderCharacters();
+            charSaveBtn.disabled = charDeleteBtn.disabled = true;
+            charMessage(e.message, true);
+        }
+    }
+
+    async function loadCharFiles(selectName) {
+        try {
+            const { files } = await charRequest("/files");
+            charFileSelect.textContent = "";
+            for (const f of files) charFileSelect.appendChild(h("option", { value: f }, [f]));
+            if (!files.length) {
+                charMessage("No character files. Use New file.", true);
+                return;
+            }
+            const wanted = [selectName, storeGet("jb-char-file")].find((f) => f && files.includes(f));
+            await openCharFile(wanted || files[0]);
+        } catch (e) {
+            charMessage(e.message, true);
+        }
+    }
+
+    charFileSelect.addEventListener("change", () => openCharFile(charFileSelect.value));
+    charSelect.addEventListener("change", fillEditor);
+    charFoldBtn.addEventListener("click", () => setFolded(!charEditor.classList.contains("jb-hidden")));
+
+    charAddBtn.addEventListener("click", () => {
+        const c = selectedCharacter();
+        const next = c && jbAppendCharacter(sumCaption.value, c);
+        if (!next) {
+            flash(charAddBtn);
+            if (c) charMessage(`(${c.abbr}) is already in the caption.`);
+            return;
+        }
+        sumCaption.value = next;
+        state.summary.caption = next;
+        autoGrow(sumCaption);
+        charMessage(`Added (${c.abbr}) to the caption.`);
+    });
+
+    charSaveBtn.addEventListener("click", async () => {
+        try {
+            const data = await charRequest("/save", { name: charState.file, abbr: charAbbr.value, full_name: charName.value, description: charDesc.value });
+            applyFile(data, charAbbr.value.trim());
+            charMessage(`Saved ${charAbbr.value.trim()} to ${data.name}.`);
+        } catch (e) {
+            flash(charSaveBtn);
+            charMessage(e.message, true);
+        }
+    });
+
+    charDeleteBtn.addEventListener("click", async () => {
+        const abbr = charAbbr.value.trim();
+        try {
+            applyFile(await charRequest("/delete", { name: charState.file, abbr }));
+            charMessage(`Deleted ${abbr}.`);
+        } catch (e) {
+            flash(charDeleteBtn);
+            charMessage(e.message, true);
+        }
+    });
+
+    charNewFileBtn.addEventListener("click", async () => {
+        const name = window.prompt("Name for the new character file:");
+        if (!name || !name.trim()) return;
+        try {
+            const data = await charRequest("/file", { name });
+            await loadCharFiles(data.name);
+            charMessage(`Created ${data.name}.`);
+        } catch (e) {
+            flash(charNewFileBtn);
+            charMessage(e.message, true);
+        }
+    });
+
+    charImportBtn.addEventListener("click", () => charImportInput.click());
+    charImportInput.addEventListener("change", async () => {
+        const file = charImportInput.files[0];
+        charImportInput.value = "";
+        if (!file) return;
+        try {
+            const data = await charRequest("/import", { name: file.name, content: await file.text() });
+            await loadCharFiles(data.name);
+            charMessage(`Imported ${data.name}.`);
+        } catch (e) {
+            flash(charImportBtn);
+            charMessage(e.message, true);
+        }
+    });
+
     const topRow = h("div", { class: "jb-top" }, [resolutionSection, promptSection]); // CUSTOM (Forge Neo)
-    const side = h("div", { class: "jb-side" }, [topRow, imageSection, listToolbar, summarySection, listSection, submitSection]); // CUSTOM (Forge Neo)
+    const side = h("div", { class: "jb-side" }, [topRow, imageSection, listToolbar, charactersSection, summarySection, listSection, submitSection]); // CUSTOM (Forge Neo)
     // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
     const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
     const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });
@@ -208,7 +413,7 @@ onUiLoaded(() => {
         ]),
     ]);
 
-    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, loraModal, fileInput, imageInput]);
+    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, loraModal, fileInput, imageInput, charImportInput]); // CUSTOM (Forge Neo): + charImportInput
 
     tab.textContent = "";
     tab.appendChild(root);
@@ -1104,6 +1309,9 @@ onUiLoaded(() => {
 
     renderAll();
     syncFromTxt2img(); // CUSTOM (Forge Neo)
+    addGrowable(charDesc); // CUSTOM (Forge Neo): characters
+    setFolded(storeGet("jb-char-folded") === "1");
+    loadCharFiles();
     fitStage();
     requestAnimationFrame(fitStage);
     // CUSTOM (Forge Neo): re-read txt2img's resolution each time this tab is shown

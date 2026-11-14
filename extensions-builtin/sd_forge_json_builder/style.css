@@ -791,3 +791,93 @@ button.jb-remove:hover {
     background: var(--button-primary-background-fill, #2563eb);
     color: var(--button-primary-text-color, #fff);
 }
+
+/* CUSTOM (Forge Neo): reference-image buttons stay on one line */
+.jb-image .jb-row>button {
+    white-space: nowrap;
+}
+
+/* CUSTOM (Forge Neo): Characters section */
+.jb-chars .jb-row>select {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.jb-root .jb-chars .jb-row>button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.jb-root .jb-char-fold {
+    margin-left: auto;
+    padding: 2px 8px;
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.jb-char-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.jb-char-editor.jb-hidden {
+    display: none;
+}
+
+.jb-chars .jb-char-editor label {
+    font-size: var(--block-info-text-size);
+    color: var(--block-info-text-color);
+}
+
+.jb-root .jb-char-abbr {
+    flex: 0 0 64px;
+    width: 64px;
+}
+
+.jb-root .jb-char-name {
+    flex: 1 1 0;
+}
+
+.jb-root textarea.jb-char-desc {
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 9px;
+    background: var(--input-background-fill);
+    color: var(--body-text-color);
+    border: 1px solid var(--input-border-color);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: var(--input-text-size);
+    resize: vertical;
+}
+
+.jb-root textarea.jb-char-desc:focus {
+    outline: none;
+    border-color: var(--input-border-color-focus);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.jb-char-actions {
+    justify-content: flex-end;
+}
+
+.jb-root .jb-chars button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.jb-char-msg {
+    min-height: 1em;
+    font-size: var(--block-info-text-size);
+    color: var(--block-info-text-color);
+}
+
+.jb-char-msg:empty {
+    display: none;
+}
+
+.jb-char-msg.jb-char-error {
+    color: var(--error-text-color);
+}

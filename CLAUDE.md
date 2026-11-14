@@ -267,6 +267,16 @@ full restart (JS links are rebuilt per page load, so a refresh is enough for JS)
 [#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
 follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they
 merge, take upstream's version on the next merge and re-add only the folder select. Delete the `json-builder-*` branches once all three are closed.
+**Characters (2026-11-13, not offered upstream):** a Characters section above Summary. A character is an
+abbreviation (1-5 letters/digits), a full name and a description; **Add to caption** appends
+`(ABBR) Full name, description` to the Summary caption, so boxes only need `ABBR` (verified on MOSS: a box saying
+`LS waving` drew that character). The brackets reach the model as `\(LS\)` via `compile.js escapeParens()`.
+Characters live in **`.jbcast`** files (JSON) in `characters/`; only `examples.jbcast` (read-only, `"example": true`)
+is tracked, every other `.jbcast` there is gitignored so personal casts never reach this public repo. Store:
+`lib_json_builder/characters.py`; routes `/json_builder/characters/*` in `scripts/builder.py`; caption logic in
+`javascript/characters.js`. Tests: `venv/Scripts/python.exe extensions-builtin/sd_forge_json_builder/tests/test_characters.py`
+and `node extensions-builtin/sd_forge_json_builder/tests/test_characters_js.js`. The old Save/Load box is now
+**Prompt** (beside Resolution) and **Reference image** (full width below).
 
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`

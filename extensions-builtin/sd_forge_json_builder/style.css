@@ -881,3 +881,51 @@ button.jb-remove:hover {
 .jb-char-msg.jb-char-error {
     color: var(--error-text-color);
 }
+
+/* CUSTOM (Forge Neo): each section gets its own tint, so they read apart at a glance.
+   --jb-tint is mixed into the theme's own colours, so light and dark themes both work. */
+.jb-sec-res { --jb-tint: #4f8fe8; }
+.jb-save:not(.jb-image) { --jb-tint: #2bb5a0; }
+.jb-image { --jb-tint: #a77be8; }
+.jb-sec-summary { --jb-tint: #e0a83a; }
+.jb-chars { --jb-tint: #4fbf6a; }
+.jb-list-section { --jb-tint: #8a93a6; }
+
+.jb-root .jb-section:is(.jb-sec-res, .jb-save, .jb-sec-summary, .jb-chars, .jb-list-section) {
+    background: color-mix(in srgb, var(--jb-tint) 8%, var(--block-background-fill));
+    border-color: color-mix(in srgb, var(--jb-tint) 40%, var(--border-color-primary));
+}
+
+.jb-root .jb-section:is(.jb-sec-res, .jb-save, .jb-sec-summary, .jb-chars, .jb-list-section) > .jb-section-title {
+    color: color-mix(in srgb, var(--jb-tint) 70%, var(--body-text-color));
+}
+
+.jb-root .jb-section:is(.jb-sec-res, .jb-save, .jb-sec-summary, .jb-chars, .jb-list-section) > .jb-section-title::before {
+    background: var(--jb-tint);
+}
+
+/* Characters: "Add to prompt" and "Edit roster" as two inset panels in contrasting colours */
+.jb-subpanel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--jb-panel) 45%, var(--border-color-primary));
+    background: color-mix(in srgb, var(--jb-panel) 14%, var(--background-fill-secondary));
+}
+
+.jb-char-use { --jb-panel: #4fbf6a; }
+.jb-char-editor { --jb-panel: #e07a4f; }
+
+.jb-subpanel-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--jb-panel) 75%, var(--body-text-color));
+}
+
+.jb-root .jb-char-use .jb-char-add {
+    border-color: color-mix(in srgb, var(--jb-panel) 60%, var(--border-color-primary));
+}

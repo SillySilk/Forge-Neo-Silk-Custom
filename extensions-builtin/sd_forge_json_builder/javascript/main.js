@@ -110,7 +110,7 @@ onUiLoaded(() => {
     );
     const setResBtn = h("button", { type: "button", class: "jb-set-res" }, ["Set Resolution"]);
 
-    const resolutionSection = h("div", { class: "jb-section" }, [
+    const resolutionSection = h("div", { class: "jb-section jb-sec-res" }, [ // CUSTOM (Forge Neo): jb-sec-* = section tint
         h("div", { class: "jb-section-title" }, ["Resolution"]),
         h("div", { class: "jb-row" }, [h("label", {}, ["Width"]), widthInput, h("label", {}, ["Height"]), heightInput]),
         h("div", { class: "jb-row" }, [h("label", {}, ["MP"]), mpInput, h("label", {}, ["AR"]), arSelect, setResBtn]),
@@ -131,7 +131,7 @@ onUiLoaded(() => {
         return h("label", { class: "jb-radio", for: id }, [radio, t]);
     });
 
-    const summarySection = h("div", { class: "jb-section" }, [
+    const summarySection = h("div", { class: "jb-section jb-sec-summary" }, [ // CUSTOM (Forge Neo): jb-sec-* = section tint
         h("div", { class: "jb-section-title" }, ["Summary"]),
         h("div", { class: "jb-row" }, canvasRadios),
         h("label", { class: "jb-fld-label", for: "jb-sum-caption" }, ["Caption"]),
@@ -215,15 +215,21 @@ onUiLoaded(() => {
     const charDeleteBtn = h("button", { type: "button", class: "jb-char-delete" }, ["Delete"]);
     const charMsg = h("div", { class: "jb-char-msg" });
     const charFoldBtn = h("button", { type: "button", class: "jb-char-fold", title: "Show or hide the character editor" });
-    const charEditor = h("div", { class: "jb-char-editor" }, [
+    // two inner panels: using a character in the prompt vs editing the saved roster
+    const charEditor = h("div", { class: "jb-subpanel jb-char-editor" }, [
+        h("div", { class: "jb-subpanel-title" }, ["Edit roster"]),
+        h("div", { class: "jb-row" }, [charNewFileBtn, charImportBtn]),
         h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
         charDesc,
         h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
     ]);
     const charactersSection = h("div", { class: "jb-section jb-chars" }, [
         h("div", { class: "jb-section-title" }, ["Characters", charFoldBtn]),
-        h("div", { class: "jb-row" }, [charFileSelect, charNewFileBtn, charImportBtn]),
-        h("div", { class: "jb-row" }, [charSelect, charAddBtn]),
+        h("div", { class: "jb-subpanel jb-char-use" }, [
+            h("div", { class: "jb-subpanel-title" }, ["Add to prompt"]),
+            h("div", { class: "jb-row" }, [charFileSelect]),
+            h("div", { class: "jb-row" }, [charSelect, charAddBtn]),
+        ]),
         charEditor,
         charMsg,
     ]);

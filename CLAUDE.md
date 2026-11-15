@@ -141,6 +141,9 @@ upstream ~750):
 ### ControlNet — `sd_forge_controlnet` ⚠ `controlnet_ui_group.py`, `controlnet.py`
 - Tabbed batch UI: **Single Image / Batch Folder / Batch Upload** (galleries). Keep the
   `gr.Tabs` structure and fold upstream's additions (canvas_editor, download-preview, etc.) *inside* it.
+- Those nested tabs are `.tabitem` too, so `javascript/active_units.js` and `javascript/openpose_editor.js`
+  filter to the **unit** tabs only (2026-11-15, `// CUSTOM (Forge Neo)`). Without it both threw on every page
+  load and the unit badge / active-unit highlight never attached. Upstream edits these files; re-check on merge.
 - `controlnet.py` uses upstream's `try_load_supported_control_model` — our old
   `cached_controlnet_loader` was undefined/broken; do not reintroduce it.
 
@@ -414,6 +417,8 @@ error. One real `git fetch` in that extension fixes it permanently.
 
 **Local customs still carried on top of upstream** (re-apply after any update):
 - **sd-dynamic-prompts**: wildcard delimiter changed `__` → `@@` (avoids LoRA-tag conflicts).
+  Also (2026-11-15) `dynamic_prompting_hints.js` merges into Forge's `const titles` with `Object.assign`
+  (reassigning threw on every page load and dropped all its tooltips).
   Deliberately **kept** on 2026-08-29; upstream is dormant so there is nothing to take.
   Also (2026-10-30) leaves JSON Builder layout braces alone (`_protect_layout`), see the MOSS regional LoRA section.
 - **ADetailer-Neo**: adds a `"None"` entry to the ADetailer-checkpoint dropdown

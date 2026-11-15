@@ -2,7 +2,11 @@
     const AllCnetTabs = new Set();
 
     function setupOpenPoseEditor() {
-        const tabs = document.querySelectorAll("#controlnet .tabitem");
+        // CUSTOM (Forge Neo): unit tabs only, not the Single Image / Batch tabs nested in each unit
+        const tabs = [...document.querySelectorAll("#controlnet .tabitem")].filter((t) => {
+            const outer = t.parentElement.closest(".tabitem");
+            return !outer || !outer.closest("#controlnet");
+        });
 
         for (const tab of tabs) {
             if (AllCnetTabs.has(tab)) continue;

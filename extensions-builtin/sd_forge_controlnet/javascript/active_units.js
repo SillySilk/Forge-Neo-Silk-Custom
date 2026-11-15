@@ -114,7 +114,13 @@
             AllControlnet.add(ext);
 
             const cnet = new ControlNetAccordion(ext);
-            for (const [i, tab] of ext.querySelectorAll(".tabitem").entries())
+            // CUSTOM (Forge Neo): only the unit tabs. Each unit holds its own Single Image /
+            // Batch Folder / Batch Upload tabs, which are .tabitem too but are not units.
+            const unitTabs = [...ext.querySelectorAll(".tabitem")].filter((t) => {
+                const outer = t.parentElement.closest(".tabitem");
+                return !outer || !ext.contains(outer);
+            });
+            for (const [i, tab] of unitTabs.entries())
                 new ControlNetUnitTab(cnet, tab, i);
         }
     });

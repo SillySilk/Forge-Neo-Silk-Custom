@@ -70,8 +70,10 @@ function decompilePrompt(input, width, height) {
     }
 
     // escaped parenthesis is not valid JSON
+    // CUSTOM (Forge Neo): unescape to the bracket itself (was "\\(", which left "\(" in every caption on load);
+    // compile escapes it again on Send, so a loaded prompt sends back unchanged
     function restoreJsonParens(prompt) {
-        return prompt.replace(/(?<!\\)((?:\\\\)*)\\([()])/g, (match, runs, paren) => runs + "\\\\" + paren);
+        return prompt.replace(/(?<!\\)((?:\\\\)*)\\([()])/g, (match, runs, paren) => runs + paren);
     }
 
     // CUSTOM (Forge Neo): the compiled prompt is the JSON object, then "\n" + Extra; split the two

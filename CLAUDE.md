@@ -259,7 +259,7 @@ to the image's exact size and scales existing boxes with it; an **Opacity** slid
 **Send to img2img** also loads it into `#img2img_image` via `window.forgeCanvasInstances[...].loadImage()`.
 **From txt2img / From img2img** (2026-11-01) grab the reference image from the selected txt2img result or the
 img2img input canvas (`.img`). Each box has a trash button (`.jb-box-trash`) in its top-right corner, and a duplicate button
-(`.jb-box-copy`, 2026-11-02) just left of it: copies type, caption, text and size, nudged down-right.
+(`.jb-box-copy`, 2026-11-02) just left of it: copies type, caption, text and size, nudged down-right. Clicking a box brings it to the front (2026-11-15, `bringToFront`/`stackOrder`): display stacking only, `state.items` order is untouched because item numbers matter in the prompt (MOSS regional LoRA `item N`).
 Gotchas: `.jb-root button` (padding 7px 12px) outranks any bare `.jb-…` button class, so scope new button rules
 under `.jb-root`. And an extension's **CSS** link carries the file's mtime from Forge startup, so CSS edits need a
 full restart (JS links are rebuilt per page load, so a refresh is enough for JS).

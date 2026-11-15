@@ -28,6 +28,9 @@ onUiLoaded(() => {
 
     const listRefs = new Map();
     const canvasRefs = new Map();
+    // CUSTOM (Forge Neo): on-screen stacking of canvas boxes, back to front. Only the display
+    // changes; state.items keeps its order, since item numbers matter in the prompt.
+    let stackOrder = [];
 
     const MIN_ZOOM = 0.25;
     const MAX_ZOOM = 8;
@@ -997,6 +1000,7 @@ onUiLoaded(() => {
 
         el.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
+            bringToFront(item.id); // CUSTOM (Forge Neo)
             if (ev.target === handle) return;
             if (ev.target === tag) return; // CUSTOM (Forge Neo)
             if (ev.target.tagName === "TEXTAREA" && !ev.target.readOnly) return;
@@ -1009,11 +1013,30 @@ onUiLoaded(() => {
         return el;
     }
 
+    // CUSTOM (Forge Neo): the clicked box goes on top of the others, so its text can be
+    // reached when boxes overlap. z-index stays 1..n (below the builder's modals).
+    function applyStacking() {
+        const ids = new Set(state.items.map((it) => it.id));
+        stackOrder = stackOrder.filter((id) => ids.has(id));
+        for (const it of state.items) if (!stackOrder.includes(it.id)) stackOrder.push(it.id);
+        stackOrder.forEach((id, i) => {
+            const ref = canvasRefs.get(id);
+            if (ref) ref.el.style.zIndex = String(i + 1);
+        });
+    }
+
+    function bringToFront(id) {
+        stackOrder = stackOrder.filter((x) => x !== id);
+        stackOrder.push(id);
+        applyStacking();
+    }
+
     function renderCanvas() {
         stage.textContent = "";
         stage.appendChild(bgEl); // CUSTOM (Forge Neo)
         canvasRefs.clear();
         for (const item of state.items) stage.appendChild(createBox(item));
+        applyStacking(); // CUSTOM (Forge Neo)
     }
 
     // ----- list -----

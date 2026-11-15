@@ -979,3 +979,22 @@ button.jb-remove:hover {
     position: relative;
     z-index: 2;
 }
+
+/* CUSTOM (Forge Neo): small trash button after the character-file dropdown */
+.jb-root .jb-chars .jb-row>.jb-char-file-trash {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+}
+
+.jb-root .jb-char-file-trash svg {
+    width: 15px;
+    height: 15px;
+}
+
+.jb-root .jb-char-file-trash:not(:disabled):hover {
+    color: #e05555;
+    border-color: #e05555;
+}

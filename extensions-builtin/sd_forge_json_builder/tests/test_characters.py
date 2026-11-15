@@ -95,6 +95,37 @@ class StoreTest(unittest.TestCase):
                 call()
             self.assertIn("New file", str(ctx.exception))
 
+    def test_delete_file_moves_it_aside(self):
+        self.store.create("mine")
+        self.store.save_character("mine", "LS", "Lisa", "x")
+        self.store.create("other")
+        self.assertEqual(self.store.delete_file("mine"), {"files": ["other.jbcast"]})
+        self.assertEqual(self.store.list_files(), ["other.jbcast"])
+        kept = os.path.join(self.dir, "deleted", "mine.jbcast")
+        self.assertTrue(os.path.isfile(kept), "the file is kept in deleted/, not destroyed")
+        with open(kept, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["characters"][0]["abbr"], "LS")
+
+    def test_delete_file_twice_keeps_both_copies(self):
+        for _ in range(2):
+            self.store.create("mine")
+            self.store.delete_file("mine")
+        self.assertEqual(len(os.listdir(os.path.join(self.dir, "deleted"))), 2)
+
+    def test_delete_file_refuses_examples(self):
+        write(self.dir, "ex.jbcast", cast(("MR", "Example: Mira", "x"), example=True))
+        with self.assertRaises(CharacterError):
+            self.store.delete_file("ex")
+        self.assertEqual(self.store.list_files(), ["ex.jbcast"])
+
+    def test_delete_file_works_on_a_damaged_file(self):
+        write(self.dir, "broken.jbcast", "{not json")
+        self.assertEqual(self.store.delete_file("broken"), {"files": []})
+
+    def test_delete_file_missing(self):
+        with self.assertRaises(CharacterNotFound):
+            self.store.delete_file("nope")
+
     def test_read_corrupt_file(self):
         write(self.dir, "bad.jbcast", "{not json")
         with self.assertRaises(CharacterError) as ctx:

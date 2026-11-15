@@ -74,6 +74,10 @@ def characters_api(_demo: gr.Blocks, app: FastAPI):
     def delete_character(body: DeleteBody):
         return _call(store.delete_character, body.name, body.abbr)
 
+    @app.post(f"{base}/delete_file")  # CUSTOM (Forge Neo): moves the file into characters/deleted/
+    def delete_file(body: FileBody):
+        return _call(store.delete_file, body.name)
+
     @app.post(f"{base}/import")
     def import_file(body: ImportBody):
         return _call(store.import_file, body.name, body.content)

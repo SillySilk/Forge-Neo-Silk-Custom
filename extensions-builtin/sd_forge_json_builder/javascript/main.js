@@ -224,6 +224,10 @@ onUiLoaded(() => {
     const charImportBtn = h("button", { type: "button", class: "jb-char-import", title: "Copy a .jbcast file into the character folder" }, ["Import…"]);
     const charImportInput = h("input", { type: "file", accept: ".jbcast", class: "jb-file" });
     charImportInput.style.display = "none";
+    // delete the selected character file (moved to characters/deleted/); examples can't be deleted
+    const charFileTrash = h("button", { type: "button", class: "jb-char-file-trash", title: "Delete this character file" });
+    charFileTrash.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
     const charSelect = h("select", { class: "jb-char-select", title: "Saved characters" });
     const charAddBtn = h("button", { type: "button", class: "jb-char-add" }, ["Add to caption"]);
     const charAbbr = h("input", { type: "text", class: "jb-char-abbr", maxlength: "5", placeholder: "LS" });
@@ -245,7 +249,7 @@ onUiLoaded(() => {
         h("div", { class: "jb-section-title" }, ["Characters", charFoldBtn]),
         h("div", { class: "jb-subpanel jb-char-use" }, [
             h("div", { class: "jb-subpanel-title" }, ["Add to prompt"]),
-            h("div", { class: "jb-row" }, [charFileSelect]),
+            h("div", { class: "jb-row" }, [charFileSelect, charFileTrash]),
             h("div", { class: "jb-row" }, [charSelect, charAddBtn]),
         ]),
         charEditor,
@@ -302,6 +306,8 @@ onUiLoaded(() => {
         charAddBtn.disabled = !sorted.length;
         charSaveBtn.disabled = charState.example;
         charDeleteBtn.disabled = charState.example;
+        charFileTrash.disabled = charState.example || !charState.file;
+        charFileTrash.title = charState.example ? "Examples can't be deleted" : "Delete this character file";
         if (charState.example) charMessage("Examples are read-only. Use New file to make your own.");
         fillEditor();
     }
@@ -337,6 +343,7 @@ onUiLoaded(() => {
             charState.characters = [];
             renderCharacters();
             charSaveBtn.disabled = charDeleteBtn.disabled = true;
+            charFileTrash.disabled = false; // a damaged file can still be deleted
             charMessage(e.message, true);
         }
     }
@@ -347,6 +354,10 @@ onUiLoaded(() => {
             charFileSelect.textContent = "";
             for (const f of files) charFileSelect.appendChild(h("option", { value: f }, [f]));
             if (!files.length) {
+                charState.file = null;
+                charState.characters = [];
+                renderCharacters();
+                charFileTrash.disabled = true;
                 charMessage("No character files. Use New file.", true);
                 return;
             }
@@ -393,6 +404,22 @@ onUiLoaded(() => {
             charMessage(`Deleted ${abbr}.`);
         } catch (e) {
             flash(charDeleteBtn);
+            charMessage(e.message, true);
+        }
+    });
+
+    charFileTrash.addEventListener("click", async () => {
+        const name = charState.file;
+        if (!name || charState.example) return;
+        if (!window.confirm(`Delete ${name}?
+
+It is moved to the characters/deleted folder, so it can be put back by hand.`)) return;
+        try {
+            await charRequest("/delete_file", { name });
+            await loadCharFiles();
+            charMessage(`Deleted ${name} (kept in characters/deleted).`);
+        } catch (e) {
+            flash(charFileTrash);
             charMessage(e.message, true);
         }
     });

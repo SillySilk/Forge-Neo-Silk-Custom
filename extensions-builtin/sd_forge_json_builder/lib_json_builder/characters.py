@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+import time
 
 EXT = ".jbcast"
 VERSION = 1
@@ -163,6 +164,30 @@ class CharacterStore:
         data["characters"] = kept
         self._write(file_name, data)
         return self._view(file_name, data)
+
+    def delete_file(self, name: str) -> dict:
+        """Move a character file into deleted/ (personal files have no other copy). Examples stay."""
+        file_name = normalize_name(name)
+        try:
+            data = self._load(file_name)
+        except CharacterNotFound:
+            raise
+        except CharacterError:
+            data = None  # a damaged file can't be read, but it can still be put aside
+        if data and data["example"]:
+            raise CharacterError("Examples can't be deleted.")
+        trash = os.path.join(self.folder, "deleted")
+        os.makedirs(trash, exist_ok=True)
+        target = os.path.join(trash, file_name)
+        if os.path.exists(target):
+            stem = file_name[: -len(EXT)]
+            target = os.path.join(trash, f"{stem} {time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}{EXT}")
+            n = 2
+            while os.path.exists(target):
+                target = os.path.join(trash, f"{stem} {time.strftime('%Y%m%d-%H%M%S')} ({n}){EXT}")
+                n += 1
+        os.replace(self._path(file_name), target)
+        return {"files": self.list_files()}
 
     def import_file(self, name: str, content: str) -> dict:
         file_name = normalize_name(name)

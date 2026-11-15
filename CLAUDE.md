@@ -263,7 +263,7 @@ to the image's exact size and scales existing boxes with it; an **Opacity** slid
 **From txt2img / From img2img** (2026-11-01) grab the reference image from the selected txt2img result or the
 img2img input canvas (`.img`). Each box has a trash button (`.jb-box-trash`) in its top-right corner, and a duplicate button
 (`.jb-box-copy`, 2026-11-02) just left of it: copies type, caption, text and size, nudged down-right. Clicking a box brings it to the front (2026-11-15, `bringToFront`/`stackOrder`): display stacking only, `state.items` order is untouched because item numbers matter in the prompt (MOSS regional LoRA `item N`).
-**Editing (2026-11-15, after comparing with eduardoabreu81/sd-regional-boxes-neo, AGPL, so nothing copied):** Undo / Redo
+**Editing (2026-11-15, ideas from eduardoabreu81/sd-regional-boxes-neo (AGPL) and DenOfEquity/ersatzForge (the ⇄ swap); nothing copied, both credited in the extension's `README.md` and the Show and tell post #1645):** Undo / Redo
 buttons + Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) over the boxes; a click selects a box (`jb-selected`), then Delete removes it, Esc
 deselects, arrows move it 8 px (Shift 64), Ctrl+D duplicates; shortcuts are off while typing in a field or with a modal open.
 Resize handles on all 8 sides/corners, Shift keeps the shape; a ⇄ button swaps width and height. Logic lives in
@@ -271,8 +271,8 @@ Resize handles on all 8 sides/corners, Shift keeps the shape; a ⇄ button swaps
 field, or a run of nudges, merges into one undo step. Section tints: `jb-sec-*` classes + `--jb-tint`; Characters is two
 panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
 Gotchas: `.jb-root button` (padding 7px 12px) outranks any bare `.jb-…` button class, so scope new button rules
-under `.jb-root`. And an extension's **CSS** link carries the file's mtime from Forge startup, so CSS edits need a
-full restart (JS links are rebuilt per page load, so a refresh is enough for JS).
+under `.jb-root`. And an extension's **CSS** link carries the file's mtime from Forge startup, so a normal refresh can keep
+the old cached CSS; a hard refresh (Ctrl+F5) loads the current file. JS needs only a normal refresh. Python changes need a restart.
 **Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:
 [#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
 follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they

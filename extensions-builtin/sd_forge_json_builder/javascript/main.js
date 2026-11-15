@@ -36,8 +36,9 @@ onUiLoaded(() => {
     let restoring = false;
     let selectedId = null;
 
+    // the resolution is part of each step: undoing a box change made by a resize must also undo the resize
     function itemsSnapshot() {
-        return JSON.stringify(state.items);
+        return JSON.stringify({ width: state.width, height: state.height, items: state.items });
     }
 
     function recordHistory(key = null) {
@@ -1178,6 +1179,13 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
                     recordHistory(`bbox:${item.id}`); // CUSTOM (Forge Neo)
                 }
             });
+            // CUSTOM (Forge Neo): on leaving the field, put corners in order and the box inside the canvas
+            inp.addEventListener("change", () => {
+                item.bbox = jbFixBox(item.bbox, state.width, state.height, 16);
+                numInputs.forEach((n, j) => (n.value = item.bbox[j]));
+                updateBoxPosition(item);
+                recordHistory(`bbox:${item.id}`);
+            });
             nums.appendChild(inp);
             return inp;
         });
@@ -1209,7 +1217,16 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     function restoreItems(snap) {
         if (snap === null) return;
         restoring = true;
-        state.items = JSON.parse(snap);
+        const saved = JSON.parse(snap);
+        state.items = saved.items;
+        if (saved.width !== state.width || saved.height !== state.height) {
+            resPinned = true;
+            widthInput.value = saved.width;
+            heightInput.value = saved.height;
+            state.width = saved.width;
+            state.height = saved.height;
+            fitStage();
+        }
         idCounter = Math.max(idCounter, ...state.items.map((it) => it.id));
         if (!state.items.some((it) => it.id === selectedId)) selectedId = null;
         renderAll();
@@ -1262,9 +1279,9 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     function syncFromTxt2img() {
         if (resPinned) return;
-        const w = parseInt(t2i_width.value, 10);
-        const hgt = parseInt(t2i_height.value, 10);
-        if (!(w > 0 && hgt > 0) || (w === state.width && hgt === state.height)) return;
+        const w = jbSnap16(parseInt(t2i_width.value, 10)); // txt2img allows multiples of 8; the prompt needs 16
+        const hgt = jbSnap16(parseInt(t2i_height.value, 10));
+        if (w === null || hgt === null || (w === state.width && hgt === state.height)) return;
         widthInput.value = w;
         heightInput.value = hgt;
         applyResolution(w, hgt);
@@ -1296,14 +1313,22 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const v = parseInt(widthInput.value, 10);
         if (v > 0) applyResolution(v, state.height);
     });
-    widthInput.addEventListener("change", clampItemsToCanvas);
+    widthInput.addEventListener("change", () => snapResolution(widthInput));
 
     heightInput.addEventListener("input", () => {
         resPinned = true; // CUSTOM (Forge Neo)
         const v = parseInt(heightInput.value, 10);
         if (v > 0) applyResolution(state.width, v);
     });
-    heightInput.addEventListener("change", clampItemsToCanvas);
+    heightInput.addEventListener("change", () => snapResolution(heightInput));
+
+    // CUSTOM (Forge Neo): the prompt needs multiples of 16, so a typed 1000 becomes 1008 (it would fail at Send)
+    function snapResolution(input) {
+        const v = jbSnap16(parseInt(input.value, 10));
+        input.value = v === null ? (input === widthInput ? state.width : state.height) : v;
+        applyResolution(parseInt(widthInput.value, 10), parseInt(heightInput.value, 10));
+        clampItemsToCanvas();
+    }
 
     // CUSTOM (Forge Neo): swap width and height
     swapResBtn.addEventListener("click", () => {

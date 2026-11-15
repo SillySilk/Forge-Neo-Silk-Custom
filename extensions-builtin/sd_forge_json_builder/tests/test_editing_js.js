@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const ctx = vm.createContext({});
 // a top-level class is a global binding in the browser but not a context property here, so expose it
 vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "editing.js"), "utf8") + "\nglobalThis.JbHistory = JbHistory;", ctx);
-const { JbHistory, jbResizeBox, jbMoveBox } = ctx;
+const { JbHistory, jbResizeBox, jbMoveBox, jbFixBox, jbSnap16 } = ctx;
 const eq = (a, b, msg) => assert.deepStrictEqual(Array.from(a), b, msg);
 
 // ----- history -----
@@ -92,5 +92,19 @@ eq(jbResizeBox(box, "se", 5000, 5000, { maxW: W, maxH: H, min: MIN, keepAspect: 
 eq(jbMoveBox(box, 8, 0, W, H), [108, 100, 308, 200]);
 eq(jbMoveBox(box, -500, 0, W, H), [0, 100, 200, 200], "stops at the left edge, size kept");
 eq(jbMoveBox(box, 0, 5000, W, H), [100, 700, 300, 800], "stops at the bottom edge, size kept");
+
+// ----- typed box numbers (list inputs) -----
+eq(jbFixBox([300, 200, 100, 50], W, H, MIN), [100, 50, 300, 200], "swapped corners are put in order");
+eq(jbFixBox([-20, 100, 2000, 900], W, H, MIN), [0, 100, 1000, 800], "kept inside the canvas");
+eq(jbFixBox([500, 100, 505, 300], W, H, MIN), [500, 100, 516, 300], "too thin grows to the minimum");
+eq(jbFixBox([995, 100, 999, 300], W, H, MIN), [984, 100, 1000, 300], "at the edge it grows inward");
+eq(jbFixBox([100.4, 50.6, 300, 200], W, H, MIN), [100, 51, 300, 200], "whole pixels");
+
+// ----- resolution must be a multiple of 16 for the prompt -----
+assert.strictEqual(jbSnap16(1000), 1008);
+assert.strictEqual(jbSnap16(1080), 1088);
+assert.strictEqual(jbSnap16(1024), 1024);
+assert.strictEqual(jbSnap16(3), 16, "never below 16");
+assert.strictEqual(jbSnap16(NaN), null, "not a number");
 
 console.log("editing.js: all assertions passed");

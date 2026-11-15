@@ -109,6 +109,28 @@ function jbResizeBox(bbox, dir, dx, dy, opts) {
     return [nx1, ny1, nx1 + nw, ny1 + nh].map(Math.round);
 }
 
+// A box typed in by hand, made valid: corners in order, inside the canvas, at least `min` a side.
+function jbFixBox(bbox, maxW, maxH, min = 16) {
+    const axis = (a, b, max) => {
+        let lo = jbClampNum(Math.round(Math.min(a, b)), 0, max);
+        let hi = jbClampNum(Math.round(Math.max(a, b)), 0, max);
+        if (hi - lo < min) {
+            hi = Math.min(max, lo + min);
+            lo = Math.max(0, hi - min);
+        }
+        return [lo, hi];
+    };
+    const [x1, x2] = axis(bbox[0], bbox[2], maxW);
+    const [y1, y2] = axis(bbox[1], bbox[3], maxH);
+    return [x1, y1, x2, y2];
+}
+
+// The nearest size the prompt accepts (a multiple of 16, at least 16), or null for a non-number.
+function jbSnap16(v) {
+    if (!Number.isFinite(v)) return null;
+    return Math.max(16, Math.round(v / 16) * 16);
+}
+
 // Box moved by dx, dy, kept whole inside the canvas.
 function jbMoveBox(bbox, dx, dy, maxW, maxH) {
     const [x1, y1, x2, y2] = bbox;

@@ -268,11 +268,15 @@ buttons + Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) over the boxes; a click selects a box (
 deselects, arrows move it 8 px (Shift 64), Ctrl+D duplicates; shortcuts are off while typing in a field or with a modal open.
 Resize handles on all 8 sides/corners, Shift keeps the shape; a ⇄ button swaps width and height. Logic lives in
 `javascript/editing.js` (`JbHistory`, `jbResizeBox`, `jbMoveBox`; tests `node tests/test_editing_js.js`). Typing in one
-field, or a run of nudges, merges into one undo step. Section tints: `jb-sec-*` classes + `--jb-tint`; Characters is two
+field, or a run of nudges, merges into one undo step. Each step also holds width/height, so undoing a box change that a
+resize caused brings the resize back too (2026-11-15). Width/height snap to multiples of 16 on leaving the field and when following txt2img
+(`res_step` may be 8; the prompt rejects anything else at Send), and typed box numbers are put in order and inside the canvas (`jbFixBox`). Section tints: `jb-sec-*` classes + `--jb-tint`; Characters is two
 panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
 Gotchas: `.jb-root button` (padding 7px 12px) outranks any bare `.jb-…` button class, so scope new button rules
-under `.jb-root`. And an extension's **CSS** link carries the file's mtime from Forge startup, so a normal refresh can keep
-the old cached CSS; a hard refresh (Ctrl+F5) loads the current file. JS needs only a normal refresh. Python changes need a restart.
+under `.jb-root`. An extension's **CSS and JS** links both carry each file's mtime from Forge startup (checked 2026-11-15), so
+after an edit a normal refresh can keep the old cached copy; a hard refresh (Ctrl+F5) or a restart loads the current files.
+A half-cached page is worse than a stale one: new `main.js` with an old `editing.js` threw at init and the builder came up broken
+(empty character list). Python changes need a restart.
 **Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:
 [#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
 follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they

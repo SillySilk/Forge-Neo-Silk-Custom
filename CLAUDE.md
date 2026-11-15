@@ -89,6 +89,9 @@ must capture the console yourself.
    including the ControlNet / Forge-Couple payload needed to reproduce the case.
 4. Read `tmp/run.log` for the error / success markers (e.g. `Loaded Control-LLLite (Anima) (N modules)`).
 5. Stop the server (kill the launch.py process / free port 7860) before editing, then repeat.
+6. **When the work is done, close Forge.** The user closes it after work and starts it again
+   with `webui.bat` when they want it, so never leave a test instance running. First check
+   `/sdapi/v1/progress` shows no job, then stop the venv python, then tell the user it's closed.
 
 Three gotchas learned 2026-09-04 (each cost a failed run):
 - **Wait for the `Startup time:` line, not `Running on local URL:`.** Gradio accepts requests

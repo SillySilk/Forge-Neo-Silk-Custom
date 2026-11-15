@@ -817,6 +817,9 @@ button.jb-remove:hover {
 /* CUSTOM (Forge Neo): reference-image buttons stay on one line */
 .jb-image .jb-row>button {
     white-space: nowrap;
+    /* never narrower than the label: the row wraps to a second line instead of the text spilling out */
+    flex: 1 1 auto;
+    min-width: max-content;
 }
 
 /* CUSTOM (Forge Neo): Characters section */

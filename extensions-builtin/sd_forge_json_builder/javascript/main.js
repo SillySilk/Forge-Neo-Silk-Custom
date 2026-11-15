@@ -940,6 +940,9 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     stage.addEventListener(
         "wheel",
         (e) => {
+            // CUSTOM (Forge Neo): the selected box's text scrolls when it overflows, instead of zooming
+            const field = e.target.closest?.(".jb-box.jb-selected .jb-field, .jb-box.jb-active .jb-field");
+            if (field && field.scrollHeight > field.clientHeight + 1) return;
             e.preventDefault();
             zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.2 : 1 / 1.2);
         },

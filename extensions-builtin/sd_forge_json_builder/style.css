@@ -1054,3 +1054,18 @@ button.jb-remove:hover {
 .jb-guide.jb-hidden {
     display: none;
 }
+
+/* CUSTOM (Forge Neo): the selected / edited box is near-opaque, so text in boxes behind it
+   fades out, and its text scrolls when it is longer than the box */
+.jb-box.jb-selected,
+.jb-box.jb-active {
+    background: color-mix(in srgb, color-mix(in srgb, var(--color-accent) 14%, var(--background-fill-primary)) 94%, transparent);
+}
+
+.jb-box.jb-selected .jb-field,
+.jb-box.jb-active .jb-field {
+    background: var(--input-background-fill) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}

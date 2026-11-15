@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const ctx = vm.createContext({});
 // a top-level class is a global binding in the browser but not a context property here, so expose it
 vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "editing.js"), "utf8") + "\nglobalThis.JbHistory = JbHistory;", ctx);
-const { JbHistory, jbResizeBox, jbMoveBox, jbFixBox, jbSnap16 } = ctx;
+const { JbHistory, jbResizeBox, jbMoveBox, jbFixBox, jbSnap16, jbSnapOffset, jbSnapTargets, jbSavedLayout } = ctx;
 const eq = (a, b, msg) => assert.deepStrictEqual(Array.from(a), b, msg);
 
 // ----- history -----
@@ -106,5 +106,39 @@ assert.strictEqual(jbSnap16(1080), 1088);
 assert.strictEqual(jbSnap16(1024), 1024);
 assert.strictEqual(jbSnap16(3), 16, "never below 16");
 assert.strictEqual(jbSnap16(NaN), null, "not a number");
+
+// ----- snapping while dragging -----
+{
+    // the nearest of the box's points (edges / centre) to any target, within the threshold
+    const r = jbSnapOffset([100, 150, 200], [0, 196, 500], 8);
+    assert.deepStrictEqual({ ...r }, { delta: -4, at: 196 }, "right edge 200 snaps to 196");
+    assert.strictEqual(jbSnapOffset([100, 150, 200], [0, 300, 500], 8), null, "nothing close enough");
+    const c = jbSnapOffset([100, 150, 200], [153, 205], 8);
+    assert.deepStrictEqual({ ...c }, { delta: 3, at: 153 }, "the closest one wins");
+}
+{
+    // targets: canvas edges and centre, plus every other box's edges and centre
+    const t = jbSnapTargets([[10, 20, 110, 220]], 1000, 800);
+    eq(t.x, [0, 500, 1000, 10, 60, 110]);
+    eq(t.y, [0, 400, 800, 20, 120, 220]);
+}
+
+// ----- autosaved layout (read back after a page refresh) -----
+{
+    const good = { width: 1024, height: 768, summary: { caption: "a", meta: "m", extra: "x", canvas: "single" },
+        items: [{ label: "text", caption: "c", text: "t", bbox: [1, 2, 30, 40] }] };
+    const r = jbSavedLayout(JSON.stringify(good));
+    assert.strictEqual(r.width, 1024);
+    assert.strictEqual(r.items[0].text, "t");
+    eq(r.items[0].bbox, [1, 2, 30, 40]);
+    assert.strictEqual(jbSavedLayout(null), null, "nothing saved");
+    assert.strictEqual(jbSavedLayout("{not json"), null, "damaged");
+    assert.strictEqual(jbSavedLayout(JSON.stringify({ ...good, width: 1000 })), null, "size not a multiple of 16");
+    assert.strictEqual(jbSavedLayout(JSON.stringify({ ...good, items: [] })), null, "no boxes");
+    assert.strictEqual(jbSavedLayout(JSON.stringify({ ...good, items: [{ label: "x", caption: "", bbox: [0, 0, 1, 1] }] })), null, "bad label");
+    assert.strictEqual(jbSavedLayout(JSON.stringify({ ...good, summary: { caption: "a" } })).summary.canvas, "single", "missing fields get defaults");
+    const off = jbSavedLayout(JSON.stringify({ ...good, items: [{ label: "object", caption: "", bbox: [900, 0, 2000, 900] }] }));
+    eq(off.items[0].bbox, [900, 0, 1024, 768], "a box past the edge is pulled inside");
+}
 
 console.log("editing.js: all assertions passed");

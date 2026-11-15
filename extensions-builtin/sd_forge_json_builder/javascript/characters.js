@@ -14,3 +14,10 @@ function jbAppendCharacter(caption, c) {
     const head = caption.trimEnd();
     return head ? `${head}\n${jbCaptionLine(c)}` : jbCaptionLine(c);
 }
+
+// a box caption with "(ABBR)" put at the start, or null if it already names the character
+function jbAddAbbr(caption, abbr) {
+    if (jbCaptionHas(caption, abbr)) return null;
+    const rest = caption.trim();
+    return rest ? `(${abbr}) ${rest}` : `(${abbr})`;
+}

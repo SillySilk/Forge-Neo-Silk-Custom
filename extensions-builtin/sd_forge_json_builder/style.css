@@ -998,3 +998,59 @@ button.jb-remove:hover {
     color: #e05555;
     border-color: #e05555;
 }
+
+/* CUSTOM (Forge Neo): item number beside the type dropdown on each box, and in the list */
+.jb-box-head {
+    display: flex;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.jb-box-head select.jb-box-tag {
+    min-width: 0;
+}
+
+.jb-box-num {
+    flex: 0 0 auto;
+    font-weight: 700;
+    text-transform: none;
+    background: color-mix(in srgb, var(--color-accent) 70%, #000);
+}
+
+.jb-item-num {
+    font-weight: 700;
+    color: var(--color-accent);
+    margin-right: 2px;
+}
+
+/* CUSTOM (Forge Neo): snap guides while dragging */
+.jb-guide {
+    position: absolute;
+    z-index: 20;
+    pointer-events: none;
+    background: #ff3fa4;
+}
+
+.jb-guide-v {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.jb-guide-h {
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+/* CUSTOM (Forge Neo): why a prompt didn't load */
+.jb-prompt-msg {
+    max-width: 260px;
+    overflow-wrap: anywhere;
+}
+
+.jb-guide.jb-hidden {
+    display: none;
+}

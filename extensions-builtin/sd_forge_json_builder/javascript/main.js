@@ -42,9 +42,21 @@ onUiLoaded(() => {
     }
 
     function recordHistory(key = null) {
+        saveLayout(); // CUSTOM (Forge Neo)
         if (restoring) return;
         undoHistory.commit(itemsSnapshot(), key);
         updateUndoButtons();
+    }
+
+    // CUSTOM (Forge Neo): the layout is kept in the browser, so a page refresh doesn't lose it
+    const LAYOUT_KEY = "jb-layout";
+    let saveTimer = null;
+    function saveLayout() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            const items = state.items.map(({ label, caption, text, bbox }) => ({ label, caption, text, bbox }));
+            storeSet(LAYOUT_KEY, JSON.stringify({ width: state.width, height: state.height, summary: state.summary, items }));
+        }, 300);
     }
 
     const MIN_ZOOM = 0.25;
@@ -142,6 +154,7 @@ onUiLoaded(() => {
         const radio = h("input", { type: "radio", name: "jb-canvas", value: t, id, checked: state.summary.canvas === t });
         radio.addEventListener("change", () => {
             if (radio.checked) state.summary.canvas = t;
+            saveLayout(); // CUSTOM (Forge Neo)
         });
         canvasRadioInputs.push(radio);
         return h("label", { class: "jb-radio", for: id }, [radio, t]);
@@ -178,6 +191,9 @@ onUiLoaded(() => {
     // ----- save / load -----
 
     const loadPromptBtn = h("button", { type: "button", class: "jb-load-prompt" }, ["Load Prompt"]);
+    // CUSTOM (Forge Neo): edit the prompt that is in txt2img now (e.g. one sent from here earlier)
+    const fromT2IPromptBtn = h("button", { type: "button", class: "jb-from-t2i-prompt", title: "Load txt2img's current prompt and size back into the builder" }, ["From txt2img"]);
+    const promptMsg = h("div", { class: "jb-char-msg jb-prompt-msg" }); // CUSTOM (Forge Neo): why a load failed
     const saveJsonBtn = h("button", { type: "button", class: "jb-save-json" }, ["Save JSON"]);
     const loadJsonBtn = h("button", { type: "button", class: "jb-load-json" }, ["Load JSON"]);
     const loadImageBtn = h("button", { type: "button", class: "jb-load-image", title: "Trace boxes over an image; takes its resolution" }, ["Load Image"]); // CUSTOM (Forge Neo)
@@ -188,8 +204,9 @@ onUiLoaded(() => {
     // CUSTOM (Forge Neo): Save/Load split into Prompt (beside Resolution) and Reference image (full width below)
     const promptSection = h("div", { class: "jb-section jb-save" }, [
         h("div", { class: "jb-section-title" }, ["Prompt"]),
-        h("div", { class: "jb-row" }, [loadPromptBtn]),
+        h("div", { class: "jb-row" }, [loadPromptBtn, fromT2IPromptBtn]), // CUSTOM (Forge Neo): + From txt2img
         h("div", { class: "jb-row" }, [saveJsonBtn, loadJsonBtn]),
+        promptMsg,
     ]);
     const imageSection = h("div", { class: "jb-section jb-save jb-image" }, [
         h("div", { class: "jb-section-title" }, ["Reference image"]),
@@ -231,6 +248,7 @@ onUiLoaded(() => {
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
     const charSelect = h("select", { class: "jb-char-select", title: "Saved characters" });
     const charAddBtn = h("button", { type: "button", class: "jb-char-add" }, ["Add to caption"]);
+    const charBoxBtn = h("button", { type: "button", class: "jb-char-box", title: "Put (ABBR) in the selected box's caption, and the character's line in the Summary caption" }, ["Add to box"]); // CUSTOM (Forge Neo)
     const charAbbr = h("input", { type: "text", class: "jb-char-abbr", maxlength: "5", placeholder: "LS" });
     const charName = h("input", { type: "text", class: "jb-char-name", placeholder: "Full name" });
     const charDesc = h("textarea", { class: "jb-char-desc", rows: "2", placeholder: "Description" });
@@ -251,7 +269,7 @@ onUiLoaded(() => {
         h("div", { class: "jb-subpanel jb-char-use" }, [
             h("div", { class: "jb-subpanel-title" }, ["Add to prompt"]),
             h("div", { class: "jb-row" }, [charFileSelect, charFileTrash]),
-            h("div", { class: "jb-row" }, [charSelect, charAddBtn]),
+            h("div", { class: "jb-row" }, [charSelect, charAddBtn, charBoxBtn]),
         ]),
         charEditor,
         charMsg,
@@ -278,6 +296,11 @@ onUiLoaded(() => {
     function charMessage(text, isError = false) {
         charMsg.textContent = text;
         charMsg.classList.toggle("jb-char-error", isError);
+    }
+
+    function promptMessage(text, isError = false) {
+        promptMsg.textContent = text;
+        promptMsg.classList.toggle("jb-char-error", isError);
     }
 
     function flash(button) {
@@ -384,7 +407,41 @@ onUiLoaded(() => {
         sumCaption.value = next;
         state.summary.caption = next;
         autoGrow(sumCaption);
+        saveLayout();
         charMessage(`Added (${c.abbr}) to the caption.`);
+    });
+
+    // CUSTOM (Forge Neo): the box names the character by "(ABBR)"; the Summary caption says who that is
+    charBoxBtn.addEventListener("click", () => {
+        const c = selectedCharacter();
+        const item = state.items.find((it) => it.id === selectedId);
+        if (!c || !item) {
+            flash(charBoxBtn);
+            if (c) charMessage("Click a box on the canvas first.", true);
+            return;
+        }
+        const n = state.items.indexOf(item) + 1;
+        const boxNext = jbAddAbbr(item.caption, c.abbr);
+        if (boxNext !== null) {
+            item.caption = boxNext;
+            const row = listRefs.get(item.id);
+            if (row) {
+                row.captionInput.value = boxNext;
+                autoGrow(row.captionInput);
+            }
+            const box = canvasRefs.get(item.id);
+            if (box) box.caption.value = boxNext;
+            recordHistory();
+        }
+        const sumNext = jbAppendCharacter(sumCaption.value, c);
+        if (sumNext) {
+            sumCaption.value = sumNext;
+            state.summary.caption = sumNext;
+            autoGrow(sumCaption);
+            saveLayout();
+        }
+        if (boxNext === null && !sumNext) charMessage(`(${c.abbr}) is already in box #${n} and the caption.`);
+        else charMessage(`Added (${c.abbr}) to box #${n}${sumNext ? " and its line to the caption" : ""}.`);
     });
 
     charSaveBtn.addEventListener("click", async () => {
@@ -529,8 +586,10 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         try {
             const draft = decompilePrompt(text, parseFloat(dialogWidth.value), parseFloat(dialogHeight.value));
             loadDraft(draft);
-        } catch {
+            promptMessage("");
+        } catch (e) {
             loadPromptBtn.classList.add("jb-invalid");
+            promptMessage(`Couldn't load that prompt: ${e.message}`, true); // CUSTOM (Forge Neo)
         }
         closeDialog();
     }
@@ -616,6 +675,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         openLoraPicker((tag) => {
             appendTag(sumExtra, tag);
             state.summary.extra = sumExtra.value;
+            saveLayout();
         }),
     );
     // shared by the list row and the canvas box; the row's input event keeps item.caption and the box in step
@@ -639,6 +699,18 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     });
 
     loadPromptBtn.addEventListener("click", openDialog);
+    // CUSTOM (Forge Neo)
+    fromT2IPromptBtn.addEventListener("click", () => {
+        const text = t2i_prompt.value.trim();
+        try {
+            if (!text.includes("{")) throw new Error(text ? "it isn't a layout prompt" : "it is empty");
+            loadDraft(decompilePrompt(text, jbSnap16(parseInt(t2i_width.value, 10)), jbSnap16(parseInt(t2i_height.value, 10))));
+            promptMessage("Loaded txt2img's prompt.");
+        } catch (e) {
+            flash(fromT2IPromptBtn);
+            promptMessage(`Couldn't load txt2img's prompt: ${e.message}`, true);
+        }
+    });
     dialogClose.addEventListener("click", closeDialog);
     dialogLoad.addEventListener("click", handleDialogLoad);
 
@@ -668,8 +740,10 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             try {
                 const draft = decompilePrompt(reader.result, NaN, NaN);
                 loadDraft(draft);
-            } catch {
+                promptMessage("");
+            } catch (e) {
                 loadJsonBtn.classList.add("jb-invalid");
+                promptMessage(`Couldn't load ${file.name}: ${e.message}`, true); // CUSTOM (Forge Neo)
             }
         });
         reader.readAsText(file);
@@ -925,6 +999,22 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         return ta;
     }
 
+    // CUSTOM (Forge Neo): snap guides
+    const guideV = h("div", { class: "jb-guide jb-guide-v jb-hidden" });
+    const guideH = h("div", { class: "jb-guide jb-guide-h jb-hidden" });
+    const SNAP_PX = 6; // on screen
+
+    function showGuides(x, y) {
+        guideV.classList.toggle("jb-hidden", x === null);
+        guideH.classList.toggle("jb-hidden", y === null);
+        if (x !== null) guideV.style.left = (x / state.width) * 100 + "%";
+        if (y !== null) guideH.style.top = (y / state.height) * 100 + "%";
+    }
+
+    function snapTargetsFor(item) {
+        return jbSnapTargets(state.items.filter((it) => it !== item).map((it) => it.bbox), state.width, state.height);
+    }
+
     function startDrag(item, e) {
         const ref = canvasRefs.get(item.id);
         const rect = stage.getBoundingClientRect();
@@ -936,6 +1026,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const w = x2 - x1;
         const hgt = y2 - y1;
         let moved = false;
+        const targets = snapTargetsFor(item); // CUSTOM (Forge Neo)
 
         function move(ev) {
             const dx = (ev.clientX - sx) * scaleX;
@@ -943,8 +1034,18 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             if (!moved && Math.hypot(dx, dy) < 3) return;
             moved = true;
             ref.el.classList.add("jb-active");
-            const nx1 = clamp(Math.round(x1 + dx), 0, state.width - w);
-            const ny1 = clamp(Math.round(y1 + dy), 0, state.height - hgt);
+            let nx1 = clamp(Math.round(x1 + dx), 0, state.width - w);
+            let ny1 = clamp(Math.round(y1 + dy), 0, state.height - hgt);
+            // CUSTOM (Forge Neo): edges and centre snap to the canvas and the other boxes; Alt places freely
+            let gx = null;
+            let gy = null;
+            if (!ev.altKey) {
+                const snapX = jbSnapOffset([nx1, nx1 + w / 2, nx1 + w], targets.x, SNAP_PX * scaleX);
+                const snapY = jbSnapOffset([ny1, ny1 + hgt / 2, ny1 + hgt], targets.y, SNAP_PX * scaleY);
+                if (snapX) [nx1, gx] = [clamp(Math.round(nx1 + snapX.delta), 0, state.width - w), snapX.at];
+                if (snapY) [ny1, gy] = [clamp(Math.round(ny1 + snapY.delta), 0, state.height - hgt), snapY.at];
+            }
+            showGuides(gx, gy);
             item.bbox = [nx1, ny1, nx1 + w, ny1 + hgt];
             updateBoxPosition(item);
             syncListNums(item);
@@ -954,6 +1055,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
             ref.el.classList.remove("jb-active");
+            showGuides(null, null); // CUSTOM (Forge Neo)
             if (moved) recordHistory(); // CUSTOM (Forge Neo)
         }
 
@@ -972,6 +1074,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const sy = e.clientY;
         const [x1, y1, x2, y2] = item.bbox;
         ref.el.classList.add("jb-active");
+        const targets = snapTargetsFor(item);
 
         function move(ev) {
             item.bbox = jbResizeBox([x1, y1, x2, y2], dir, (ev.clientX - sx) * scaleX, (ev.clientY - sy) * scaleY, {
@@ -980,6 +1083,26 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
                 min: 16,
                 keepAspect: ev.shiftKey,
             });
+            // the edge being dragged snaps too (not while Shift keeps the shape, or with Alt)
+            let gx = null;
+            let gy = null;
+            if (!ev.shiftKey && !ev.altKey) {
+                const b = item.bbox;
+                const xi = dir.includes("e") ? 2 : dir.includes("w") ? 0 : -1;
+                const yi = dir.includes("s") ? 3 : dir.includes("n") ? 1 : -1;
+                const snapEdge = (i, list, thr, other, lo, hi) => {
+                    const r = jbSnapOffset([b[i]], list, thr);
+                    const v = r && b[i] + r.delta;
+                    if (r && (i === other + 2 ? v - b[other] >= 16 : b[other] - v >= 16) && v >= lo && v <= hi) {
+                        b[i] = Math.round(v);
+                        return r.at;
+                    }
+                    return null;
+                };
+                if (xi >= 0) gx = snapEdge(xi, targets.x, SNAP_PX * scaleX, xi === 2 ? 0 : 2, 0, state.width);
+                if (yi >= 0) gy = snapEdge(yi, targets.y, SNAP_PX * scaleY, yi === 3 ? 1 : 3, 0, state.height);
+            }
+            showGuides(gx, gy);
             updateBoxPosition(item);
             syncListNums(item);
         }
@@ -988,6 +1111,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
             ref.el.classList.remove("jb-active");
+            showGuides(null, null);
             recordHistory();
         }
 
@@ -1008,7 +1132,9 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             item.label = tag.value;
             renderAll();
         });
-        el.appendChild(tag);
+        // CUSTOM (Forge Neo): the item's number, as the prompt counts them (regional LoRA "item N")
+        const num = h("span", { class: "jb-box-tag jb-box-num", title: "Item number in the prompt" }, [`#${state.items.indexOf(item) + 1}`]);
+        el.appendChild(h("div", { class: "jb-box-head" }, [num, tag]));
 
         const caption = makeEditable(item, "caption");
         el.appendChild(caption);
@@ -1109,6 +1235,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         stage.appendChild(bgEl); // CUSTOM (Forge Neo)
         canvasRefs.clear();
         for (const item of state.items) stage.appendChild(createBox(item));
+        stage.append(guideV, guideH); // CUSTOM (Forge Neo)
         applyStacking(); // CUSTOM (Forge Neo)
     }
 
@@ -1135,6 +1262,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             });
             return h("label", { class: "jb-radio", for: id }, [radio, label]);
         });
+        top.append(h("span", { class: "jb-item-num", title: "Item number in the prompt" }, [`#${state.items.indexOf(item) + 1}`])); // CUSTOM (Forge Neo)
         top.append(...radios);
 
         const remove = h("button", { type: "button", class: "jb-remove", title: "Remove" }, ["\u00D7"]);
@@ -1361,13 +1489,16 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     sumCaption.addEventListener("input", () => {
         state.summary.caption = sumCaption.value;
         autoGrow(sumCaption);
+        saveLayout(); // CUSTOM (Forge Neo)
     });
     sumMeta.addEventListener("input", () => {
         state.summary.meta = sumMeta.value;
+        saveLayout(); // CUSTOM (Forge Neo)
     });
     sumExtra.addEventListener("input", () => {
         state.summary.extra = sumExtra.value;
         autoGrow(sumExtra); // CUSTOM (Forge Neo)
+        saveLayout(); // CUSTOM (Forge Neo)
     });
 
     addBtn.addEventListener("click", addItem);
@@ -1465,6 +1596,12 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     // ----- init -----
 
+    // CUSTOM (Forge Neo): bring back the layout from before the page was refreshed
+    const savedLayout = jbSavedLayout(storeGet(LAYOUT_KEY));
+    if (savedLayout) {
+        const meta = savedLayout.summary.meta.trim();
+        loadDraft({ ...savedLayout, summary: { ...savedLayout.summary, meta: meta ? [meta] : [] }, extra: savedLayout.summary.extra });
+    }
     renderAll();
     undoHistory.reset(itemsSnapshot()); // CUSTOM (Forge Neo): the starting boxes are not an undo step
     updateUndoButtons();
@@ -1484,6 +1621,17 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     document.addEventListener("keydown", (ev) => {
         if (!root.isConnected || root.offsetParent === null) return;
+        // CUSTOM (Forge Neo): Esc closes an open window, even while typing in it
+        if (ev.key === "Escape" && !loraModal.classList.contains("jb-hidden")) {
+            closeLoraPicker();
+            ev.preventDefault();
+            return;
+        }
+        if (ev.key === "Escape" && !modal.classList.contains("jb-hidden")) {
+            closeDialog();
+            ev.preventDefault();
+            return;
+        }
         if (!modal.classList.contains("jb-hidden") || !loraModal.classList.contains("jb-hidden")) return;
         const t = ev.target;
         if (!(t === document.body || root.contains(t)) || isTyping(t)) return;

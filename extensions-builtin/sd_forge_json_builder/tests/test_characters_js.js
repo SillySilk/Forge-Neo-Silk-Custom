@@ -6,7 +6,7 @@ const vm = require("node:vm");
 
 const ctx = vm.createContext({});
 vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "characters.js"), "utf8"), ctx);
-const { jbCaptionLine, jbCaptionHas, jbAppendCharacter } = ctx;
+const { jbCaptionLine, jbCaptionHas, jbAppendCharacter, jbAddAbbr } = ctx;
 
 const c = { abbr: "LS", name: "Lisa Simpson", description: "star hair" };
 
@@ -21,5 +21,12 @@ assert.strictEqual(jbCaptionHas("(LS) x", "LS"), true);
 assert.strictEqual(jbCaptionHas("(LS) x", "L"), false);
 assert.strictEqual(jbCaptionHas("LS waves", "LS"), false);
 assert.strictEqual(jbAppendCharacter("(LS) Lisa", { abbr: "L", name: "Lou", description: "d" }), "(LS) Lisa\n(L) Lou, d");
+
+// a box caption names the character by its abbreviation, at the start
+assert.strictEqual(jbAddAbbr("", "LS"), "(LS)");
+assert.strictEqual(jbAddAbbr("waving", "LS"), "(LS) waving");
+assert.strictEqual(jbAddAbbr("  waving", "LS"), "(LS) waving");
+assert.strictEqual(jbAddAbbr("(BS) and (ls) waving", "LS"), null, "already there");
+assert.strictEqual(jbAddAbbr("(BS) waving", "LS"), "(LS) (BS) waving");
 
 console.log("characters.js: all assertions passed");

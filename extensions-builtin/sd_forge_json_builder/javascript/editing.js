@@ -140,3 +140,50 @@ function jbMoveBox(bbox, dx, dy, maxW, maxH) {
     const ny1 = jbClampNum(y1 + dy, 0, Math.max(0, maxH - h));
     return [nx1, ny1, nx1 + w, ny1 + h];
 }
+
+// Snapping while dragging. `points` are a box's edges and centre on one axis; the result moves
+// them by `delta` so the closest one lands on target `at`, or null when none is within `threshold`.
+function jbSnapOffset(points, targets, threshold) {
+    let best = null;
+    for (const p of points) {
+        for (const t of targets) {
+            const d = t - p;
+            if (Math.abs(d) <= threshold && (best === null || Math.abs(d) < Math.abs(best.delta))) best = { delta: d, at: t };
+        }
+    }
+    return best;
+}
+
+// What a dragged box snaps to: the canvas edges and centre, and the other boxes' edges and centres.
+function jbSnapTargets(otherBoxes, maxW, maxH) {
+    const x = [0, maxW / 2, maxW];
+    const y = [0, maxH / 2, maxH];
+    for (const [x1, y1, x2, y2] of otherBoxes) {
+        x.push(x1, (x1 + x2) / 2, x2);
+        y.push(y1, (y1 + y2) / 2, y2);
+    }
+    return { x, y };
+}
+
+// The layout saved in the browser (so a page refresh keeps it), checked and made valid, or null.
+function jbSavedLayout(text) {
+    let v;
+    try {
+        v = JSON.parse(text);
+    } catch {
+        return null;
+    }
+    const size = (n) => Number.isInteger(n) && n >= 16 && n % 16 === 0;
+    if (!v || typeof v !== "object" || !size(v.width) || !size(v.height)) return null;
+    if (!Array.isArray(v.items) || !v.items.length) return null;
+    const str = (s) => (typeof s === "string" ? s : "");
+    const items = [];
+    for (const it of v.items) {
+        if (!it || !["object", "character", "text"].includes(it.label)) return null;
+        if (!Array.isArray(it.bbox) || it.bbox.length !== 4 || !it.bbox.every(Number.isFinite)) return null;
+        items.push({ label: it.label, caption: str(it.caption), text: str(it.text), bbox: jbFixBox(it.bbox, v.width, v.height, 16) });
+    }
+    const s = v.summary && typeof v.summary === "object" ? v.summary : {};
+    const canvas = ["single", "multi_panel", "collage"].includes(s.canvas) ? s.canvas : "single";
+    return { width: v.width, height: v.height, summary: { caption: str(s.caption), meta: str(s.meta), extra: str(s.extra), canvas }, items };
+}

@@ -955,8 +955,13 @@ button.jb-remove:hover {
 /* CUSTOM (Forge Neo): swap width/height, and Undo / Redo beside Add Item / Clear All */
 .jb-root .jb-swap-res {
     flex: 0 0 auto;
-    padding: 4px 8px;
+    padding: 3px 4px;
     line-height: 1;
+}
+
+/* the swap button must not push Height onto a second line */
+.jb-sec-res .jb-row {
+    gap: 6px;
 }
 
 .jb-root .jb-undo:disabled,

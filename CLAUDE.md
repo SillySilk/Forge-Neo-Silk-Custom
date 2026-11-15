@@ -908,6 +908,20 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
       same seed gives a different image once the fix is in, as expected) → all clean; Anima (`waiANIMA`) and MOSS Moody 512² → clean; **0 tracebacks**.
       Unit tests pass: MOSS regional LoRA (9), Couple Krea (28). PDF report at
       `docs/updates/forge-neo-update-2026-11-06-2.31-40-g4f4284b0.pdf`.
+25. Latest merge: **2026-11-15** (unattended dashboard run): upstream/neo, **17 commits**, → **`2.32-15-g8406f5d0`**
+    (crosses the new tag **2.32**). **1 conflict:** README (kept ours). `loader.py`, `moss_image.py` and
+    `shared_options.py` auto-merged with their CUSTOM lines intact (all `CUSTOM (Forge Neo)` marker counts unchanged).
+    - **Upstream content:** the vendored `modules_forge/packages/gguf` is cut down to Forge's kernels
+      (`quants.py`, new `kquant_triton.py`); file parsing now comes from the pip **`gguf==0.19.0`** package.
+      Our `checkpoint_arch.py` does `import gguf` and now gets the pip one (works: Wan → `wan`, Krea GGUF → `krea`).
+      Extensions tab rewritten (`ui_extensions.py`), but the update checkbox is still gated on `can_update`,
+      so the four `silk-custom` extensions stay shielded. Setting `qwen_vae_resize` replaced by
+      `reference_max_side` (1024, applies to img2img + ImageStitch references). GGUF loader/ops rework,
+      fp16 fix in MOSS blocks, `pyproject.toml` gains project metadata + stricter ruff.
+    - **Dependency bumps:** `gguf` 0.19.0 (new), protobuf 4.25.9 → **6.33.6**, GitPython 3.1.62 → 3.2.1.
+    - **Verified live:** Krea 2 GGUF (`Krea Sick Ollie`) 512², 8 steps, seed 777 → clean image; MOSS Moody 512²,
+      12 steps, CFG 3, batch 2 → 2 clean images; **0 tracebacks**. Unit tests pass: JSON Builder (21 + 2 JS),
+      MOSS regional LoRA, Couple Krea. PDF report at `docs/updates/forge-neo-update-2026-11-15-2.32-15-g8406f5d0.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

@@ -1,0 +1,96 @@
+// CUSTOM (Forge Neo): tests for javascript/editing.js. Run: node tests/test_editing_js.js
+const assert = require("node:assert");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const ctx = vm.createContext({});
+// a top-level class is a global binding in the browser but not a context property here, so expose it
+vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "editing.js"), "utf8") + "\nglobalThis.JbHistory = JbHistory;", ctx);
+const { JbHistory, jbResizeBox, jbMoveBox } = ctx;
+const eq = (a, b, msg) => assert.deepStrictEqual(Array.from(a), b, msg);
+
+// ----- history -----
+{
+    const hst = new JbHistory(50);
+    hst.reset("A");
+    assert.strictEqual(hst.canUndo(), false);
+    hst.commit("B", null, 0);
+    hst.commit("C", null, 10);
+    assert.strictEqual(hst.undo(), "B");
+    assert.strictEqual(hst.undo(), "A");
+    assert.strictEqual(hst.undo(), null, "nothing before the first state");
+    assert.strictEqual(hst.redo(), "B");
+    assert.strictEqual(hst.redo(), "C");
+    assert.strictEqual(hst.redo(), null);
+}
+{
+    // an unchanged state is not a new step
+    const hst = new JbHistory(50);
+    hst.reset("A");
+    hst.commit("A", null, 0);
+    assert.strictEqual(hst.canUndo(), false);
+}
+{
+    // typing in one field is one step; a different field or a pause starts a new one
+    const hst = new JbHistory(50);
+    hst.reset("A");
+    hst.commit("A1", "caption:1", 0);
+    hst.commit("A12", "caption:1", 300);
+    hst.commit("A123", "caption:1", 600);
+    assert.strictEqual(hst.undo(), "A");
+    hst.redo();
+    hst.commit("X", "caption:2", 700);
+    hst.commit("Y", "caption:2", 5000);
+    assert.strictEqual(hst.undo(), "X");
+    assert.strictEqual(hst.undo(), "A123");
+}
+{
+    // a new change after an undo drops the redo branch
+    const hst = new JbHistory(50);
+    hst.reset("A");
+    hst.commit("B", null, 0);
+    hst.undo();
+    hst.commit("C", null, 10);
+    assert.strictEqual(hst.canRedo(), false);
+    assert.strictEqual(hst.undo(), "A");
+}
+{
+    // the oldest steps fall off past the limit
+    const hst = new JbHistory(3);
+    hst.reset("0");
+    for (const s of ["1", "2", "3", "4"]) hst.commit(s, null, 0);
+    assert.strictEqual(hst.undo(), "3");
+    assert.strictEqual(hst.undo(), "2");
+    assert.strictEqual(hst.undo(), "1");
+    assert.strictEqual(hst.undo(), null);
+}
+
+// ----- resize -----
+const W = 1000, H = 800, MIN = 16;
+const box = [100, 100, 300, 200]; // 200 x 100
+eq(jbResizeBox(box, "se", 50, 20, { maxW: W, maxH: H, min: MIN }), [100, 100, 350, 220], "corner moves both edges");
+eq(jbResizeBox(box, "e", 50, 99, { maxW: W, maxH: H, min: MIN }), [100, 100, 350, 200], "side handle ignores the other axis");
+eq(jbResizeBox(box, "n", 7, -40, { maxW: W, maxH: H, min: MIN }), [100, 60, 300, 200], "top edge");
+eq(jbResizeBox(box, "nw", -20, -10, { maxW: W, maxH: H, min: MIN }), [80, 90, 300, 200], "top-left corner, opposite corner fixed");
+eq(jbResizeBox(box, "w", 500, 0, { maxW: W, maxH: H, min: MIN }), [284, 100, 300, 200], "never smaller than min");
+eq(jbResizeBox(box, "e", 5000, 0, { maxW: W, maxH: H, min: MIN }), [100, 100, 1000, 200], "never past the canvas");
+eq(jbResizeBox(box, "nw", -500, -500, { maxW: W, maxH: H, min: MIN }), [0, 0, 300, 200], "never before 0");
+
+// Shift keeps the shape (2:1 here), anchored at the opposite corner / edge
+eq(jbResizeBox(box, "se", 100, 0, { maxW: W, maxH: H, min: MIN, keepAspect: true }), [100, 100, 400, 250], "corner keeps 2:1");
+eq(jbResizeBox(box, "nw", -100, 0, { maxW: W, maxH: H, min: MIN, keepAspect: true }), [0, 50, 300, 200], "nw keeps 2:1");
+eq(jbResizeBox(box, "s", 0, 50, { maxW: W, maxH: H, min: MIN, keepAspect: true }), [50, 100, 350, 250], "bottom side keeps 2:1, centred across");
+eq(jbResizeBox(box, "se", 5000, 5000, { maxW: W, maxH: H, min: MIN, keepAspect: true }), [100, 100, 1000, 550], "kept shape still stops at the canvas");
+{
+    const r = jbResizeBox(box, "se", -1000, -1000, { maxW: W, maxH: H, min: MIN, keepAspect: true });
+    assert.ok(r[2] - r[0] >= MIN && r[3] - r[1] >= MIN, "kept shape still respects min");
+    assert.strictEqual((r[2] - r[0]) / (r[3] - r[1]), 2, "and keeps 2:1 at the minimum");
+}
+
+// ----- move (arrow keys) -----
+eq(jbMoveBox(box, 8, 0, W, H), [108, 100, 308, 200]);
+eq(jbMoveBox(box, -500, 0, W, H), [0, 100, 200, 200], "stops at the left edge, size kept");
+eq(jbMoveBox(box, 0, 5000, W, H), [100, 700, 300, 800], "stops at the bottom edge, size kept");
+
+console.log("editing.js: all assertions passed");

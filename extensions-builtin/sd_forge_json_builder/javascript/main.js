@@ -31,6 +31,20 @@ onUiLoaded(() => {
     // CUSTOM (Forge Neo): on-screen stacking of canvas boxes, back to front. Only the display
     // changes; state.items keeps its order, since item numbers matter in the prompt.
     let stackOrder = [];
+    // CUSTOM (Forge Neo): undo/redo over the boxes (javascript/editing.js) and the selected box
+    const undoHistory = new JbHistory(100);
+    let restoring = false;
+    let selectedId = null;
+
+    function itemsSnapshot() {
+        return JSON.stringify(state.items);
+    }
+
+    function recordHistory(key = null) {
+        if (restoring) return;
+        undoHistory.commit(itemsSnapshot(), key);
+        updateUndoButtons();
+    }
 
     const MIN_ZOOM = 0.25;
     const MAX_ZOOM = 8;
@@ -109,10 +123,11 @@ onUiLoaded(() => {
         ASPECT_RATIOS.map((r) => h("option", { value: r }, [r])),
     );
     const setResBtn = h("button", { type: "button", class: "jb-set-res" }, ["Set Resolution"]);
+    const swapResBtn = h("button", { type: "button", class: "jb-swap-res", title: "Swap width and height" }, ["\u21C4"]); // CUSTOM (Forge Neo)
 
     const resolutionSection = h("div", { class: "jb-section jb-sec-res" }, [ // CUSTOM (Forge Neo): jb-sec-* = section tint
         h("div", { class: "jb-section-title" }, ["Resolution"]),
-        h("div", { class: "jb-row" }, [h("label", {}, ["Width"]), widthInput, h("label", {}, ["Height"]), heightInput]),
+        h("div", { class: "jb-row" }, [h("label", {}, ["Width"]), widthInput, swapResBtn, h("label", {}, ["Height"]), heightInput]),
         h("div", { class: "jb-row" }, [h("label", {}, ["MP"]), mpInput, h("label", {}, ["AR"]), arSelect, setResBtn]),
     ]);
 
@@ -149,7 +164,10 @@ onUiLoaded(() => {
     const addBtn = h("button", { type: "button", class: "jb-add" }, ["Add Item"]);
     const clearBtn = h("button", { type: "button", class: "jb-clear" }, ["Clear All"]);
     const listEl = h("div", { class: "jb-list" });
-    const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn]); // CUSTOM (Forge Neo): sits above Summary, not inside the list
+    // CUSTOM (Forge Neo): undo / redo for the boxes
+    const undoBtn = h("button", { type: "button", class: "jb-undo", title: "Undo (Ctrl+Z)", disabled: "" }, ["\u21B6 Undo"]);
+    const redoBtn = h("button", { type: "button", class: "jb-redo", title: "Redo (Ctrl+Y)", disabled: "" }, ["\u21B7 Redo"]);
+    const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn, undoBtn, redoBtn]); // CUSTOM (Forge Neo): sits above Summary, not inside the list
     const listSection = h("div", { class: "jb-section jb-list-section" }, [listEl]);
 
     const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, ["Send to txt2img"]);
@@ -866,6 +884,7 @@ onUiLoaded(() => {
         });
         ta.addEventListener("input", () => {
             item[field] = ta.value;
+            recordHistory(`${field}:${item.id}`); // CUSTOM (Forge Neo)
             const ref = listRefs.get(item.id);
             if (!ref) return;
             const inp = field === "caption" ? ref.captionInput : ref.textInput;
@@ -906,13 +925,15 @@ onUiLoaded(() => {
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
             ref.el.classList.remove("jb-active");
+            if (moved) recordHistory(); // CUSTOM (Forge Neo)
         }
 
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
     }
 
-    function startResize(item, e) {
+    // CUSTOM (Forge Neo): resize from any side or corner (`dir`); Shift keeps the shape
+    function startResize(item, e, dir = "se") {
         e.stopPropagation();
         const ref = canvasRefs.get(item.id);
         const rect = stage.getBoundingClientRect();
@@ -924,9 +945,12 @@ onUiLoaded(() => {
         ref.el.classList.add("jb-active");
 
         function move(ev) {
-            const nx2 = clamp(Math.round(x2 + (ev.clientX - sx) * scaleX), x1 + 16, state.width);
-            const ny2 = clamp(Math.round(y2 + (ev.clientY - sy) * scaleY), y1 + 16, state.height);
-            item.bbox = [x1, y1, nx2, ny2];
+            item.bbox = jbResizeBox([x1, y1, x2, y2], dir, (ev.clientX - sx) * scaleX, (ev.clientY - sy) * scaleY, {
+                maxW: state.width,
+                maxH: state.height,
+                min: 16,
+                keepAspect: ev.shiftKey,
+            });
             updateBoxPosition(item);
             syncListNums(item);
         }
@@ -935,6 +959,7 @@ onUiLoaded(() => {
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
             ref.el.classList.remove("jb-active");
+            recordHistory();
         }
 
         window.addEventListener("pointermove", move);
@@ -997,23 +1022,30 @@ onUiLoaded(() => {
         });
         el.appendChild(boxLora);
 
-        const handle = h("div", { class: "jb-box-handle" });
-        handle.addEventListener("pointerdown", (ev) => {
-            if (ev.button !== 0) return;
-            startResize(item, ev);
-        });
-        el.appendChild(handle);
+        // CUSTOM (Forge Neo): a handle on every side and corner
+        for (const dir of ["n", "s", "e", "w", "ne", "nw", "se", "sw"]) {
+            const handle = h("div", { class: `jb-box-handle jb-h-${dir}` });
+            handle.addEventListener("pointerdown", (ev) => {
+                if (ev.button !== 0) return;
+                bringToFront(item.id);
+                selectBox(item.id);
+                startResize(item, ev, dir);
+            });
+            el.appendChild(handle);
+        }
 
         el.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
             bringToFront(item.id); // CUSTOM (Forge Neo)
-            if (ev.target === handle) return;
+            selectBox(item.id); // CUSTOM (Forge Neo)
+            if (ev.target.classList.contains("jb-box-handle")) return; // CUSTOM (Forge Neo)
             if (ev.target === tag) return; // CUSTOM (Forge Neo)
             if (ev.target.tagName === "TEXTAREA" && !ev.target.readOnly) return;
             ev.preventDefault();
             startDrag(item, ev);
         });
 
+        if (item.id === selectedId) el.classList.add("jb-selected"); // CUSTOM (Forge Neo)
         canvasRefs.set(item.id, { el, caption, text });
         updateBoxPosition(item);
         return el;
@@ -1029,6 +1061,12 @@ onUiLoaded(() => {
             const ref = canvasRefs.get(id);
             if (ref) ref.el.style.zIndex = String(i + 1);
         });
+    }
+
+    // CUSTOM (Forge Neo): the box the keyboard shortcuts act on
+    function selectBox(id) {
+        selectedId = id;
+        for (const [rid, ref] of canvasRefs) ref.el.classList.toggle("jb-selected", rid === id);
     }
 
     function bringToFront(id) {
@@ -1080,6 +1118,7 @@ onUiLoaded(() => {
         const caption = h("textarea", { class: "jb-item-caption", placeholder: "caption", rows: "1", value: item.caption });
         caption.addEventListener("input", () => {
             item.caption = caption.value;
+            recordHistory(`caption:${item.id}`); // CUSTOM (Forge Neo)
             autoGrow(caption);
             const ref = canvasRefs.get(item.id);
             if (ref && document.activeElement !== ref.caption) ref.caption.value = caption.value;
@@ -1093,6 +1132,7 @@ onUiLoaded(() => {
             textInput = h("input", { type: "text", class: "jb-item-text", placeholder: "text", value: item.text });
             textInput.addEventListener("input", () => {
                 item.text = textInput.value;
+                recordHistory(`text:${item.id}`); // CUSTOM (Forge Neo)
                 const ref = canvasRefs.get(item.id);
                 if (ref?.text && document.activeElement !== ref.text) ref.text.value = textInput.value;
             });
@@ -1108,6 +1148,7 @@ onUiLoaded(() => {
                 if (!Number.isNaN(v)) {
                     item.bbox[i] = v;
                     updateBoxPosition(item);
+                    recordHistory(`bbox:${item.id}`); // CUSTOM (Forge Neo)
                 }
             });
             nums.appendChild(inp);
@@ -1129,7 +1170,28 @@ onUiLoaded(() => {
     function renderAll() {
         renderList();
         renderCanvas();
+        recordHistory(); // CUSTOM (Forge Neo)
     }
+
+    // CUSTOM (Forge Neo): undo / redo
+    function updateUndoButtons() {
+        undoBtn.disabled = !undoHistory.canUndo();
+        redoBtn.disabled = !undoHistory.canRedo();
+    }
+
+    function restoreItems(snap) {
+        if (snap === null) return;
+        restoring = true;
+        state.items = JSON.parse(snap);
+        idCounter = Math.max(idCounter, ...state.items.map((it) => it.id));
+        if (!state.items.some((it) => it.id === selectedId)) selectedId = null;
+        renderAll();
+        restoring = false;
+        updateUndoButtons();
+    }
+
+    undoBtn.addEventListener("click", () => restoreItems(undoHistory.undo()));
+    redoBtn.addEventListener("click", () => restoreItems(undoHistory.redo()));
 
     function addItem() {
         state.items.push(newItem());
@@ -1156,6 +1218,8 @@ onUiLoaded(() => {
         const ny1 = clamp(y1 + off, 0, Math.max(0, state.height - ht));
         const copy = { ...src, id: ++idCounter, bbox: [nx1, ny1, nx1 + w, ny1 + ht] };
         state.items.splice(index + 1, 0, copy);
+        selectedId = copy.id; // CUSTOM (Forge Neo): the copy is the one the keys move next
+        bringToFront(copy.id);
         renderAll();
     }
 
@@ -1197,6 +1261,7 @@ onUiLoaded(() => {
             syncListNums(item);
         }
         renderCanvas();
+        recordHistory(); // CUSTOM (Forge Neo)
     }
 
     widthInput.addEventListener("input", () => {
@@ -1212,6 +1277,17 @@ onUiLoaded(() => {
         if (v > 0) applyResolution(state.width, v);
     });
     heightInput.addEventListener("change", clampItemsToCanvas);
+
+    // CUSTOM (Forge Neo): swap width and height
+    swapResBtn.addEventListener("click", () => {
+        resPinned = true;
+        const w = state.width;
+        const hgt = state.height;
+        widthInput.value = hgt;
+        heightInput.value = w;
+        applyResolution(hgt, w);
+        clampItemsToCanvas();
+    });
 
     setResBtn.addEventListener("click", () => {
         const mp = parseFloat(mpInput.value);
@@ -1337,7 +1413,55 @@ onUiLoaded(() => {
     // ----- init -----
 
     renderAll();
+    undoHistory.reset(itemsSnapshot()); // CUSTOM (Forge Neo): the starting boxes are not an undo step
+    updateUndoButtons();
     syncFromTxt2img(); // CUSTOM (Forge Neo)
+
+    // CUSTOM (Forge Neo): keyboard shortcuts while the JSON Builder is showing and no field is being typed in
+    stage.addEventListener("pointerdown", (ev) => {
+        if (ev.button === 0 && !ev.target.closest(".jb-box")) selectBox(null);
+    });
+
+    function isTyping(t) {
+        if (t.isContentEditable || t.tagName === "SELECT") return true;
+        if (t.tagName === "TEXTAREA") return !t.readOnly;
+        if (t.tagName === "INPUT") return !["radio", "checkbox", "range", "button", "file"].includes(t.type);
+        return false;
+    }
+
+    document.addEventListener("keydown", (ev) => {
+        if (!root.isConnected || root.offsetParent === null) return;
+        if (!modal.classList.contains("jb-hidden") || !loraModal.classList.contains("jb-hidden")) return;
+        const t = ev.target;
+        if (!(t === document.body || root.contains(t)) || isTyping(t)) return;
+        const ctrl = ev.ctrlKey || ev.metaKey;
+        const key = ev.key.toLowerCase();
+        const item = state.items.find((it) => it.id === selectedId);
+
+        if (ctrl && key === "z") {
+            restoreItems(ev.shiftKey ? undoHistory.redo() : undoHistory.undo());
+        } else if (ctrl && key === "y") {
+            restoreItems(undoHistory.redo());
+        } else if (ctrl && key === "d" && item) {
+            duplicateItem(item.id);
+        } else if (ev.key === "Delete" && item && !ctrl) {
+            selectedId = null;
+            removeItem(item.id);
+        } else if (ev.key === "Escape" && selectedId !== null) {
+            selectBox(null);
+        } else if (ev.key.startsWith("Arrow") && item && !ctrl) {
+            const step = ev.shiftKey ? 64 : 8;
+            const dx = ev.key === "ArrowLeft" ? -step : ev.key === "ArrowRight" ? step : 0;
+            const dy = ev.key === "ArrowUp" ? -step : ev.key === "ArrowDown" ? step : 0;
+            item.bbox = jbMoveBox(item.bbox, dx, dy, state.width, state.height);
+            updateBoxPosition(item);
+            syncListNums(item);
+            recordHistory(`move:${item.id}`);
+        } else {
+            return;
+        }
+        ev.preventDefault();
+    });
     addGrowable(charDesc); // CUSTOM (Forge Neo): characters
     setFolded(storeGet("jb-char-folded") === "1");
     loadCharFiles();

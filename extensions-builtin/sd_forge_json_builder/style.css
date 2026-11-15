@@ -159,17 +159,38 @@ select.jb-box-tag option {
     user-select: text;
 }
 
+/* CUSTOM (Forge Neo): a resize handle on every side and corner (inside the box, which clips).
+   The box's own buttons sit above them (z-index 2), so they stay clickable. */
 .jb-box-handle {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 14px;
-    height: 14px;
-    cursor: nwse-resize;
+    z-index: 1;
     touch-action: none;
 }
 
-.jb-box-handle::after {
+.jb-h-n, .jb-h-s { left: 12px; right: 12px; height: 5px; cursor: ns-resize; }
+.jb-h-e, .jb-h-w { top: 12px; bottom: 12px; width: 5px; cursor: ew-resize; }
+.jb-h-n { top: 0; }
+.jb-h-s { bottom: 0; }
+.jb-h-e { right: 0; }
+.jb-h-w { left: 0; }
+.jb-h-ne, .jb-h-nw, .jb-h-se, .jb-h-sw { width: 12px; height: 12px; }
+.jb-h-ne { top: 0; right: 0; cursor: nesw-resize; }
+.jb-h-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.jb-h-nw { top: 0; left: 0; cursor: nwse-resize; }
+.jb-h-se { bottom: 0; right: 0; width: 14px; height: 14px; cursor: nwse-resize; }
+
+.jb-box:hover .jb-box-handle:not(.jb-h-se):hover,
+.jb-box.jb-selected .jb-box-handle:not(.jb-h-se) {
+    background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+/* the selected box (keyboard shortcuts act on it) */
+.jb-box.jb-selected {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px var(--color-accent-soft, color-mix(in srgb, var(--color-accent) 40%, transparent));
+}
+
+.jb-h-se::after {
     content: "";
     position: absolute;
     right: 3px;
@@ -183,7 +204,8 @@ select.jb-box-tag option {
     transition: opacity 0.15s ease;
 }
 
-.jb-box:hover .jb-box-handle::after {
+.jb-box:hover .jb-h-se::after,
+.jb-box.jb-selected .jb-h-se::after {
     opacity: 1;
 }
 
@@ -928,4 +950,24 @@ button.jb-remove:hover {
 
 .jb-root .jb-char-use .jb-char-add {
     border-color: color-mix(in srgb, var(--jb-panel) 60%, var(--border-color-primary));
+}
+
+/* CUSTOM (Forge Neo): swap width/height, and Undo / Redo beside Add Item / Clear All */
+.jb-root .jb-swap-res {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    line-height: 1;
+}
+
+.jb-root .jb-undo:disabled,
+.jb-root .jb-redo:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* CUSTOM (Forge Neo): keep the box's type tag and + LoRA button above the resize handles */
+.jb-root .jb-box-tag,
+.jb-root .jb-box-lora {
+    position: relative;
+    z-index: 2;
 }

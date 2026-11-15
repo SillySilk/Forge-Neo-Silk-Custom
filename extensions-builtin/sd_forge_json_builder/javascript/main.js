@@ -305,8 +305,8 @@ onUiLoaded(() => {
         for (const c of sorted) charSelect.appendChild(h("option", { value: c.abbr }, [`${c.abbr} — ${c.name}`]));
         if (selectAbbr && sorted.some((c) => c.abbr === selectAbbr)) charSelect.value = selectAbbr;
         charAddBtn.disabled = !sorted.length;
-        charSaveBtn.disabled = charState.example;
-        charDeleteBtn.disabled = charState.example;
+        charSaveBtn.disabled = charState.example || !charState.file;
+        charDeleteBtn.disabled = charState.example || !charState.file || !sorted.length;
         charFileTrash.disabled = charState.example || !charState.file;
         charFileTrash.title = charState.example ? "Examples can't be deleted" : "Delete this character file";
         if (charState.example) charMessage("Examples are read-only. Use New file to make your own.");
@@ -400,6 +400,7 @@ onUiLoaded(() => {
 
     charDeleteBtn.addEventListener("click", async () => {
         const abbr = charAbbr.value.trim();
+        if (!abbr || !window.confirm(`Delete ${abbr} from ${charState.file}?`)) return;
         try {
             applyFile(await charRequest("/delete", { name: charState.file, abbr }));
             charMessage(`Deleted ${abbr}.`);

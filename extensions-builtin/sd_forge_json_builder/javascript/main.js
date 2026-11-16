@@ -265,7 +265,6 @@ onUiLoaded(() => {
     const charEditor = h("div", { class: "jb-subpanel jb-char-editor" }, [
         h("div", { class: "jb-subpanel-title" }, ["Edit roster"]),
         h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
-        h("div", { class: "jb-row" }, [charNewCharBtn]), // CUSTOM (Forge Neo)
         charDesc,
         h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
     ]);
@@ -276,6 +275,7 @@ onUiLoaded(() => {
             h("div", { class: "jb-subpanel-title" }, ["Add to prompt"]),
             h("div", { class: "jb-row" }, [charFileSelect, charFileTrash]),
             h("div", { class: "jb-row" }, [charSelect, charAddBtn, charBoxBtn]),
+            h("div", { class: "jb-row" }, [charNewCharBtn]), // CUSTOM (Forge Neo): under the character dropdown, visible while the editor is folded
         ]),
         charEditor,
         charMsg,
@@ -412,6 +412,7 @@ onUiLoaded(() => {
     charFileSelect.addEventListener("change", () => (charFileSelect.value ? openCharFile(charFileSelect.value) : closeCharFile()));
     charSelect.addEventListener("change", fillEditor);
     charNewCharBtn.addEventListener("click", () => {
+        setFolded(false); // the fields live in the editor
         charAbbr.value = "";
         charName.value = "";
         charDesc.value = "";

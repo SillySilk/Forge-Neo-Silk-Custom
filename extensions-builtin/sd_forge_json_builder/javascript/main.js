@@ -539,7 +539,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     resFoldBtn.addEventListener("click", () => setResOpen(resolutionSection.classList.contains("jb-hidden")));
     setResOpen(storeGet("jb-res-open") === "1");
 
-    const side = h("div", { class: "jb-side" }, [listToolbar, promptSection, imageSection, charactersSection, summarySection, listSection, submitSection, resFoldRow, resolutionSection]); // CUSTOM (Forge Neo)
+    const side = h("div", { class: "jb-side" }, [listToolbar, submitSection, promptSection, imageSection, charactersSection, summarySection, listSection, resFoldRow, resolutionSection]); // CUSTOM (Forge Neo): Send sits at the top, used every time
     // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
     const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
     const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });

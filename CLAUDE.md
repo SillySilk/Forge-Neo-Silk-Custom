@@ -286,8 +286,8 @@ panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
 is not saved. **The builder opens blank** (user choice): **Restore last session** reloads what `jb-layout` held when the
 page loaded (read once at init via `jbSavedLayout`, which pins the resolution; one undo step). A layout with no words
 anywhere (`jbBlankLayout`) is never saved, so the blank start or Clear All can't wipe the last session.
-**Side panel order:** toolbar (Add Item, Clear All, Undo, Redo, Restore) at the very top, then Prompt, Reference image,
-Characters, Summary, list, Send; **Resolution** sits folded at the bottom behind a small `Resolution W × H` button
+**Side panel order:** toolbar (Add Item, Clear All, Undo, Redo, Restore) at the very top, then Send to txt2img / img2img,
+then Prompt, Reference image, Characters, Summary, list; **Resolution** sits folded at the bottom behind a small `Resolution W × H` button
 (`jb-res-fold`, open state in localStorage `jb-res-open`), since the size mostly follows txt2img. Prompt section **From txt2img** loads
 txt2img's current prompt + size back in. Boxes and list rows show `#N` (prompt order). Characters **Add to box** puts
 `(ABBR)` at the start of the selected box's caption (`jbAddAbbr`) and the character's line in the Summary caption.

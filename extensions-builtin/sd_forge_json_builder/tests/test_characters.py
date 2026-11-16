@@ -51,6 +51,28 @@ class StoreTest(unittest.TestCase):
         result = self.store.save_character("c", "ls", "Lisa S.", "pink dress")
         self.assertEqual(result["characters"], [{"abbr": "ls", "name": "Lisa S.", "description": "pink dress"}])
 
+    def test_save_tags_and_palette(self):
+        self.store.create("c")
+        result = self.store.save_character("c", "MR", "Example: Mira", "a red scarf", tags=["hat", " hat ", "Scarf", ""], palette=["#abcdef", "blue", "#ABCDEF"])
+        self.assertEqual(result["characters"][0]["tags"], ["hat", "Scarf"])
+        self.assertEqual(result["characters"][0]["palette"], ["#ABCDEF"])
+        self.assertEqual(self.store.read("c")["characters"][0]["tags"], ["hat", "Scarf"], "kept on disk")
+
+    def test_save_without_tags_writes_no_keys(self):
+        self.store.create("c")
+        self.store.save_character("c", "MR", "Example: Mira", "a red scarf", tags=[], palette=["nope"])
+        with open(os.path.join(self.dir, "c.jbcast"), encoding="utf-8") as f:
+            self.assertEqual(set(json.load(f)["characters"][0]), {"abbr", "name", "description"})
+
+    def test_import_with_tags_and_rejects_unknown_key(self):
+        good = cast(("MR", "Example: Mira", "x"))
+        good["characters"][0]["tags"] = ["hat"]
+        self.assertEqual(self.store.import_file("a", json.dumps(good))["characters"][0]["tags"], ["hat"])
+        bad = cast(("MR", "Example: Mira", "x"))
+        bad["characters"][0]["mood"] = "calm"
+        with self.assertRaises(CharacterError):
+            self.store.import_file("b", json.dumps(bad))
+
     def test_save_validates(self):
         self.store.create("c")
         for abbr in ["", "ABCDEF", "L S", "L-S"]:

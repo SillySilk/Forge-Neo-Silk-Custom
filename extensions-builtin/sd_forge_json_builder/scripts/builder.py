@@ -29,6 +29,8 @@ class SaveBody(BaseModel):
     abbr: str
     full_name: str
     description: str
+    tags: list[str] = []  # CUSTOM (Forge Neo): optional MOSS tags / palette, cleaned by the store
+    palette: list[str] = []
 
 
 class DeleteBody(BaseModel):
@@ -68,7 +70,7 @@ def characters_api(_demo: gr.Blocks, app: FastAPI):
 
     @app.post(f"{base}/save")
     def save_character(body: SaveBody):
-        return _call(store.save_character, body.name, body.abbr, body.full_name, body.description)
+        return _call(store.save_character, body.name, body.abbr, body.full_name, body.description, body.tags, body.palette)
 
     @app.post(f"{base}/delete")
     def delete_character(body: DeleteBody):

@@ -181,11 +181,11 @@ function jbSavedLayout(text) {
     for (const it of v.items) {
         if (!it || !["object", "character", "text"].includes(it.label)) return null;
         if (!Array.isArray(it.bbox) || it.bbox.length !== 4 || !it.bbox.every(Number.isFinite)) return null;
-        items.push({ label: it.label, caption: str(it.caption), text: str(it.text), bbox: jbFixBox(it.bbox, v.width, v.height, 16) });
+        items.push({ label: it.label, caption: str(it.caption), text: str(it.text), tags: jbCleanTags(it.tags), palette: jbCleanPalette(it.palette), bbox: jbFixBox(it.bbox, v.width, v.height, 16) }); // tags/palette: fields.js
     }
     const s = v.summary && typeof v.summary === "object" ? v.summary : {};
     const canvas = ["single", "multi_panel", "collage"].includes(s.canvas) ? s.canvas : "single";
-    return { width: v.width, height: v.height, summary: { caption: str(s.caption), meta: str(s.meta), extra: str(s.extra), canvas }, items };
+    return { width: v.width, height: v.height, summary: { caption: str(s.caption), meta: str(s.meta), extra: str(s.extra), canvas, palette: jbCleanPalette(s.palette) }, items };
 }
 
 // CUSTOM (Forge Neo): true when a layout holds no words at all (a fresh canvas, or one just cleared).

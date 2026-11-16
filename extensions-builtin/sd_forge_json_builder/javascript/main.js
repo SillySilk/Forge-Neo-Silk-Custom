@@ -22,7 +22,7 @@ onUiLoaded(() => {
     const state = {
         width: 1024,
         height: 1024,
-        summary: { caption: "", meta: "", extra: "", canvas: "single" },
+        summary: { caption: "", meta: "", extra: "", canvas: "single", palette: [] }, // CUSTOM (Forge Neo): + palette
         items: [],
     };
 
@@ -55,7 +55,7 @@ onUiLoaded(() => {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             if (jbBlankLayout(state)) return; // the builder opens blank; that must not wipe the last session
-            const items = state.items.map(({ label, caption, text, bbox }) => ({ label, caption, text, bbox }));
+            const items = state.items.map(({ label, caption, text, tags, palette, bbox }) => ({ label, caption, text, tags, palette, bbox }));
             storeSet(LAYOUT_KEY, JSON.stringify({ width: state.width, height: state.height, summary: state.summary, items }));
         }, 300);
     }
@@ -115,7 +115,7 @@ onUiLoaded(() => {
     }
 
     function newItem() {
-        return { id: ++idCounter, label: "character", caption: "", text: "", bbox: defaultBbox() }; // CUSTOM (Forge Neo): was "object"
+        return { id: ++idCounter, label: "character", caption: "", text: "", tags: [], palette: [], bbox: defaultBbox() }; // CUSTOM (Forge Neo): was "object"; + tags/palette
     }
 
     state.items.push(newItem());
@@ -581,11 +581,14 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         state.summary.meta = draft.summary.meta.join(", ");
         state.summary.canvas = draft.summary.canvas;
         state.summary.extra = draft.extra || ""; // CUSTOM (Forge Neo): was always ""
+        state.summary.palette = jbCleanPalette(draft.summary.palette); // CUSTOM (Forge Neo)
         state.items = draft.items.map((item) => ({
             id: ++idCounter,
             label: item.label,
             caption: item.caption,
             text: item.text || "",
+            tags: jbCleanTags(item.tags), // CUSTOM (Forge Neo)
+            palette: jbCleanPalette(item.palette),
             bbox: item.bbox.slice(),
         }));
 
@@ -1434,7 +1437,8 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const off = Math.max(16, Math.round(Math.min(state.width, state.height) * 0.04));
         const nx1 = clamp(x1 + off, 0, Math.max(0, state.width - w));
         const ny1 = clamp(y1 + off, 0, Math.max(0, state.height - ht));
-        const copy = { ...src, id: ++idCounter, bbox: [nx1, ny1, nx1 + w, ny1 + ht] };
+        const copy = { ...src, tags: [...src.tags], palette: [...src.palette], id: ++idCounter, // CUSTOM (Forge Neo): own lists
+            bbox: [nx1, ny1, nx1 + w, ny1 + ht] };
         state.items.splice(index + 1, 0, copy);
         selectedId = copy.id; // CUSTOM (Forge Neo): the copy is the one the keys move next
         bringToFront(copy.id);
@@ -1560,6 +1564,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         if (meta.length) summary.meta = meta;
         summary.canvas = state.summary.canvas;
         summary.caption = state.summary.caption;
+        if (state.summary.palette.length) summary.palette = state.summary.palette; // CUSTOM (Forge Neo)
         return {
             width: state.width,
             height: state.height,
@@ -1569,6 +1574,8 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             items: state.items.map((item) => {
                 const out = { label: item.label, caption: item.caption, bbox: item.bbox.map((n) => Math.round(n)) };
                 if (item.label === "text") out.text = item.text;
+                if (item.tags.length) out.tags = item.tags; // CUSTOM (Forge Neo): MOSS reads these per box
+                if (item.palette.length) out.palette = item.palette;
                 return out;
             }),
         };

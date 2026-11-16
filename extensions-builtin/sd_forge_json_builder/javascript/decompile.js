@@ -51,7 +51,8 @@ function decompilePrompt(input, width, height) {
             require(box.every((v) => typeof v === "number" && Number.isFinite(v)), `${location}.bbox must contain four finite numbers`);
             require(box[0] < box[2] && box[1] < box[3], `${location}.bbox must have positive width and height`);
 
-            const clean = { label: item.label, caption: item.caption, bbox: box.slice() };
+            // CUSTOM (Forge Neo): keep MOSS tags and palette (fields.js), as empty lists when absent
+            const clean = { label: item.label, caption: item.caption, bbox: box.slice(), tags: jbCleanTags(item.tags), palette: jbCleanPalette(item.palette) };
 
             if (item.label === "text") {
                 require(typeof item.text === "string" && item.text.trim().length > 0, `${location}.text must be nonempty text`);
@@ -64,7 +65,7 @@ function decompilePrompt(input, width, height) {
         return {
             width: draftWidth,
             height: draftHeight,
-            summary: { caption: summary.caption, meta, canvas },
+            summary: { caption: summary.caption, meta, canvas, palette: jbCleanPalette(summary.palette) }, // CUSTOM (Forge Neo): + palette
             items: cleanItems,
         };
     }

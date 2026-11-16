@@ -6,6 +6,7 @@ const vm = require("node:vm");
 
 const ctx = vm.createContext({});
 // a top-level class is a global binding in the browser but not a context property here, so expose it
+vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "fields.js"), "utf8"), ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "editing.js"), "utf8") + "\nglobalThis.JbHistory = JbHistory;", ctx);
 const { JbHistory, jbResizeBox, jbMoveBox, jbFixBox, jbSnap16, jbSnapOffset, jbSnapTargets, jbSavedLayout, jbBlankLayout } = ctx;
 const eq = (a, b, msg) => assert.deepStrictEqual(Array.from(a), b, msg);
@@ -150,6 +151,20 @@ assert.strictEqual(jbSnap16(NaN), null, "not a number");
     assert.strictEqual(jbBlankLayout({ ...blank, summary: { ...blank.summary, extra: "<lora:x:1>" } }), false, "extra");
     assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "a dog", text: "" }] }), false, "a box caption");
     assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "SALE" }] }), false, "a box text");
+}
+
+// ----- tags and palette survive a page refresh -----
+{
+    const saved = { width: 512, height: 512, summary: { caption: "a", meta: "", extra: "", canvas: "single", palette: ["#112233", "blue"] },
+        items: [{ label: "object", caption: "c", text: "", tags: ["hat", " hat "], palette: ["#abcdef"], bbox: [0, 0, 64, 64] }] };
+    const r = jbSavedLayout(JSON.stringify(saved));
+    eq(r.summary.palette, ["#112233"], "bad colour dropped");
+    eq(r.items[0].tags, ["hat"], "tags cleaned");
+    eq(r.items[0].palette, ["#ABCDEF"], "palette cleaned");
+    const old = jbSavedLayout(JSON.stringify({ width: 512, height: 512, summary: { caption: "a" }, items: [{ label: "object", caption: "c", bbox: [0, 0, 64, 64] }] }));
+    eq(old.summary.palette, [], "an old session has no palette");
+    eq(old.items[0].tags, [], "an old session has no tags");
+    eq(old.items[0].palette, [], "an old session has no box palette");
 }
 
 console.log("editing.js: all assertions passed");

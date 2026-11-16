@@ -608,6 +608,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             const clone = card.cloneNode(true);
             clone.removeAttribute("onclick");
             clone.removeAttribute("style");
+            clone.classList.remove("hidden"); // the whole active folder, whatever subfolder or search txt2img's tab is left on
             clone.querySelector(".button-row")?.remove();
             clone.addEventListener("click", () => pickLora(card));
             loraGrid.appendChild(clone);

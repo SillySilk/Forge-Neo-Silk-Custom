@@ -251,7 +251,7 @@ Also `style.css` (CUSTOM-marked): `.jb-list-section` min-height 240px + `.jb-sid
 `min-height: 0` crushed the item list to 0 px in a short window, hiding every object.
 **LoRA picker:** Extra is a 3-line auto-growing textarea on its own row, with a **+ LoRA** button. It opens a
 modal that clones the txt2img LoRA tab's cards (`#txt2img_lora_cards_html .card`, so the active-folder picker
-applies) plus a search box and a folder select mirroring `#txt2img_lora_folder_select`. A click runs the
+applies; the clones drop the tab's `hidden` class, so whatever subfolder or search the tab is left on is ignored, 2026-11-15) plus a search box and a folder select mirroring `#txt2img_lora_folder_select`. A click runs the
 original card's own `onclick` with `window.cardClicked` swapped out for a moment, so the tag is exactly what
 the tab would insert (weight, trigger words), then appends it to Extra. Each object / character / text row also has a **+ LoRA** button
 (2026-10-30) that appends the tag to that item's caption. Forge still applies it to the **whole image** (it pulls

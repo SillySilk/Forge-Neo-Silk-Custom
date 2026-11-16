@@ -1107,3 +1107,107 @@ button.jb-remove:hover {
     font-size: 11px;
     letter-spacing: 0;
 }
+
+/* CUSTOM (Forge Neo): tag chips and palette swatches (summary, boxes, characters) */
+.jb-meta-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.jb-meta-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.jb-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 6px;
+    border: 1px solid var(--border-color-primary, #34323a);
+    border-radius: 3px;
+    background: var(--input-background-fill, #101013);
+}
+.jb-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 4px 1px 8px;
+    border: 1px solid var(--border-color-primary, #34323a);
+    border-radius: 9px;
+    background: var(--button-secondary-background-fill, #26252b);
+    font-size: 13px;
+}
+.jb-root button.jb-chip-x {
+    min-width: 0;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    font-size: 11px;
+    line-height: 1;
+}
+.jb-chip-input {
+    flex: 1;
+    min-width: 80px;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 2px 0 !important;
+    box-shadow: none !important;
+}
+.jb-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    min-height: 30px;
+}
+.jb-root button.jb-swatch,
+.jb-root button.jb-swatch-add {
+    width: 26px;
+    height: 26px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 3px;
+    border: 1px solid var(--border-color-primary, #34323a);
+}
+.jb-root button.jb-swatch-add {
+    border-style: dashed;
+    background: transparent;
+}
+.jb-palette-picker {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.jb-root button.jb-item-field.jb-has {
+    border-color: var(--tom-gold-600, #b9861f);
+    color: var(--tom-gold-400, #dcac2e);
+}
+.jb-item-fieldpanel,
+.jb-char-adv-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+}
+.jb-char-adv {
+    border: 1px dashed var(--tom-gold-700, #8a5a12);
+    border-radius: 3px;
+}
+.jb-root button.jb-char-adv-btn {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+}
+.jb-char-adv-body {
+    padding: 0 10px 10px;
+}
+.jb-item-fieldpanel.jb-hidden,
+.jb-char-adv-body.jb-hidden {
+    display: none;
+}

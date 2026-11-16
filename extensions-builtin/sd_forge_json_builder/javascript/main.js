@@ -27,6 +27,7 @@ onUiLoaded(() => {
     };
 
     const listRefs = new Map();
+    const openFields = new Set(); // CUSTOM (Forge Neo): "<item id>:tags|palette" editors the user opened
     const canvasRefs = new Map();
     // CUSTOM (Forge Neo): on-screen stacking of canvas boxes, back to front. Only the display
     // changes; state.items keeps its order, since item numbers matter in the prompt.
@@ -79,6 +80,78 @@ onUiLoaded(() => {
             el.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
         }
         return el;
+    }
+
+    // ----- CUSTOM (Forge Neo): tag and palette editors (lists cleaned by fields.js) -----
+
+    // chips with a remove button, and a field where Enter or "," adds what was typed
+    function chipEditor(initial, onChange) {
+        let cur = initial.slice();
+        const input = h("input", { type: "text", class: "jb-chip-input", placeholder: "add tag…", "aria-label": "Add a tag" });
+        const el = h("div", { class: "jb-chips" });
+        function render() {
+            el.textContent = "";
+            for (const tag of cur) {
+                const x = h("button", { type: "button", class: "jb-chip-x", "aria-label": `Remove ${tag}` }, ["✕"]);
+                x.addEventListener("click", () => {
+                    cur = cur.filter((t) => t !== tag);
+                    render();
+                    onChange(cur.slice());
+                });
+                el.appendChild(h("span", { class: "jb-chip" }, [tag, x]));
+            }
+            el.appendChild(input);
+        }
+        function commit() {
+            const next = jbMergeList(cur, jbParseTags(input.value), JB_MAX_TAGS);
+            input.value = "";
+            if (next.length === cur.length) return;
+            cur = next;
+            render();
+            input.focus();
+            onChange(cur.slice());
+        }
+        input.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === ",") {
+                ev.preventDefault();
+                commit();
+            }
+        });
+        input.addEventListener("blur", () => input.value.trim() && commit());
+        render();
+        return { el, get: () => cur.slice(), set: (list) => ((cur = list.slice()), render()) };
+    }
+
+    // colour swatches (click one to remove it) and a + that opens the colour picker
+    function paletteEditor(initial, onChange) {
+        let cur = initial.slice();
+        const picker = h("input", { type: "color", class: "jb-palette-picker", tabindex: "-1", "aria-hidden": "true" });
+        const add = h("button", { type: "button", class: "jb-swatch-add", title: "Add a colour", "aria-label": "Add a colour" }, ["+"]);
+        const el = h("div", { class: "jb-palette" });
+        function render() {
+            el.textContent = "";
+            for (const hex of cur) {
+                const sw = h("button", { type: "button", class: "jb-swatch", title: `${hex}, click to remove`, "aria-label": `Remove colour ${hex}`, style: { background: hex } });
+                sw.addEventListener("click", () => {
+                    cur = cur.filter((c) => c !== hex);
+                    render();
+                    onChange(cur.slice());
+                });
+                el.appendChild(sw);
+            }
+            add.disabled = cur.length >= JB_MAX_COLOURS;
+            el.append(add, picker);
+        }
+        add.addEventListener("click", () => picker.click());
+        picker.addEventListener("change", () => {
+            const next = jbMergeList(cur, jbCleanPalette([picker.value]), JB_MAX_COLOURS);
+            if (next.length === cur.length) return;
+            cur = next;
+            render();
+            onChange(cur.slice());
+        });
+        render();
+        return { el, get: () => cur.slice(), set: (list) => ((cur = list.slice()), render()) };
     }
 
     const growables = new Set();
@@ -147,6 +220,10 @@ onUiLoaded(() => {
 
     const sumCaption = h("textarea", { class: "jb-sum-caption", placeholder: "global caption", rows: "1" });
     const sumMeta = h("input", { type: "text", class: "jb-sum-meta", placeholder: "meta tags (comma separated)" });
+    const sumPalette = paletteEditor(state.summary.palette, (list) => { // CUSTOM (Forge Neo)
+        state.summary.palette = list;
+        saveLayout();
+    });
     const sumExtra = h("textarea", { class: "jb-sum-extra", placeholder: "e.g. LoRA", rows: "3" }); // CUSTOM (Forge Neo): 3-line box, was a one-line input
     const loraBtn = h("button", { type: "button", class: "jb-lora-btn", title: "Pick a LoRA" }, ["+ LoRA"]); // CUSTOM (Forge Neo)
     const canvasRadioInputs = [];
@@ -167,8 +244,11 @@ onUiLoaded(() => {
         h("label", { class: "jb-fld-label", for: "jb-sum-caption" }, ["Caption"]),
         sumCaption,
         // CUSTOM (Forge Neo): Meta and Extra on their own rows (Extra is ~3x wider), plus a LoRA picker
-        h("label", { class: "jb-fld-label", for: "jb-sum-meta" }, ["Meta"]),
-        sumMeta,
+        // CUSTOM (Forge Neo): Meta (the medium) and the image's colour palette side by side
+        h("div", { class: "jb-meta-row" }, [
+            h("div", { class: "jb-meta-col" }, [h("label", { class: "jb-fld-label", for: "jb-sum-meta" }, ["Meta · medium"]), sumMeta]),
+            h("div", { class: "jb-meta-col" }, [h("span", { class: "jb-fld-label" }, ["Palette"]), sumPalette.el]),
+        ]),
         h("label", { class: "jb-fld-label", for: "jb-sum-extra" }, ["Extra"]),
         h("div", { class: "jb-row jb-extra-row" }, [sumExtra, loraBtn]),
     ]);
@@ -262,10 +342,27 @@ onUiLoaded(() => {
     const charMsg = h("div", { class: "jb-char-msg" });
     const charFoldBtn = h("button", { type: "button", class: "jb-char-fold", title: "Show or hide the character editor" });
     // two inner panels: using a character in the prompt vs editing the saved roster
+    // CUSTOM (Forge Neo): Advanced = the character's MOSS tags and palette; "Add to box" copies them into the box
+    const charTags = chipEditor([], () => {});
+    const charPalette = paletteEditor([], () => {});
+    const charAdvBtn = h("button", { type: "button", class: "jb-char-adv-btn", "aria-expanded": "false" });
+    const charAdvBody = h("div", { class: "jb-char-adv-body" }, [
+        h("div", { class: "jb-char-adv-field" }, [h("span", { class: "jb-fld-label" }, ["Tags"]), charTags.el]),
+        h("div", { class: "jb-char-adv-field" }, [h("span", { class: "jb-fld-label" }, ["Palette"]), charPalette.el]),
+    ]);
+    const charAdv = h("div", { class: "jb-char-adv" }, [charAdvBtn, charAdvBody]);
+    function setAdvOpen(open) {
+        charAdvBody.classList.toggle("jb-hidden", !open);
+        charAdvBtn.setAttribute("aria-expanded", String(open));
+        charAdvBtn.textContent = `${open ? "▾" : "▸"} Advanced`;
+        storeSet("jb-char-adv-open", open ? "1" : "0");
+    }
+    charAdvBtn.addEventListener("click", () => setAdvOpen(charAdvBody.classList.contains("jb-hidden")));
     const charEditor = h("div", { class: "jb-subpanel jb-char-editor" }, [
         h("div", { class: "jb-subpanel-title" }, ["Edit roster"]),
         h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
         charDesc,
+        charAdv,
         h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
     ]);
     const charactersSection = h("div", { class: "jb-section jb-chars" }, [
@@ -352,6 +449,8 @@ onUiLoaded(() => {
         charAbbr.value = c ? c.abbr : "";
         charName.value = c ? c.name : "";
         charDesc.value = c ? c.description : "";
+        charTags.set(c?.tags || []); // CUSTOM (Forge Neo)
+        charPalette.set(c?.palette || []);
         autoGrow(charDesc);
     }
 
@@ -416,6 +515,8 @@ onUiLoaded(() => {
         charAbbr.value = "";
         charName.value = "";
         charDesc.value = "";
+        charTags.set([]); // CUSTOM (Forge Neo)
+        charPalette.set([]);
         autoGrow(charDesc);
         charMessage("Type the new character, then Save.");
         charAbbr.focus();
@@ -459,6 +560,16 @@ onUiLoaded(() => {
             if (box) box.caption.value = boxNext;
             recordHistory();
         }
+        // CUSTOM (Forge Neo): the character's tags and palette join the box's (no repeats)
+        const tagsNext = jbMergeList(item.tags, c.tags || [], JB_MAX_TAGS);
+        const palNext = jbMergeList(item.palette, c.palette || [], JB_MAX_COLOURS);
+        const listsChanged = tagsNext.length !== item.tags.length || palNext.length !== item.palette.length;
+        if (listsChanged) {
+            item.tags = tagsNext;
+            item.palette = palNext;
+            renderList();
+            recordHistory(); // its own undo step after the caption one
+        }
         const sumNext = jbAppendCharacter(sumCaption.value, c);
         if (sumNext) {
             sumCaption.value = sumNext;
@@ -466,13 +577,13 @@ onUiLoaded(() => {
             autoGrow(sumCaption);
             saveLayout();
         }
-        if (boxNext === null && !sumNext) charMessage(`(${c.abbr}) is already in box #${n} and the caption.`);
+        if (boxNext === null && !sumNext && !listsChanged) charMessage(`(${c.abbr}) is already in box #${n} and the caption.`);
         else charMessage(`Added (${c.abbr}) to box #${n}${sumNext ? " and its line to the caption" : ""}.`);
     });
 
     charSaveBtn.addEventListener("click", async () => {
         try {
-            const data = await charRequest("/save", { name: charState.file, abbr: charAbbr.value, full_name: charName.value, description: charDesc.value });
+            const data = await charRequest("/save", { name: charState.file, abbr: charAbbr.value, full_name: charName.value, description: charDesc.value, tags: charTags.get(), palette: charPalette.get() }); // CUSTOM (Forge Neo): + tags/palette
             applyFile(data, charAbbr.value.trim());
             charMessage(`Saved ${charAbbr.value.trim()} to ${data.name}.`);
         } catch (e) {
@@ -596,6 +707,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         heightInput.value = state.height;
         sumCaption.value = state.summary.caption;
         sumMeta.value = state.summary.meta;
+        sumPalette.set(state.summary.palette); // CUSTOM (Forge Neo)
         sumExtra.value = state.summary.extra;
         autoGrow(sumCaption);
         autoGrow(sumExtra); // CUSTOM (Forge Neo)
@@ -1317,7 +1429,31 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         remove.addEventListener("click", () => removeItem(item.id));
         // CUSTOM (Forge Neo): LoRA picker for this item's caption
         const itemLoraBtn = h("button", { type: "button", class: "jb-item-lora", title: "Add a LoRA to this item's caption" }, ["+ LoRA"]);
-        top.append(itemLoraBtn, remove);
+        // CUSTOM (Forge Neo): MOSS tags and palette for this box, each behind a toggle (lit when the list has entries)
+        const fieldBtns = [];
+        const fieldPanels = [];
+        for (const [key, label, make] of [["tags", "Tags", chipEditor], ["palette", "Palette", paletteEditor]]) {
+            const btn = h("button", { type: "button", class: `jb-item-field jb-item-${key}`, "aria-pressed": "false" }, [label]);
+            const editor = make(item[key], (list) => {
+                item[key] = list;
+                btn.classList.toggle("jb-has", list.length > 0);
+                recordHistory(`${key}:${item.id}`);
+            });
+            const panel = h("div", { class: `jb-item-fieldpanel jb-item-${key}-panel` }, [h("span", { class: "jb-fld-label" }, [label]), editor.el]);
+            const openKey = `${item.id}:${key}`;
+            const show = (open) => {
+                panel.classList.toggle("jb-hidden", !open);
+                btn.setAttribute("aria-pressed", String(open));
+                if (open) openFields.add(openKey);
+                else openFields.delete(openKey);
+            };
+            show(openFields.has(openKey) || item[key].length > 0);
+            btn.classList.toggle("jb-has", item[key].length > 0);
+            btn.addEventListener("click", () => show(panel.classList.contains("jb-hidden")));
+            fieldBtns.push(btn);
+            fieldPanels.push(panel);
+        }
+        top.append(...fieldBtns, itemLoraBtn, remove);
         row.appendChild(top);
 
         const caption = h("textarea", { class: "jb-item-caption", placeholder: "caption", rows: "1", value: item.caption });
@@ -1329,6 +1465,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             if (ref && document.activeElement !== ref.caption) ref.caption.value = caption.value;
         });
         row.appendChild(caption);
+        row.append(...fieldPanels); // CUSTOM (Forge Neo)
         addGrowable(caption);
         itemLoraBtn.addEventListener("click", () => pickLoraForItem(item)); // CUSTOM (Forge Neo)
 
@@ -1721,6 +1858,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     });
     addGrowable(charDesc); // CUSTOM (Forge Neo): characters
     setFolded(storeGet("jb-char-folded") === "1");
+    setAdvOpen(storeGet("jb-char-adv-open") === "1"); // CUSTOM (Forge Neo)
     loadCharFiles();
     fitStage();
     requestAnimationFrame(fitStage);

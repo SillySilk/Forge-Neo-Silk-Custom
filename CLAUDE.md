@@ -286,9 +286,20 @@ panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
 is not saved. **The builder opens blank** (user choice): **Restore last session** reloads what `jb-layout` held when the
 page loaded (read once at init via `jbSavedLayout`, which pins the resolution; one undo step). A layout with no words
 anywhere (`jbBlankLayout`) is never saved, so the blank start or Clear All can't wipe the last session.
-**Side panel order:** toolbar (Add Item, Clear All, Undo, Redo, Restore) at the very top, then Send to txt2img / img2img,
-then Prompt, Reference image, Characters, Summary, list; **Resolution** sits folded at the bottom behind a small `Resolution W × H` button
-(`jb-res-fold`, open state in localStorage `jb-res-open`), since the size mostly follows txt2img. Prompt section **From txt2img** loads
+**Side panel order (2026-11-15 redesign, mockup https://claude.ai/artifact/RJ8rbw3EEvfnWb9AsfUM8z):** toolbar, then large
+gold/ember Send buttons (`.jb-send-label` + `.jb-send-sub`), Summary, **Objects & Characters** (`.jb-objects` wraps the list
+section and the character roster), Reference image, then **Prompt & size** (`.jb-prompt-size`: Load/Save + the resolution
+rows; the old folded Resolution section and `jb-res-open` are gone). Thing-o-Matic look: one block at the end of `style.css`,
+scoped `.jb-root .jb-side`, reading `--tom-*` from `user.css` with fallbacks. **Follow marker:** every change of the
+follow-txt2img flag goes through `setPinned(bool)`, which updates `.jb-follow` ("following txt2img" / "pinned") and shows
+**Follow txt2img** (`.jb-follow-btn`, resumes + re-syncs). Before this, a size set by hand silently stopped the following.
+**Tags / palette (MOSS fields):** `javascript/fields.js` (`jbParseTags`, `jbCleanTags`, `jbCleanPalette`, `jbMergeList`; max
+16 tags, 8 `#RRGGBB`; tests `node tests/test_fields_js.js`). `state.summary.palette`, `item.tags`, `item.palette` flow through
+`buildJson` (sent only when non-empty, so compile.js is unchanged), `loadDraft`, autosave (`jbSavedLayout`), undo and
+`decompile.js`. Editors: `chipEditor` / `paletteEditor` in `main.js`; box rows have Tags / Palette toggles (`jb-has` when
+filled). Characters may store optional `tags` / `palette` (`characters.py OPTIONAL_KEYS`, `/save` body), edited in the
+**Advanced** fold (`jb-char-adv-open`); **Add to box** merges them in. Same-seed MOSS A/B: tags and meta strong, palette weak,
+an unofficial `subject` label no effect (compile.js still rejects `panel`/`subject`). Prompt section **From txt2img** loads
 txt2img's current prompt + size back in. Boxes and list rows show `#N` (prompt order). Characters **Add to box** puts
 `(ABBR)` at the start of the selected box's caption (`jbAddAbbr`) and the character's line in the Summary caption.
 Dragging/resizing snaps edges and centres to the canvas and other boxes within 6 screen px, pink guides, Alt =

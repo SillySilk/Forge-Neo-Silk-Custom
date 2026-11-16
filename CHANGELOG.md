@@ -6,6 +6,25 @@ listed only as merges; see that repo for their details.
 
 ## 2026-11-15
 
+### JSON Builder: new side panel, tags and palettes
+
+![The new JSON Builder side panel](docs/images/json-builder-panel-2026-11-15.png)
+
+- **New order, top to bottom:** the toolbar, then large **Send to txt2img** (gold) and **Send to img2img** (red)
+  buttons, then **Summary**, then **Objects & Characters** (the box list with the character roster inside it),
+  then **Reference image**, then **Prompt & size** at the bottom.
+- **Thing-o-Matic look** for the panel: blackletter section titles, typewriter labels, gold corner brackets.
+- **Tags and Palette on every box.** MOSS-Image reads a short keyword list and a colour list for each box.
+  In a same-seed test on MOSS, **tags changed the picture strongly** (a red umbrella, a top hat, a sleeping cat on
+  the bench, each in its own box, even with no caption), while **palette had only a weak effect**.
+- **Palette for the whole image**, beside **Meta**. Meta sets the medium: `watercolor illustration` alone turned a
+  photo into a painting.
+- **Characters can carry tags and a palette** (the **Advanced** fold in Edit roster). **Add to box** copies them
+  into the selected box, without repeats.
+- **Size follows txt2img, and now says so.** Next to the width and height it reads *following txt2img* or
+  *pinned* (after you set a size by hand); **Follow txt2img** takes txt2img's size again.
+  The Resolution section is folded into **Prompt & size**.
+
 ### JSON Builder: the box you click covers the ones behind it
 
 Clicking a box on the canvas (or typing in it) brings it to the front and makes it almost solid,

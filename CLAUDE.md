@@ -249,87 +249,18 @@ Files it cannot recognize are listed under every preset, with a warning in the l
 - A new upstream model class needs a line in `_CLASS_TO_PRESET`, or its files show under every preset.
 - Verified live: moss 5, anima 3, krea 6, klein 3, wan 5, qwen21 3, matching the files on disk exactly.
 
-### JSON Builder follows txt2img resolution (added 2026-10-25)
-`extensions-builtin/sd_forge_json_builder/javascript/main.js` (upstream's): the builder's
-width/height take txt2img's each time the JSON Builder tab is shown, until the user changes the
-size in the builder (typing, Set Resolution, or Load Prompt). Sending to txt2img resumes following.
-Edits marked `// CUSTOM (Forge Neo)` (`resPinned`, `syncFromTxt2img`, an IntersectionObserver on the tab).
-Also `style.css` (CUSTOM-marked): `.jb-list-section` min-height 240px + `.jb-side` scrolls. Upstream's
-`min-height: 0` crushed the item list to 0 px in a short window, hiding every object.
-**LoRA picker:** Extra is a 3-line auto-growing textarea on its own row, with a **+ LoRA** button. It opens a
-modal that clones the txt2img LoRA tab's cards (`#txt2img_lora_cards_html .card`, so the active-folder picker
-applies; the clones drop the tab's `hidden` class, so whatever subfolder or search the tab is left on is ignored, 2026-11-15) plus a search box and a folder select mirroring `#txt2img_lora_folder_select`. A click runs the
-original card's own `onclick` with `window.cardClicked` swapped out for a moment, so the tag is exactly what
-the tab would insert (weight, trigger words), then appends it to Extra. Each object / character / text row also has a **+ LoRA** button
-(2026-10-30) that appends the tag to that item's caption. Forge still applies it to the **whole image** (it pulls
-`<lora:...>` tags from anywhere in the prompt); it only keeps the tag and its trigger words next to that item. The modal wraps the grid in
-`.extra-network-pane` to borrow the tab's card CSS.
-**Item toolbar + default (2026-10-30):** Add Item / Clear All sit under the Resolution/Save row (above
-Summary), not inside the list; new items default to `character`, not `object`.
-**Canvas extras (2026-10-26, not offered upstream):** a box's type tag is a `<select>` (object / character /
-text). **Load Image** puts a reference image under the boxes (an `<img class="jb-bg">` with a `blob:` URL — a CSS `url(data:...)` silently fails past ~2 MB in Chrome), sets the builder
-to the image's exact size and scales existing boxes with it; an **Opacity** slider fades it in the preview only;
-**Send to img2img** also loads it into `#img2img_image` via `window.forgeCanvasInstances[...].loadImage()`.
-**From txt2img / From img2img** (2026-11-01) grab the reference image from the selected txt2img result or the
-img2img input canvas (`.img`). Each box has a trash button (`.jb-box-trash`) in its top-right corner, and a duplicate button
-(`.jb-box-copy`, 2026-11-02) just left of it: copies type, caption, text and size, nudged down-right. Clicking a box brings it to the front (2026-11-15, `bringToFront`/`stackOrder`): display stacking only, `state.items` order is untouched because item numbers matter in the prompt (MOSS regional LoRA `item N`).
-**Editing (2026-11-15, ideas from eduardoabreu81/sd-regional-boxes-neo (AGPL) and DenOfEquity/ersatzForge (the ⇄ swap); nothing copied, both credited in the extension's `README.md` and the Show and tell post #1645):** Undo / Redo
-buttons + Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) over the boxes; a click selects a box (`jb-selected`), then Delete removes it, Esc
-deselects, arrows move it 8 px (Shift 64), Ctrl+D duplicates; shortcuts are off while typing in a field or with a modal open.
-Resize handles on all 8 sides/corners, Shift keeps the shape; a ⇄ button swaps width and height. Logic lives in
-`javascript/editing.js` (`JbHistory`, `jbResizeBox`, `jbMoveBox`; tests `node tests/test_editing_js.js`). Typing in one
-field, or a run of nudges, merges into one undo step. Each step also holds width/height, so undoing a box change that a
-resize caused brings the resize back too (2026-11-15). Width/height snap to multiples of 16 on leaving the field and when following txt2img
-(`res_step` may be 8; the prompt rejects anything else at Send), and typed box numbers are put in order and inside the canvas (`jbFixBox`). Section tints: `jb-sec-*` classes + `--jb-tint`; Characters (titled **Character roster**, with **New file** / **Import…** in its title row beside the Edit fold) is two
-panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
-**More editing (2026-11-15):** the layout autosaves to localStorage `jb-layout` (`saveLayout`); the reference image
-is not saved. **The builder opens blank** (user choice): **Restore last session** reloads what `jb-layout` held when the
-page loaded (read once at init via `jbSavedLayout`, which pins the resolution; one undo step). A layout with no words
-anywhere (`jbBlankLayout`) is never saved, so the blank start or Clear All can't wipe the last session.
-**Side panel order (2026-11-15 redesign, mockup https://claude.ai/artifact/RJ8rbw3EEvfnWb9AsfUM8z):** toolbar, then large
-gold/ember Send buttons (`.jb-send-label` + `.jb-send-sub`), Summary, **Objects & Characters** (`.jb-objects` wraps the list
-section and the character roster), Reference image, then **Prompt & size** (`.jb-prompt-size`: Load/Save + the resolution
-rows; the old folded Resolution section and `jb-res-open` are gone). Thing-o-Matic look: one block at the end of `style.css`,
-scoped `.jb-root .jb-side`, reading `--tom-*` from `user.css` with fallbacks. **Follow marker:** every change of the
-follow-txt2img flag goes through `setPinned(bool)`, which updates `.jb-follow` ("following txt2img" / "pinned") and shows
-**Follow txt2img** (`.jb-follow-btn`, resumes + re-syncs). Before this, a size set by hand silently stopped the following.
-**Tags / palette (MOSS fields):** `javascript/fields.js` (`jbParseTags`, `jbCleanTags`, `jbCleanPalette`, `jbMergeList`; max
-16 tags, 8 `#RRGGBB`; tests `node tests/test_fields_js.js`). `state.summary.palette`, `item.tags`, `item.palette` flow through
-`buildJson` (sent only when non-empty, so compile.js is unchanged), `loadDraft`, autosave (`jbSavedLayout`), undo and
-`decompile.js`. Editors: `chipEditor` / `paletteEditor` in `main.js`; box rows have Tags / Palette toggles (`jb-has` when
-filled). Characters may store optional `tags` / `palette` (`characters.py OPTIONAL_KEYS`, `/save` body), edited in the
-**Advanced** fold (`jb-char-adv-open`); **Add to box** merges them in. Same-seed MOSS A/B: tags and meta strong, palette weak,
-an unofficial `subject` label no effect (compile.js still rejects `panel`/`subject`). Prompt section **From txt2img** loads
-txt2img's current prompt + size back in. Boxes and list rows show `#N` (prompt order). Characters **Add to box** puts
-`(ABBR)` at the start of the selected box's caption (`jbAddAbbr`) and the character's line in the Summary caption.
-Dragging/resizing snaps edges and centres to the canvas and other boxes within 6 screen px, pink guides, Alt =
-free (`jbSnapOffset`/`jbSnapTargets`). Esc closes the Load Prompt and LoRA windows. Load failures show the reason
-in `.jb-prompt-msg`. The compiled prompt escapes caption brackets as `\(`; `decompile.js` now unescapes them to
-`(` (it used to leave `\(` in captions), tested by `node tests/test_decompile_js.js` (send → load → send is identical).
-Gotchas: `.jb-root button` (padding 7px 12px) outranks any bare `.jb-…` button class, so scope new button rules
-under `.jb-root`. An extension's **CSS and JS** links both carry each file's mtime from Forge startup (checked 2026-11-15), so
-after an edit a normal refresh can keep the old cached copy; a hard refresh (Ctrl+F5) or a restart loads the current files.
-A half-cached page is worse than a stale one: new `main.js` with an old `editing.js` threw at init and the builder came up broken
-(empty character list). Python changes need a restart.
-**Offered upstream 2026-10-26** from the fork `SillySilk/sd-webui-forge-classic` (remote `fork`) as three PRs:
-[#1591](https://github.com/Haoming02/sd-webui-forge-classic/pull/1591) list height, [#1592](https://github.com/Haoming02/sd-webui-forge-classic/pull/1592)
-follow txt2img resolution, [#1593](https://github.com/Haoming02/sd-webui-forge-classic/pull/1593) LoRA picker (without our folder select). If they
-merge, take upstream's version on the next merge and re-add only the folder select. Delete the `json-builder-*` branches once all three are closed.
-**Characters (2026-11-13, not offered upstream):** a Characters section above Summary. A character is an
-abbreviation (1-5 letters/digits), a full name and a description; **Add to caption** appends
-`(ABBR) Full name, description` to the Summary caption, so boxes only need `ABBR` (verified on MOSS: a box saying
-`LS waving` drew that character). The brackets reach the model as `\(LS\)` via `compile.js escapeParens()`.
-Characters live in **`.jbcast`** files (JSON) in `characters/`; only `examples.jbcast` (read-only, `"example": true`)
-is tracked, every other `.jbcast` there is gitignored so personal casts never reach this public repo.
-The file select **opens on "Choose character list"** (2026-11-15, user choice; it used to reopen the last file):
-no list is open until one is picked (`closeCharFile`); New file / Import / Save still open the file they touched. A small **+ Add character** button under the
-character dropdown in Add to prompt (`jb-char-new-char`, visible while the editor is folded) opens the editor and blanks it for a new entry; Save then adds it (disabled for examples / no file).
-A trash button beside the file select (2026-11-15, `/delete_file`, `CharacterStore.delete_file`) moves the file into
-`characters/deleted/` (gitignored; same name again gets a timestamp) after a confirm. Disabled for examples, and the server refuses them too. Store:
-`lib_json_builder/characters.py`; routes `/json_builder/characters/*` in `scripts/builder.py`; caption logic in
-`javascript/characters.js`. Tests: `venv/Scripts/python.exe extensions-builtin/sd_forge_json_builder/tests/test_characters.py`
-and `node extensions-builtin/sd_forge_json_builder/tests/test_characters_js.js`. The old Save/Load box is now
-**Prompt** (beside Resolution) and **Reference image** (full width below).
+### JSON Builder → moved out to MOSS Layout (2026-11-15)
+All of our JSON Builder work (follow txt2img size, LoRA picker, reference image, editing tools, characters,
+tags / palette, Thing-o-Matic panel) now lives in its own public extension
+**[SillySilk/sd-forge-moss-layout](https://github.com/SillySilk/sd-forge-moss-layout)** (AGPL-3, branch `main`),
+installed at `extensions/sd-forge-moss-layout` (own `.git`, ignored by the extensions repo). Its tab is **MOSS Layout**;
+its working notes are in that repo's `CLAUDE.md`. Everything is renamed (`ml-` / `ml*` / `/moss_layout/characters`)
+so it runs beside the stock builder. Personal `.jbcast` casts live in its `characters/` (gitignored there).
+- **`extensions-builtin/sd_forge_json_builder` is upstream's again** and is in `disabled_extensions`. Take upstream's
+  version on every merge; never re-customise it. The old customs are in history up to `12bda952`.
+- The prompt format is unchanged, so the MOSS regional LoRA add-on and the sd-dynamic-prompts `_protect_layout` fix
+  work with MOSS Layout prompts exactly as before.
+- Upstream PRs #1591-1593 (from the built-in era) may still be open; if they merge, nothing here changes.
 
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`

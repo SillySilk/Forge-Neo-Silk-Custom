@@ -6,6 +6,13 @@ listed only as merges; see that repo for their details.
 
 ## 2026-11-15
 
+### JSON Builder is now its own extension: MOSS Layout
+
+Everything below now lives in **[sd-forge-moss-layout](https://github.com/SillySilk/sd-forge-moss-layout)**, which any
+Forge Neo can install from **Extensions → Install from URL**. It opens in its own **MOSS Layout** tab.
+The built-in JSON Builder here is back to upstream's plain version and is switched off.
+Your last autosaved layout does not carry over once (**Restore last session** starts empty).
+
 ### JSON Builder: new side panel, tags and palettes
 
 ![The new JSON Builder side panel](docs/images/json-builder-panel-2026-11-15.png)

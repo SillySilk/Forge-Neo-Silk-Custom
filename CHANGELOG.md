@@ -19,6 +19,7 @@ a scroll bar appears inside it and the mouse wheel scrolls the text.
 ### JSON Builder: opens blank, buttons on top
 - The builder now **opens with a blank canvas**. Your last layout is still kept; **Restore last session** brings it back (and Undo takes it away again).
 - **Add Item, Clear All, Undo, Redo** and **Restore last session** sit at the very top of the side panel.
+- The Characters section is now **Character roster**, with **New file** and **Import…** in its title row.
 - The **character list** starts on "Choose character list" instead of reopening the last one.
 - **Resolution** folds away at the bottom behind a small button showing the current size, since the size mostly follows txt2img.
 

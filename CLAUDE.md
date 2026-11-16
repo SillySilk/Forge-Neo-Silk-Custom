@@ -280,7 +280,7 @@ Resize handles on all 8 sides/corners, Shift keeps the shape; a ⇄ button swaps
 `javascript/editing.js` (`JbHistory`, `jbResizeBox`, `jbMoveBox`; tests `node tests/test_editing_js.js`). Typing in one
 field, or a run of nudges, merges into one undo step. Each step also holds width/height, so undoing a box change that a
 resize caused brings the resize back too (2026-11-15). Width/height snap to multiples of 16 on leaving the field and when following txt2img
-(`res_step` may be 8; the prompt rejects anything else at Send), and typed box numbers are put in order and inside the canvas (`jbFixBox`). Section tints: `jb-sec-*` classes + `--jb-tint`; Characters is two
+(`res_step` may be 8; the prompt rejects anything else at Send), and typed box numbers are put in order and inside the canvas (`jbFixBox`). Section tints: `jb-sec-*` classes + `--jb-tint`; Characters (titled **Character roster**, with **New file** / **Import…** in its title row beside the Edit fold) is two
 panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
 **More editing (2026-11-15):** the layout autosaves to localStorage `jb-layout` (`saveLayout`); the reference image
 is not saved. **The builder opens blank** (user choice): **Restore last session** reloads what `jb-layout` held when the

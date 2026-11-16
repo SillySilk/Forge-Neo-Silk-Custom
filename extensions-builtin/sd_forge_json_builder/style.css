@@ -833,9 +833,16 @@ button.jb-remove:hover {
     white-space: nowrap;
 }
 
-.jb-root .jb-char-fold {
+/* CUSTOM (Forge Neo): New file, Import and Edit share the Character roster title row */
+.jb-char-title-btns {
     margin-left: auto;
+    display: flex;
+    gap: 6px;
+}
+
+.jb-root .jb-char-title-btns > button {
     padding: 2px 8px;
+    white-space: nowrap;
     font-size: 11px;
     letter-spacing: 0;
     text-transform: none;

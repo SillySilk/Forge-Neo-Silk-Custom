@@ -262,13 +262,13 @@ onUiLoaded(() => {
     // two inner panels: using a character in the prompt vs editing the saved roster
     const charEditor = h("div", { class: "jb-subpanel jb-char-editor" }, [
         h("div", { class: "jb-subpanel-title" }, ["Edit roster"]),
-        h("div", { class: "jb-row" }, [charNewFileBtn, charImportBtn]),
         h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
         charDesc,
         h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
     ]);
     const charactersSection = h("div", { class: "jb-section jb-chars" }, [
-        h("div", { class: "jb-section-title" }, ["Characters", charFoldBtn]),
+        // CUSTOM (Forge Neo): New file / Import sit in the section's title row, beside the Edit fold
+        h("div", { class: "jb-section-title" }, ["Character roster", h("span", { class: "jb-char-title-btns" }, [charNewFileBtn, charImportBtn, charFoldBtn])]),
         h("div", { class: "jb-subpanel jb-char-use" }, [
             h("div", { class: "jb-subpanel-title" }, ["Add to prompt"]),
             h("div", { class: "jb-row" }, [charFileSelect, charFileTrash]),

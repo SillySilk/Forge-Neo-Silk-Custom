@@ -1100,3 +1100,10 @@ button.jb-remove:hover {
 .jb-root .jb-list-toolbar > button {
     white-space: nowrap;
 }
+
+/* CUSTOM (Forge Neo): small "+ Add character" under the Abbrev / Name row */
+.jb-root .jb-chars .jb-row > .jb-char-new-char {
+    padding: 2px 10px;
+    font-size: 11px;
+    letter-spacing: 0;
+}

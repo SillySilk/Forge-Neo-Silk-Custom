@@ -256,6 +256,8 @@ onUiLoaded(() => {
     const charName = h("input", { type: "text", class: "jb-char-name", placeholder: "Full name" });
     const charDesc = h("textarea", { class: "jb-char-desc", rows: "2", placeholder: "Description" });
     const charSaveBtn = h("button", { type: "button", class: "jb-char-save" }, ["Save"]);
+    // CUSTOM (Forge Neo): blanks the fields for a new character, so adding one doesn't mean overwriting the shown one first
+    const charNewCharBtn = h("button", { type: "button", class: "jb-char-new-char", title: "Clear the fields to enter a new character, then Save" }, ["+ Add character"]);
     const charDeleteBtn = h("button", { type: "button", class: "jb-char-delete" }, ["Delete"]);
     const charMsg = h("div", { class: "jb-char-msg" });
     const charFoldBtn = h("button", { type: "button", class: "jb-char-fold", title: "Show or hide the character editor" });
@@ -263,6 +265,7 @@ onUiLoaded(() => {
     const charEditor = h("div", { class: "jb-subpanel jb-char-editor" }, [
         h("div", { class: "jb-subpanel-title" }, ["Edit roster"]),
         h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
+        h("div", { class: "jb-row" }, [charNewCharBtn]), // CUSTOM (Forge Neo)
         charDesc,
         h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
     ]);
@@ -332,6 +335,7 @@ onUiLoaded(() => {
         if (selectAbbr && sorted.some((c) => c.abbr === selectAbbr)) charSelect.value = selectAbbr;
         charAddBtn.disabled = !sorted.length;
         charSaveBtn.disabled = charState.example || !charState.file;
+        charNewCharBtn.disabled = charState.example || !charState.file; // CUSTOM (Forge Neo)
         charDeleteBtn.disabled = charState.example || !charState.file || !sorted.length;
         charFileTrash.disabled = charState.example || !charState.file;
         charFileTrash.title = charState.example ? "Examples can't be deleted" : "Delete this character file";
@@ -407,6 +411,14 @@ onUiLoaded(() => {
 
     charFileSelect.addEventListener("change", () => (charFileSelect.value ? openCharFile(charFileSelect.value) : closeCharFile()));
     charSelect.addEventListener("change", fillEditor);
+    charNewCharBtn.addEventListener("click", () => {
+        charAbbr.value = "";
+        charName.value = "";
+        charDesc.value = "";
+        autoGrow(charDesc);
+        charMessage("Type the new character, then Save.");
+        charAbbr.focus();
+    });
     charFoldBtn.addEventListener("click", () => setFolded(!charEditor.classList.contains("jb-hidden")));
 
     charAddBtn.addEventListener("click", () => {

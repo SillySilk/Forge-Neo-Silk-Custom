@@ -21,6 +21,7 @@ a scroll bar appears inside it and the mouse wheel scrolls the text.
 - **Add Item, Clear All, Undo, Redo** and **Restore last session** sit at the very top of the side panel.
 - **Send to txt2img / Send to img2img** sit right under that toolbar.
 - The Characters section is now **Character roster**, with **New file** and **Import…** in its title row.
+- A small **+ Add character** button under the name clears the fields for a new character; Save adds it.
 - The **character list** starts on "Choose character list" instead of reopening the last one.
 - **Resolution** folds away at the bottom behind a small button showing the current size, since the size mostly follows txt2img.
 

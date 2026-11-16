@@ -1432,7 +1432,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             const editor = make(item[key], (list) => {
                 item[key] = list;
                 btn.classList.toggle("jb-has", list.length > 0);
-                recordHistory(`${key}:${item.id}`);
+                recordHistory(); // each tag / colour change is its own undo step
             });
             const panel = h("div", { class: `jb-item-fieldpanel jb-item-${key}-panel` }, [h("span", { class: "jb-fld-label" }, [label]), editor.el]);
             const openKey = `${item.id}:${key}`;
@@ -1820,6 +1820,9 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         return false;
     }
 
+    let lastPointerInPanel = false; // CUSTOM (Forge Neo): where the last click was, side panel or elsewhere
+    document.addEventListener("pointerdown", (ev) => (lastPointerInPanel = side.contains(ev.target)), true);
+
     document.addEventListener("keydown", (ev) => {
         if (!root.isConnected || root.offsetParent === null) return;
         // CUSTOM (Forge Neo): Esc closes an open window, even while typing in it
@@ -1838,7 +1841,10 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         if (!(t === document.body || root.contains(t)) || isTyping(t)) return;
         const ctrl = ev.ctrlKey || ev.metaKey;
         const key = ev.key.toLowerCase();
-        const item = state.items.find((it) => it.id === selectedId);
+        // CUSTOM (Forge Neo): after a click in the side panel (a button, a tag ✕ or a colour swatch, which may
+        // vanish and leave the focus on the page), Delete / arrows / Ctrl+D must not act on the canvas box
+        const fromPanel = side.contains(t) || (t === document.body && lastPointerInPanel);
+        const item = fromPanel ? null : state.items.find((it) => it.id === selectedId);
 
         if (ctrl && key === "z") {
             restoreItems(ev.shiftKey ? undoHistory.redo() : undoHistory.undo());

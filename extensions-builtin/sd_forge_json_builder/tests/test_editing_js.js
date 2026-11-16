@@ -146,6 +146,10 @@ assert.strictEqual(jbSnap16(NaN), null, "not a number");
 {
     const blank = { summary: { caption: "", meta: " ", extra: "" }, items: [{ caption: "", text: "" }] };
     assert.strictEqual(jbBlankLayout(blank), true, "fresh canvas");
+    assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "", tags: [], palette: [] }] }), true, "empty lists are still blank");
+    assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "", tags: ["hat"] }] }), false, "a box tag");
+    assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "", palette: ["#112233"] }] }), false, "a box colour");
+    assert.strictEqual(jbBlankLayout({ ...blank, summary: { ...blank.summary, palette: ["#112233"] } }), false, "a summary colour");
     assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "" }, { caption: " ", text: "" }] }), true, "empty boxes only");
     assert.strictEqual(jbBlankLayout({ ...blank, summary: { ...blank.summary, caption: "a park" } }), false, "summary caption");
     assert.strictEqual(jbBlankLayout({ ...blank, summary: { ...blank.summary, extra: "<lora:x:1>" } }), false, "extra");

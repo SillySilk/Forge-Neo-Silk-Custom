@@ -193,5 +193,6 @@ function jbSavedLayout(text) {
 function jbBlankLayout(layout) {
     const empty = (s) => typeof s !== "string" || s.trim() === "";
     const s = layout.summary || {};
-    return empty(s.caption) && empty(s.meta) && empty(s.extra) && layout.items.every((it) => empty(it.caption) && empty(it.text));
+    const none = (list) => !Array.isArray(list) || list.length === 0; // CUSTOM (Forge Neo): tags / palette count as content
+    return empty(s.caption) && empty(s.meta) && empty(s.extra) && none(s.palette) && layout.items.every((it) => empty(it.caption) && empty(it.text) && none(it.tags) && none(it.palette));
 }

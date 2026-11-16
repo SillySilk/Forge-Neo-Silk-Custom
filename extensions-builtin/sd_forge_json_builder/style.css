@@ -1485,3 +1485,14 @@ button.jb-remove:hover {
 .jb-root .jb-side .jb-res-row > .jb-set-res {
     margin-left: auto;
 }
+
+/* tag x and colour swatches keep their own small size inside the panel sections */
+.jb-root .jb-side .jb-section button.jb-swatch,
+.jb-root .jb-side .jb-section button.jb-swatch-add {
+    padding: 0;
+}
+.jb-root .jb-side .jb-section button.jb-chip-x {
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+}

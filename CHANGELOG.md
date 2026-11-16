@@ -16,12 +16,17 @@ a scroll bar appears inside it and the mouse wheel scrolls the text.
 |---|---|
 | ![Overlapping boxes before selection](docs/images/json-builder-selected-box-before.png) | ![The selected box covers the boxes behind it and scrolls](docs/images/json-builder-selected-box-after.png) |
 
+### JSON Builder: opens blank, buttons on top
+- The builder now **opens with a blank canvas**. Your last layout is still kept; **Restore last session** brings it back (and Undo takes it away again).
+- **Add Item, Clear All, Undo, Redo** and **Restore last session** sit at the very top of the side panel.
+- **Resolution** folds away at the bottom behind a small button showing the current size, since the size mostly follows txt2img.
+
 ### JSON Builder: more editing conveniences
 - **Undo / Redo** buttons, plus Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z). Typing in one field or a run of nudges counts as one step.
 - **Keyboard:** click a box to select it, then Delete removes it, arrows move it (Shift for bigger steps), Ctrl+D duplicates it and Esc deselects.
 - **Resize from any side or corner;** hold Shift to keep the shape. A ⇄ button swaps width and height.
 - **Snapping:** dragged or resized boxes snap to the canvas and to other boxes, with pink guide lines. Hold Alt to move freely.
-- **Autosave:** the layout is kept in the browser and comes back after a reload.
+- **Autosave:** the layout is kept in the browser.
 - **From txt2img** (Prompt section) loads txt2img's current prompt and size into the builder.
 - Boxes and list rows show their number (`#1`, `#2` …), the order the prompt uses.
 - **Add to box** (Characters) puts a character's abbreviation at the start of the selected box's caption.

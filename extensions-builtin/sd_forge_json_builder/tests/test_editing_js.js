@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const ctx = vm.createContext({});
 // a top-level class is a global binding in the browser but not a context property here, so expose it
 vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "javascript", "editing.js"), "utf8") + "\nglobalThis.JbHistory = JbHistory;", ctx);
-const { JbHistory, jbResizeBox, jbMoveBox, jbFixBox, jbSnap16, jbSnapOffset, jbSnapTargets, jbSavedLayout } = ctx;
+const { JbHistory, jbResizeBox, jbMoveBox, jbFixBox, jbSnap16, jbSnapOffset, jbSnapTargets, jbSavedLayout, jbBlankLayout } = ctx;
 const eq = (a, b, msg) => assert.deepStrictEqual(Array.from(a), b, msg);
 
 // ----- history -----
@@ -139,6 +139,17 @@ assert.strictEqual(jbSnap16(NaN), null, "not a number");
     assert.strictEqual(jbSavedLayout(JSON.stringify({ ...good, summary: { caption: "a" } })).summary.canvas, "single", "missing fields get defaults");
     const off = jbSavedLayout(JSON.stringify({ ...good, items: [{ label: "object", caption: "", bbox: [900, 0, 2000, 900] }] }));
     eq(off.items[0].bbox, [900, 0, 1024, 768], "a box past the edge is pulled inside");
+}
+
+// ----- a blank canvas is not saved over the last session -----
+{
+    const blank = { summary: { caption: "", meta: " ", extra: "" }, items: [{ caption: "", text: "" }] };
+    assert.strictEqual(jbBlankLayout(blank), true, "fresh canvas");
+    assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "" }, { caption: " ", text: "" }] }), true, "empty boxes only");
+    assert.strictEqual(jbBlankLayout({ ...blank, summary: { ...blank.summary, caption: "a park" } }), false, "summary caption");
+    assert.strictEqual(jbBlankLayout({ ...blank, summary: { ...blank.summary, extra: "<lora:x:1>" } }), false, "extra");
+    assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "a dog", text: "" }] }), false, "a box caption");
+    assert.strictEqual(jbBlankLayout({ ...blank, items: [{ caption: "", text: "SALE" }] }), false, "a box text");
 }
 
 console.log("editing.js: all assertions passed");

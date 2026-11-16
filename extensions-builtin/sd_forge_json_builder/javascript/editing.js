@@ -187,3 +187,11 @@ function jbSavedLayout(text) {
     const canvas = ["single", "multi_panel", "collage"].includes(s.canvas) ? s.canvas : "single";
     return { width: v.width, height: v.height, summary: { caption: str(s.caption), meta: str(s.meta), extra: str(s.extra), canvas }, items };
 }
+
+// CUSTOM (Forge Neo): true when a layout holds no words at all (a fresh canvas, or one just cleared).
+// Such a layout is not autosaved, so opening the builder blank never wipes the last session.
+function jbBlankLayout(layout) {
+    const empty = (s) => typeof s !== "string" || s.trim() === "";
+    const s = layout.summary || {};
+    return empty(s.caption) && empty(s.meta) && empty(s.extra) && layout.items.every((it) => empty(it.caption) && empty(it.text));
+}

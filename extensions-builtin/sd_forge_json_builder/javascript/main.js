@@ -54,6 +54,7 @@ onUiLoaded(() => {
     function saveLayout() {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
+            if (jbBlankLayout(state)) return; // the builder opens blank; that must not wipe the last session
             const items = state.items.map(({ label, caption, text, bbox }) => ({ label, caption, text, bbox }));
             storeSet(LAYOUT_KEY, JSON.stringify({ width: state.width, height: state.height, summary: state.summary, items }));
         }, 300);
@@ -181,7 +182,9 @@ onUiLoaded(() => {
     // CUSTOM (Forge Neo): undo / redo for the boxes
     const undoBtn = h("button", { type: "button", class: "jb-undo", title: "Undo (Ctrl+Z)", disabled: "" }, ["\u21B6 Undo"]);
     const redoBtn = h("button", { type: "button", class: "jb-redo", title: "Redo (Ctrl+Y)", disabled: "" }, ["\u21B7 Redo"]);
-    const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn, undoBtn, redoBtn]); // CUSTOM (Forge Neo): sits above Summary, not inside the list
+    // CUSTOM (Forge Neo): the builder opens blank; this brings back the layout saved before the page loaded
+    const restoreBtn = h("button", { type: "button", class: "jb-restore", title: "Bring back the layout from your last session", disabled: "" }, ["Restore last session"]);
+    const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn, undoBtn, redoBtn, restoreBtn]); // CUSTOM (Forge Neo): top of the side panel
     const listSection = h("div", { class: "jb-section jb-list-section" }, [listEl]);
 
     const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, ["Send to txt2img"]);
@@ -511,8 +514,22 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         }
     });
 
-    const topRow = h("div", { class: "jb-top" }, [resolutionSection, promptSection]); // CUSTOM (Forge Neo)
-    const side = h("div", { class: "jb-side" }, [topRow, imageSection, listToolbar, charactersSection, summarySection, listSection, submitSection]); // CUSTOM (Forge Neo)
+    // CUSTOM (Forge Neo): Resolution mostly follows txt2img, so it sits folded at the bottom behind a small button
+    const resFoldBtn = h("button", { type: "button", class: "jb-res-fold", title: "Show or hide the resolution settings" });
+    const resFoldRow = h("div", { class: "jb-res-fold-row" }, [resFoldBtn]);
+    function updateResFold() {
+        const open = !resolutionSection.classList.contains("jb-hidden");
+        resFoldBtn.textContent = `Resolution ${state.width} × ${state.height} ${open ? "▾" : "▸"}`;
+    }
+    function setResOpen(open) {
+        resolutionSection.classList.toggle("jb-hidden", !open);
+        storeSet("jb-res-open", open ? "1" : "0");
+        updateResFold();
+    }
+    resFoldBtn.addEventListener("click", () => setResOpen(resolutionSection.classList.contains("jb-hidden")));
+    setResOpen(storeGet("jb-res-open") === "1");
+
+    const side = h("div", { class: "jb-side" }, [listToolbar, promptSection, imageSection, charactersSection, summarySection, listSection, submitSection, resFoldRow, resolutionSection]); // CUSTOM (Forge Neo)
     // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
     const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
     const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });
@@ -876,6 +893,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         }
         stage.style.width = w + "px";
         stage.style.height = hgt + "px";
+        updateResFold(); // CUSTOM (Forge Neo): the folded button shows the size
         clampPan();
         resetView();
     }
@@ -1600,12 +1618,16 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     // ----- init -----
 
-    // CUSTOM (Forge Neo): bring back the layout from before the page was refreshed
-    const savedLayout = jbSavedLayout(storeGet(LAYOUT_KEY));
-    if (savedLayout) {
-        const meta = savedLayout.summary.meta.trim();
-        loadDraft({ ...savedLayout, summary: { ...savedLayout.summary, meta: meta ? [meta] : [] }, extra: savedLayout.summary.extra });
-    }
+    // CUSTOM (Forge Neo): open blank; Restore last session brings back the layout saved before this page
+    // loaded (read once here, so autosaves made since don't change what it restores)
+    const lastSession = jbSavedLayout(storeGet(LAYOUT_KEY));
+    restoreBtn.disabled = !lastSession;
+    restoreBtn.addEventListener("click", () => {
+        if (!lastSession) return;
+        const meta = lastSession.summary.meta.trim();
+        selectedId = null;
+        loadDraft({ ...lastSession, summary: { ...lastSession.summary, meta: meta ? [meta] : [] }, extra: lastSession.summary.extra }); // renders, and is one undo step
+    });
     renderAll();
     undoHistory.reset(itemsSnapshot()); // CUSTOM (Forge Neo): the starting boxes are not an undo step
     updateUndoButtons();

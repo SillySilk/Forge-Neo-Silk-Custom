@@ -282,8 +282,13 @@ field, or a run of nudges, merges into one undo step. Each step also holds width
 resize caused brings the resize back too (2026-11-15). Width/height snap to multiples of 16 on leaving the field and when following txt2img
 (`res_step` may be 8; the prompt rejects anything else at Send), and typed box numbers are put in order and inside the canvas (`jbFixBox`). Section tints: `jb-sec-*` classes + `--jb-tint`; Characters is two
 panels, `.jb-char-use` ("Add to prompt") and `.jb-char-editor` ("Edit roster").
-**More editing (2026-11-15):** the layout autosaves to localStorage `jb-layout` (`saveLayout`, read back with
-`jbSavedLayout`, which pins the resolution); the reference image is not saved. Prompt section **From txt2img** loads
+**More editing (2026-11-15):** the layout autosaves to localStorage `jb-layout` (`saveLayout`); the reference image
+is not saved. **The builder opens blank** (user choice): **Restore last session** reloads what `jb-layout` held when the
+page loaded (read once at init via `jbSavedLayout`, which pins the resolution; one undo step). A layout with no words
+anywhere (`jbBlankLayout`) is never saved, so the blank start or Clear All can't wipe the last session.
+**Side panel order:** toolbar (Add Item, Clear All, Undo, Redo, Restore) at the very top, then Prompt, Reference image,
+Characters, Summary, list, Send; **Resolution** sits folded at the bottom behind a small `Resolution W × H` button
+(`jb-res-fold`, open state in localStorage `jb-res-open`), since the size mostly follows txt2img. Prompt section **From txt2img** loads
 txt2img's current prompt + size back in. Boxes and list rows show `#N` (prompt order). Characters **Add to box** puts
 `(ABBR)` at the start of the selected box's caption (`jbAddAbbr`) and the character's line in the Summary caption.
 Dragging/resizing snaps edges and centres to the canvas and other boxes within 6 screen px, pink guides, Alt =

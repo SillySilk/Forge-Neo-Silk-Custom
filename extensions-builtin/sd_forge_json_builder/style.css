@@ -1069,3 +1069,27 @@ button.jb-remove:hover {
     overscroll-behavior: contain;
     scrollbar-width: thin;
 }
+
+/* CUSTOM (Forge Neo): Resolution folds away at the bottom of the side panel behind a small button */
+.jb-res-fold-row {
+    display: flex;
+}
+
+.jb-root .jb-res-fold {
+    padding: 2px 10px;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+
+.jb-sec-res .jb-row label {
+    width: 32px;
+}
+
+/* CUSTOM (Forge Neo): the toolbar wraps instead of squashing its labels in a narrow window */
+.jb-list-toolbar {
+    flex-wrap: wrap;
+}
+
+.jb-root .jb-list-toolbar > button {
+    white-space: nowrap;
+}

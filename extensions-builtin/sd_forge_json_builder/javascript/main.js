@@ -22,44 +22,12 @@ onUiLoaded(() => {
     const state = {
         width: 1024,
         height: 1024,
-        summary: { caption: "", meta: "", extra: "", canvas: "single", palette: [] }, // CUSTOM (Forge Neo): + palette
+        summary: { caption: "", meta: "", extra: "", canvas: "single" },
         items: [],
     };
 
     const listRefs = new Map();
-    const openFields = new Set(); // CUSTOM (Forge Neo): "<item id>:tags|palette" editors the user opened
     const canvasRefs = new Map();
-    // CUSTOM (Forge Neo): on-screen stacking of canvas boxes, back to front. Only the display
-    // changes; state.items keeps its order, since item numbers matter in the prompt.
-    let stackOrder = [];
-    // CUSTOM (Forge Neo): undo/redo over the boxes (javascript/editing.js) and the selected box
-    const undoHistory = new JbHistory(100);
-    let restoring = false;
-    let selectedId = null;
-
-    // the resolution is part of each step: undoing a box change made by a resize must also undo the resize
-    function itemsSnapshot() {
-        return JSON.stringify({ width: state.width, height: state.height, items: state.items });
-    }
-
-    function recordHistory(key = null) {
-        saveLayout(); // CUSTOM (Forge Neo)
-        if (restoring) return;
-        undoHistory.commit(itemsSnapshot(), key);
-        updateUndoButtons();
-    }
-
-    // CUSTOM (Forge Neo): the layout is kept in the browser, so a page refresh doesn't lose it
-    const LAYOUT_KEY = "jb-layout";
-    let saveTimer = null;
-    function saveLayout() {
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-            if (jbBlankLayout(state)) return; // the builder opens blank; that must not wipe the last session
-            const items = state.items.map(({ label, caption, text, tags, palette, bbox }) => ({ label, caption, text, tags, palette, bbox }));
-            storeSet(LAYOUT_KEY, JSON.stringify({ width: state.width, height: state.height, summary: state.summary, items }));
-        }, 300);
-    }
 
     const MIN_ZOOM = 0.25;
     const MAX_ZOOM = 8;
@@ -80,80 +48,6 @@ onUiLoaded(() => {
             el.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
         }
         return el;
-    }
-
-    // ----- CUSTOM (Forge Neo): tag and palette editors (lists cleaned by fields.js) -----
-
-    // chips with a remove button, and a field where Enter or "," adds what was typed
-    function chipEditor(initial, onChange) {
-        let cur = initial.slice();
-        const input = h("input", { type: "text", class: "jb-chip-input", placeholder: "add tag…", "aria-label": "Add a tag" });
-        const el = h("div", { class: "jb-chips" });
-        function render() {
-            el.textContent = "";
-            for (const tag of cur) {
-                const x = h("button", { type: "button", class: "jb-chip-x", "aria-label": `Remove ${tag}` }, ["✕"]);
-                x.addEventListener("click", () => {
-                    cur = cur.filter((t) => t !== tag);
-                    render();
-                    onChange(cur.slice());
-                });
-                el.appendChild(h("span", { class: "jb-chip" }, [tag, x]));
-            }
-            el.appendChild(input);
-        }
-        // keepFocus: only when typing (Enter / ","); a blur commit must let the focus go where the user clicked
-        function commit(keepFocus) {
-            const next = jbMergeList(cur, jbParseTags(input.value), JB_MAX_TAGS);
-            input.value = "";
-            if (next.length === cur.length) return;
-            cur = next;
-            render();
-            if (keepFocus) input.focus();
-            onChange(cur.slice());
-        }
-        input.addEventListener("keydown", (ev) => {
-            if (ev.key === "Enter" || ev.key === ",") {
-                ev.preventDefault();
-                commit(true);
-            }
-        });
-        input.addEventListener("blur", () => input.value.trim() && commit(false));
-        render();
-        // set() also drops half-typed text, so it can't be saved onto the next character
-        return { el, get: () => cur.slice(), set: (list) => ((cur = list.slice()), (input.value = ""), render()) };
-    }
-
-    // colour swatches (click one to remove it) and a + that opens the colour picker
-    function paletteEditor(initial, onChange) {
-        let cur = initial.slice();
-        const picker = h("input", { type: "color", class: "jb-palette-picker", tabindex: "-1", "aria-hidden": "true" });
-        const add = h("button", { type: "button", class: "jb-swatch-add", title: "Add a colour", "aria-label": "Add a colour" }, ["+"]);
-        const el = h("div", { class: "jb-palette" });
-        function render() {
-            el.textContent = "";
-            for (const hex of cur) {
-                const sw = h("button", { type: "button", class: "jb-swatch", title: `${hex}, click to remove`, "aria-label": `Remove colour ${hex}`, style: { background: hex } });
-                sw.addEventListener("click", () => {
-                    cur = cur.filter((c) => c !== hex);
-                    render();
-                    onChange(cur.slice());
-                });
-                el.appendChild(sw);
-            }
-            add.disabled = cur.length >= JB_MAX_COLOURS;
-            el.append(add, picker);
-        }
-        add.addEventListener("click", () => picker.click());
-        picker.addEventListener("change", () => {
-            const next = jbMergeList(cur, jbCleanPalette([picker.value]), JB_MAX_COLOURS);
-            if (next.length === cur.length) return;
-            cur = next;
-            render();
-            onChange(cur.slice());
-        });
-        render();
-        return { el, get: () => cur.slice(), set: (list) => ((cur = list.slice()), render()) };
     }
 
     const growables = new Set();
@@ -190,7 +84,7 @@ onUiLoaded(() => {
     }
 
     function newItem() {
-        return { id: ++idCounter, label: "character", caption: "", text: "", tags: [], palette: [], bbox: defaultBbox() }; // CUSTOM (Forge Neo): was "object"; + tags/palette
+        return { id: ++idCounter, label: "object", caption: "", text: "", bbox: defaultBbox() };
     }
 
     state.items.push(newItem());
@@ -212,49 +106,36 @@ onUiLoaded(() => {
         ASPECT_RATIOS.map((r) => h("option", { value: r }, [r])),
     );
     const setResBtn = h("button", { type: "button", class: "jb-set-res" }, ["Set Resolution"]);
-    const swapResBtn = h("button", { type: "button", class: "jb-swap-res", title: "Swap width and height" }, ["\u21C4"]); // CUSTOM (Forge Neo)
 
-    // CUSTOM (Forge Neo): the size follows txt2img until it is set here; the marker says which, the button resumes following
-    const followMark = h("span", { class: "jb-follow", role: "status" });
-    const followBtn = h("button", { type: "button", class: "jb-follow-btn", title: "Take txt2img's size again and keep following it" }, ["Follow txt2img"]);
-    const resolutionRows = [
-        h("div", { class: "jb-row jb-res-row" }, [h("label", {}, ["W"]), widthInput, swapResBtn, h("label", {}, ["H"]), heightInput, followMark, followBtn]),
-        h("div", { class: "jb-row jb-res-row" }, [h("label", {}, ["MP"]), mpInput, h("label", {}, ["AR"]), arSelect, setResBtn]),
-    ];
+    const resolutionSection = h("div", { class: "jb-section" }, [
+        h("div", { class: "jb-section-title" }, ["Resolution"]),
+        h("div", { class: "jb-row" }, [h("label", {}, ["Width"]), widthInput, h("label", {}, ["Height"]), heightInput]),
+        h("div", { class: "jb-row" }, [h("label", {}, ["MP"]), mpInput, h("label", {}, ["AR"]), arSelect, setResBtn]),
+    ]);
 
     const sumCaption = h("textarea", { class: "jb-sum-caption", placeholder: "global caption", rows: "1" });
     const sumMeta = h("input", { type: "text", class: "jb-sum-meta", placeholder: "meta tags (comma separated)" });
-    const sumPalette = paletteEditor(state.summary.palette, (list) => { // CUSTOM (Forge Neo)
-        state.summary.palette = list;
-        saveLayout();
-    });
-    const sumExtra = h("textarea", { class: "jb-sum-extra", placeholder: "e.g. LoRA", rows: "3" }); // CUSTOM (Forge Neo): 3-line box, was a one-line input
-    const loraBtn = h("button", { type: "button", class: "jb-lora-btn", title: "Pick a LoRA" }, ["+ LoRA"]); // CUSTOM (Forge Neo)
+    const sumExtra = h("input", { type: "text", class: "jb-sum-extra", placeholder: "e.g. LoRA" });
     const canvasRadioInputs = [];
     const canvasRadios = CANVAS_TYPES.map((t) => {
         const id = `jb-canvas-${t}`;
         const radio = h("input", { type: "radio", name: "jb-canvas", value: t, id, checked: state.summary.canvas === t });
         radio.addEventListener("change", () => {
             if (radio.checked) state.summary.canvas = t;
-            saveLayout(); // CUSTOM (Forge Neo)
         });
         canvasRadioInputs.push(radio);
         return h("label", { class: "jb-radio", for: id }, [radio, t]);
     });
 
-    const summarySection = h("div", { class: "jb-section jb-sec-summary" }, [ // CUSTOM (Forge Neo): jb-sec-* = section tint
-        h("div", { class: "jb-section-title jb-ornate" }, ["Summary"]), // CUSTOM (Forge Neo): jb-ornate = fleuron title
+    const summarySection = h("div", { class: "jb-section" }, [
+        h("div", { class: "jb-section-title" }, ["Summary"]),
         h("div", { class: "jb-row" }, canvasRadios),
         h("label", { class: "jb-fld-label", for: "jb-sum-caption" }, ["Caption"]),
         sumCaption,
-        // CUSTOM (Forge Neo): Meta and Extra on their own rows (Extra is ~3x wider), plus a LoRA picker
-        // CUSTOM (Forge Neo): Meta (the medium) and the image's colour palette side by side
-        h("div", { class: "jb-meta-row" }, [
-            h("div", { class: "jb-meta-col" }, [h("label", { class: "jb-fld-label", for: "jb-sum-meta" }, ["Meta · medium"]), sumMeta]),
-            h("div", { class: "jb-meta-col" }, [h("span", { class: "jb-fld-label" }, ["Palette"]), sumPalette.el]),
+        h("div", { class: "jb-row" }, [
+            h("div", { class: "jb-half" }, [h("label", { class: "jb-fld-label", for: "jb-sum-meta" }, ["Meta"]), sumMeta]),
+            h("div", { class: "jb-half" }, [h("label", { class: "jb-fld-label", for: "jb-sum-extra" }, ["Extra"]), sumExtra]),
         ]),
-        h("label", { class: "jb-fld-label", for: "jb-sum-extra" }, ["Extra"]),
-        h("div", { class: "jb-row jb-extra-row" }, [sumExtra, loraBtn]),
     ]);
     sumCaption.id = "jb-sum-caption";
     sumMeta.id = "jb-sum-meta";
@@ -263,43 +144,21 @@ onUiLoaded(() => {
     const addBtn = h("button", { type: "button", class: "jb-add" }, ["Add Item"]);
     const clearBtn = h("button", { type: "button", class: "jb-clear" }, ["Clear All"]);
     const listEl = h("div", { class: "jb-list" });
-    // CUSTOM (Forge Neo): undo / redo for the boxes
-    const undoBtn = h("button", { type: "button", class: "jb-undo", title: "Undo (Ctrl+Z)", disabled: "" }, ["\u21B6 Undo"]);
-    const redoBtn = h("button", { type: "button", class: "jb-redo", title: "Redo (Ctrl+Y)", disabled: "" }, ["\u21B7 Redo"]);
-    // CUSTOM (Forge Neo): the builder opens blank; this brings back the layout saved before the page loaded
-    const restoreBtn = h("button", { type: "button", class: "jb-restore", title: "Bring back the layout from your last session", disabled: "" }, ["Restore last session"]);
-    const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn, undoBtn, redoBtn, restoreBtn]); // CUSTOM (Forge Neo): top of the side panel
-    const listSection = h("div", { class: "jb-section jb-list-section" }, [listEl]);
+    const listSection = h("div", { class: "jb-section jb-list-section" }, [h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn]), listEl]);
 
-    // CUSTOM (Forge Neo): the go buttons, large, with a small line under the label
-    const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, [h("span", { class: "jb-send-label" }, ["Send to txt2img"]), h("span", { class: "jb-send-sub" }, ["pull the lever"])]);
-    const sendI2I = h("button", { type: "button", class: "jb-send-i2i" }, [h("span", { class: "jb-send-label" }, ["Send to img2img"]), h("span", { class: "jb-send-sub" }, ["rework the plate"])]);
+    const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, ["Send to txt2img"]);
+    const sendI2I = h("button", { type: "button", class: "jb-send-i2i" }, ["Send to img2img"]);
     const submitSection = h("div", { class: "jb-section jb-submit" }, [sendT2I, sendI2I]);
 
     // ----- save / load -----
 
     const loadPromptBtn = h("button", { type: "button", class: "jb-load-prompt" }, ["Load Prompt"]);
-    // CUSTOM (Forge Neo): edit the prompt that is in txt2img now (e.g. one sent from here earlier)
-    const fromT2IPromptBtn = h("button", { type: "button", class: "jb-from-t2i-prompt", title: "Load txt2img's current prompt and size back into the builder" }, ["From txt2img"]);
-    const promptMsg = h("div", { class: "jb-char-msg jb-prompt-msg" }); // CUSTOM (Forge Neo): why a load failed
     const saveJsonBtn = h("button", { type: "button", class: "jb-save-json" }, ["Save JSON"]);
     const loadJsonBtn = h("button", { type: "button", class: "jb-load-json" }, ["Load JSON"]);
-    const loadImageBtn = h("button", { type: "button", class: "jb-load-image", title: "Trace boxes over an image; takes its resolution" }, ["Load Image"]); // CUSTOM (Forge Neo)
-    const clearImageBtn = h("button", { type: "button", class: "jb-clear-image", disabled: "" }, ["Clear Image"]); // CUSTOM (Forge Neo)
-    const fromT2IBtn = h("button", { type: "button", class: "jb-from-t2i", title: "Use the selected (or latest) txt2img result as the reference image" }, ["From txt2img"]); // CUSTOM (Forge Neo)
-    const fromI2IBtn = h("button", { type: "button", class: "jb-from-i2i", title: "Use img2img's input image as the reference image" }, ["From img2img"]); // CUSTOM (Forge Neo)
-    const imageOpacity = h("input", { type: "range", class: "jb-image-opacity", min: "0", max: "100", step: "1", value: "100", disabled: "", title: "Image opacity (preview only)" }); // CUSTOM (Forge Neo)
-    // CUSTOM (Forge Neo): Save/Load split into Prompt (beside Resolution) and Reference image (full width below)
-    const promptSection = h("div", { class: "jb-section jb-save jb-prompt-size" }, [
-        h("div", { class: "jb-section-title" }, ["Prompt & size"]), // CUSTOM (Forge Neo): resolution folded in here
-        h("div", { class: "jb-row" }, [loadPromptBtn, fromT2IPromptBtn, saveJsonBtn, loadJsonBtn]), // CUSTOM (Forge Neo): + From txt2img
-        promptMsg,
-        ...resolutionRows,
-    ]);
-    const imageSection = h("div", { class: "jb-section jb-save jb-image" }, [
-        h("div", { class: "jb-section-title" }, ["Reference image"]),
-        h("div", { class: "jb-row" }, [loadImageBtn, clearImageBtn, fromT2IBtn, fromI2IBtn]),
-        h("div", { class: "jb-row" }, [h("label", {}, ["Opacity"]), imageOpacity]),
+    const saveLoadSection = h("div", { class: "jb-section jb-save" }, [
+        h("div", { class: "jb-section-title" }, ["Save/Load"]),
+        h("div", { class: "jb-row" }, [loadPromptBtn]),
+        h("div", { class: "jb-row" }, [saveJsonBtn, loadJsonBtn]),
     ]);
 
     const dialogInput = h("textarea", { class: "jb-dialog-input", placeholder: "Compiled Prompt or Layout Draft", spellcheck: "false" });
@@ -317,385 +176,27 @@ onUiLoaded(() => {
 
     const fileInput = h("input", { type: "file", accept: ".json,application/json", class: "jb-file" });
     fileInput.style.display = "none";
-    const imageInput = h("input", { type: "file", accept: "image/*", class: "jb-file" }); // CUSTOM (Forge Neo)
-    imageInput.style.display = "none";
 
-    // ----- CUSTOM (Forge Neo): characters -----
-    // saved characters live in .jbcast files on the server (scripts/builder.py); Add puts
-    // "(ABBR) Full name, description" into the Summary caption (javascript/characters.js)
-
-    const CHAR_API = "/json_builder/characters";
-    const charFileSelect = h("select", { class: "jb-char-file", title: "Character file" });
-    const charNewFileBtn = h("button", { type: "button", class: "jb-char-new" }, ["New file"]);
-    const charImportBtn = h("button", { type: "button", class: "jb-char-import", title: "Copy a .jbcast file into the character folder" }, ["Import…"]);
-    const charImportInput = h("input", { type: "file", accept: ".jbcast", class: "jb-file" });
-    charImportInput.style.display = "none";
-    // delete the selected character file (moved to characters/deleted/); examples can't be deleted
-    const charFileTrash = h("button", { type: "button", class: "jb-char-file-trash", title: "Delete this character file" });
-    charFileTrash.innerHTML =
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
-    const charSelect = h("select", { class: "jb-char-select", title: "Saved characters" });
-    const charAddBtn = h("button", { type: "button", class: "jb-char-add" }, ["Add to caption"]);
-    const charBoxBtn = h("button", { type: "button", class: "jb-char-box", title: "Put (ABBR) in the selected box's caption, and the character's line in the Summary caption" }, ["Add to box"]); // CUSTOM (Forge Neo)
-    const charAbbr = h("input", { type: "text", class: "jb-char-abbr", maxlength: "5", placeholder: "LS" });
-    const charName = h("input", { type: "text", class: "jb-char-name", placeholder: "Full name" });
-    const charDesc = h("textarea", { class: "jb-char-desc", rows: "2", placeholder: "Description" });
-    const charSaveBtn = h("button", { type: "button", class: "jb-char-save" }, ["Save"]);
-    // CUSTOM (Forge Neo): blanks the fields for a new character, so adding one doesn't mean overwriting the shown one first
-    const charNewCharBtn = h("button", { type: "button", class: "jb-char-new-char", title: "Clear the fields to enter a new character, then Save" }, ["+ Add character"]);
-    const charDeleteBtn = h("button", { type: "button", class: "jb-char-delete" }, ["Delete"]);
-    const charMsg = h("div", { class: "jb-char-msg" });
-    const charFoldBtn = h("button", { type: "button", class: "jb-char-fold", title: "Show or hide the character editor" });
-    // two inner panels: using a character in the prompt vs editing the saved roster
-    // CUSTOM (Forge Neo): Advanced = the character's MOSS tags and palette; "Add to box" copies them into the box
-    const charTags = chipEditor([], () => {});
-    const charPalette = paletteEditor([], () => {});
-    const charAdvBtn = h("button", { type: "button", class: "jb-char-adv-btn", "aria-expanded": "false" });
-    const charAdvBody = h("div", { class: "jb-char-adv-body" }, [
-        h("div", { class: "jb-char-adv-field" }, [h("span", { class: "jb-fld-label" }, ["Tags"]), charTags.el]),
-        h("div", { class: "jb-char-adv-field" }, [h("span", { class: "jb-fld-label" }, ["Palette"]), charPalette.el]),
-    ]);
-    const charAdv = h("div", { class: "jb-char-adv" }, [charAdvBtn, charAdvBody]);
-    function setAdvOpen(open) {
-        charAdvBody.classList.toggle("jb-hidden", !open);
-        charAdvBtn.setAttribute("aria-expanded", String(open));
-        charAdvBtn.textContent = `${open ? "▾" : "▸"} Advanced`;
-        storeSet("jb-char-adv-open", open ? "1" : "0");
-    }
-    charAdvBtn.addEventListener("click", () => setAdvOpen(charAdvBody.classList.contains("jb-hidden")));
-    const charEditor = h("div", { class: "jb-subpanel jb-char-editor" }, [
-        h("div", { class: "jb-subpanel-title" }, ["Edit roster"]),
-        h("div", { class: "jb-row" }, [h("label", {}, ["Abbrev"]), charAbbr, h("label", {}, ["Name"]), charName]),
-        charDesc,
-        charAdv,
-        h("div", { class: "jb-row jb-char-actions" }, [charSaveBtn, charDeleteBtn]),
-    ]);
-    const charactersSection = h("div", { class: "jb-section jb-chars" }, [
-        // CUSTOM (Forge Neo): New file / Import sit in the section's title row, beside the Edit fold
-        h("div", { class: "jb-section-title" }, ["Character roster", h("span", { class: "jb-char-title-btns" }, [charNewFileBtn, charImportBtn, charFoldBtn])]),
-        h("div", { class: "jb-subpanel jb-char-use" }, [
-            h("div", { class: "jb-subpanel-title" }, ["Add to prompt"]),
-            h("div", { class: "jb-row" }, [charFileSelect, charFileTrash]),
-            h("div", { class: "jb-row" }, [charSelect, charAddBtn, charBoxBtn]),
-            h("div", { class: "jb-row" }, [charNewCharBtn]), // CUSTOM (Forge Neo): under the character dropdown, visible while the editor is folded
-        ]),
-        charEditor,
-        charMsg,
-    ]);
-
-    const charState = { file: null, example: false, characters: [] };
-
-    function storeGet(key) {
-        try {
-            return localStorage.getItem(key);
-        } catch {
-            return null;
-        }
-    }
-
-    function storeSet(key, value) {
-        try {
-            localStorage.setItem(key, value);
-        } catch {
-            /* storage unavailable: the choice just isn't remembered */
-        }
-    }
-
-    function charMessage(text, isError = false) {
-        charMsg.textContent = text;
-        charMsg.classList.toggle("jb-char-error", isError);
-    }
-
-    function promptMessage(text, isError = false) {
-        promptMsg.textContent = text;
-        promptMsg.classList.toggle("jb-char-error", isError);
-    }
-
-    function flash(button) {
-        button.classList.add("jb-invalid");
-        setTimeout(() => button.classList.remove("jb-invalid"), 1200);
-    }
-
-    async function charRequest(path, body) {
-        const res = await fetch(`${CHAR_API}${path}`, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
-        return data;
-    }
-
-    function setFolded(folded) {
-        charEditor.classList.toggle("jb-hidden", folded);
-        charFoldBtn.textContent = folded ? "Edit ▸" : "Edit ▾";
-        storeSet("jb-char-folded", folded ? "1" : "0");
-    }
-
-    function renderCharacters(selectAbbr) {
-        const sorted = [...charState.characters].sort((a, b) => a.abbr.localeCompare(b.abbr, undefined, { sensitivity: "base" }));
-        charSelect.textContent = "";
-        if (!sorted.length) charSelect.appendChild(h("option", { value: "" }, [charState.file ? "(no characters yet)" : "(choose a character list first)"])); // CUSTOM (Forge Neo)
-        for (const c of sorted) charSelect.appendChild(h("option", { value: c.abbr }, [`${c.abbr} — ${c.name}`]));
-        if (selectAbbr && sorted.some((c) => c.abbr === selectAbbr)) charSelect.value = selectAbbr;
-        charAddBtn.disabled = !sorted.length;
-        charSaveBtn.disabled = charState.example || !charState.file;
-        charNewCharBtn.disabled = charState.example || !charState.file; // CUSTOM (Forge Neo)
-        charDeleteBtn.disabled = charState.example || !charState.file || !sorted.length;
-        charFileTrash.disabled = charState.example || !charState.file;
-        charFileTrash.title = charState.example ? "Examples can't be deleted" : "Delete this character file";
-        if (charState.example) charMessage("Examples are read-only. Use New file to make your own.");
-        fillEditor();
-    }
-
-    function selectedCharacter() {
-        return charState.characters.find((c) => c.abbr === charSelect.value) || null;
-    }
-
-    function fillEditor() {
-        const c = selectedCharacter();
-        charAbbr.value = c ? c.abbr : "";
-        charName.value = c ? c.name : "";
-        charDesc.value = c ? c.description : "";
-        charTags.set(c?.tags || []); // CUSTOM (Forge Neo)
-        charPalette.set(c?.palette || []);
-        autoGrow(charDesc);
-    }
-
-    function applyFile(data, selectAbbr) {
-        charState.file = data.name;
-        charState.example = data.example;
-        charState.characters = data.characters;
-        charFileSelect.value = data.name;
-        renderCharacters(selectAbbr);
-    }
-
-    async function openCharFile(name) {
-        charMessage("");
-        try {
-            applyFile(await charRequest(`/file?name=${encodeURIComponent(name)}`));
-        } catch (e) {
-            charState.file = name;
-            charState.example = false;
-            charState.characters = [];
-            renderCharacters();
-            charSaveBtn.disabled = charDeleteBtn.disabled = true;
-            charFileTrash.disabled = false; // a damaged file can still be deleted
-            charMessage(e.message, true);
-        }
-    }
-
-    // CUSTOM (Forge Neo): no list is open until one is picked (the builder used to reopen the last one)
-    function closeCharFile() {
-        charMessage("");
-        charState.file = null;
-        charState.example = false;
-        charState.characters = [];
-        charFileSelect.value = "";
-        renderCharacters();
-    }
-
-    async function loadCharFiles(selectName) {
-        try {
-            const { files } = await charRequest("/files");
-            charFileSelect.textContent = "";
-            charFileSelect.appendChild(h("option", { value: "" }, ["Choose character list"]));
-            for (const f of files) charFileSelect.appendChild(h("option", { value: f }, [f]));
-            if (!files.length) {
-                charState.file = null;
-                charState.characters = [];
-                renderCharacters();
-                charFileTrash.disabled = true;
-                charMessage("No character files. Use New file.", true);
-                return;
-            }
-            if (selectName && files.includes(selectName)) await openCharFile(selectName); // just made, imported or saved
-            else closeCharFile();
-        } catch (e) {
-            charMessage(e.message, true);
-        }
-    }
-
-    charFileSelect.addEventListener("change", () => (charFileSelect.value ? openCharFile(charFileSelect.value) : closeCharFile()));
-    charSelect.addEventListener("change", fillEditor);
-    charNewCharBtn.addEventListener("click", () => {
-        setFolded(false); // the fields live in the editor
-        charAbbr.value = "";
-        charName.value = "";
-        charDesc.value = "";
-        charTags.set([]); // CUSTOM (Forge Neo)
-        charPalette.set([]);
-        autoGrow(charDesc);
-        charMessage("Type the new character, then Save.");
-        charAbbr.focus();
-    });
-    charFoldBtn.addEventListener("click", () => setFolded(!charEditor.classList.contains("jb-hidden")));
-
-    charAddBtn.addEventListener("click", () => {
-        const c = selectedCharacter();
-        const next = c && jbAppendCharacter(sumCaption.value, c);
-        if (!next) {
-            flash(charAddBtn);
-            if (c) charMessage(`(${c.abbr}) is already in the caption.`);
-            return;
-        }
-        sumCaption.value = next;
-        state.summary.caption = next;
-        autoGrow(sumCaption);
-        saveLayout();
-        charMessage(`Added (${c.abbr}) to the caption.`);
-    });
-
-    // CUSTOM (Forge Neo): the box names the character by "(ABBR)"; the Summary caption says who that is
-    charBoxBtn.addEventListener("click", () => {
-        const c = selectedCharacter();
-        const item = state.items.find((it) => it.id === selectedId);
-        if (!c || !item) {
-            flash(charBoxBtn);
-            if (c) charMessage("Click a box on the canvas first.", true);
-            return;
-        }
-        const n = state.items.indexOf(item) + 1;
-        const boxNext = jbAddAbbr(item.caption, c.abbr);
-        if (boxNext !== null) {
-            item.caption = boxNext;
-            const row = listRefs.get(item.id);
-            if (row) {
-                row.captionInput.value = boxNext;
-                autoGrow(row.captionInput);
-            }
-            const box = canvasRefs.get(item.id);
-            if (box) box.caption.value = boxNext;
-            recordHistory();
-        }
-        // CUSTOM (Forge Neo): the character's tags and palette join the box's (no repeats)
-        const tagsNext = jbMergeList(item.tags, c.tags || [], JB_MAX_TAGS);
-        const palNext = jbMergeList(item.palette, c.palette || [], JB_MAX_COLOURS);
-        const listsChanged = tagsNext.length !== item.tags.length || palNext.length !== item.palette.length;
-        if (listsChanged) {
-            item.tags = tagsNext;
-            item.palette = palNext;
-            renderList();
-            recordHistory(); // its own undo step after the caption one
-        }
-        const sumNext = jbAppendCharacter(sumCaption.value, c);
-        if (sumNext) {
-            sumCaption.value = sumNext;
-            state.summary.caption = sumNext;
-            autoGrow(sumCaption);
-            saveLayout();
-        }
-        if (boxNext === null && !sumNext && !listsChanged) charMessage(`(${c.abbr}) is already in box #${n} and the caption.`);
-        else charMessage(`Added (${c.abbr}) to box #${n}${sumNext ? " and its line to the caption" : ""}.`);
-    });
-
-    charSaveBtn.addEventListener("click", async () => {
-        try {
-            const data = await charRequest("/save", { name: charState.file, abbr: charAbbr.value, full_name: charName.value, description: charDesc.value, tags: charTags.get(), palette: charPalette.get() }); // CUSTOM (Forge Neo): + tags/palette
-            applyFile(data, charAbbr.value.trim());
-            charMessage(`Saved ${charAbbr.value.trim()} to ${data.name}.`);
-        } catch (e) {
-            flash(charSaveBtn);
-            charMessage(e.message, true);
-        }
-    });
-
-    charDeleteBtn.addEventListener("click", async () => {
-        const abbr = charAbbr.value.trim();
-        if (!abbr || !window.confirm(`Delete ${abbr} from ${charState.file}?`)) return;
-        try {
-            applyFile(await charRequest("/delete", { name: charState.file, abbr }));
-            charMessage(`Deleted ${abbr}.`);
-        } catch (e) {
-            flash(charDeleteBtn);
-            charMessage(e.message, true);
-        }
-    });
-
-    charFileTrash.addEventListener("click", async () => {
-        const name = charState.file;
-        if (!name || charState.example) return;
-        if (!window.confirm(`Delete ${name}?
-
-It is moved to the characters/deleted folder, so it can be put back by hand.`)) return;
-        try {
-            await charRequest("/delete_file", { name });
-            await loadCharFiles();
-            charMessage(`Deleted ${name} (kept in characters/deleted).`);
-        } catch (e) {
-            flash(charFileTrash);
-            charMessage(e.message, true);
-        }
-    });
-
-    charNewFileBtn.addEventListener("click", async () => {
-        const name = window.prompt("Name for the new character file:");
-        if (!name || !name.trim()) return;
-        try {
-            const data = await charRequest("/file", { name });
-            await loadCharFiles(data.name);
-            charMessage(`Created ${data.name}.`);
-        } catch (e) {
-            flash(charNewFileBtn);
-            charMessage(e.message, true);
-        }
-    });
-
-    charImportBtn.addEventListener("click", () => charImportInput.click());
-    charImportInput.addEventListener("change", async () => {
-        const file = charImportInput.files[0];
-        charImportInput.value = "";
-        if (!file) return;
-        try {
-            const data = await charRequest("/import", { name: file.name, content: await file.text() });
-            await loadCharFiles(data.name);
-            charMessage(`Imported ${data.name}.`);
-        } catch (e) {
-            flash(charImportBtn);
-            charMessage(e.message, true);
-        }
-    });
-
-    // CUSTOM (Forge Neo): workflow order: go buttons, Summary, the boxes and who is in them, then the rarely used parts
-    const objectsSection = h("div", { class: "jb-section jb-objects" }, [
-        h("div", { class: "jb-section-title jb-ornate" }, ["Objects & Characters"]),
-        listSection,
-        charactersSection,
-    ]);
-    const side = h("div", { class: "jb-side" }, [listToolbar, submitSection, summarySection, objectsSection, imageSection, promptSection]);
-    // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
-    const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
-    const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });
-    const loraClose = h("button", { type: "button", class: "jb-dialog-close", title: "Close" }, ["×"]);
-    const loraGrid = h("div", { class: "extra-network-cards jb-lora-grid" });
-    const loraModal = h("div", { class: "jb-modal jb-hidden" }, [
-        h("div", { class: "jb-dialog jb-lora-dialog" }, [
-            loraClose,
-            h("div", { class: "jb-row jb-lora-controls" }, [loraSearch, loraFolder]),
-            h("div", { class: "extra-network-pane jb-lora-pane" }, [loraGrid]), // borrows the LoRA tab's card styling
-        ]),
-    ]);
-
-    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, loraModal, fileInput, imageInput, charImportInput]); // CUSTOM (Forge Neo): + charImportInput
+    const topRow = h("div", { class: "jb-top" }, [resolutionSection, saveLoadSection]);
+    const side = h("div", { class: "jb-side" }, [topRow, summarySection, listSection, submitSection]);
+    const root = h("div", { class: "jb-root" }, [canvasSection, side, modal, fileInput]);
 
     tab.textContent = "";
     tab.appendChild(root);
     addGrowable(sumCaption);
-    addGrowable(sumExtra); // CUSTOM (Forge Neo)
 
     function loadDraft(draft) {
-        setPinned(true); // CUSTOM (Forge Neo)
         state.width = draft.width;
         state.height = draft.height;
         state.summary.caption = draft.summary.caption;
         state.summary.meta = draft.summary.meta.join(", ");
         state.summary.canvas = draft.summary.canvas;
-        state.summary.extra = draft.extra || ""; // CUSTOM (Forge Neo): was always ""
-        state.summary.palette = jbCleanPalette(draft.summary.palette); // CUSTOM (Forge Neo)
+        state.summary.extra = "";
         state.items = draft.items.map((item) => ({
             id: ++idCounter,
             label: item.label,
             caption: item.caption,
             text: item.text || "",
-            tags: jbCleanTags(item.tags), // CUSTOM (Forge Neo)
-            palette: jbCleanPalette(item.palette),
             bbox: item.bbox.slice(),
         }));
 
@@ -703,10 +204,8 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         heightInput.value = state.height;
         sumCaption.value = state.summary.caption;
         sumMeta.value = state.summary.meta;
-        sumPalette.set(state.summary.palette); // CUSTOM (Forge Neo)
         sumExtra.value = state.summary.extra;
         autoGrow(sumCaption);
-        autoGrow(sumExtra); // CUSTOM (Forge Neo)
         canvasRadioInputs.forEach((radio) => {
             radio.checked = radio.value === state.summary.canvas;
         });
@@ -737,132 +236,13 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         try {
             const draft = decompilePrompt(text, parseFloat(dialogWidth.value), parseFloat(dialogHeight.value));
             loadDraft(draft);
-            promptMessage("");
-        } catch (e) {
+        } catch {
             loadPromptBtn.classList.add("jb-invalid");
-            promptMessage(`Couldn't load that prompt: ${e.message}`, true); // CUSTOM (Forge Neo)
         }
         closeDialog();
     }
 
-    // ----- LoRA picker (CUSTOM (Forge Neo)) -----
-
-    const loraCardsHtml = () => document.getElementById("txt2img_lora_cards_html");
-    const loraFolderSource = () => document.querySelector("#txt2img_lora_folder_select");
-
-    function renderLoraCards() {
-        loraGrid.textContent = "";
-        const query = loraSearch.value.trim().toLowerCase();
-        const cards = loraCardsHtml()?.querySelectorAll(".card") ?? [];
-        for (const card of cards) {
-            if (query && !card.textContent.toLowerCase().includes(query)) continue;
-            const clone = card.cloneNode(true);
-            clone.removeAttribute("onclick");
-            clone.removeAttribute("style");
-            clone.classList.remove("hidden"); // the whole active folder, whatever subfolder or search txt2img's tab is left on
-            clone.querySelector(".button-row")?.remove();
-            clone.addEventListener("click", () => pickLora(card));
-            loraGrid.appendChild(clone);
-        }
-        if (!loraGrid.childElementCount) loraGrid.appendChild(h("div", { class: "jb-lora-empty" }, ["No LoRA found"]));
-    }
-
-    function syncLoraFolders() {
-        const source = loraFolderSource();
-        loraFolder.textContent = "";
-        loraFolder.classList.toggle("jb-hidden", !source);
-        if (!source) return;
-        for (const opt of source.options) loraFolder.appendChild(h("option", { value: opt.value }, [opt.textContent]));
-        loraFolder.value = source.value;
-    }
-
-    // the LoRA tab's own click handler builds the tag (weight, trigger words, ...); capture it instead of inserting into txt2img
-    function pickLora(card) {
-        const original = window.cardClicked;
-        let tag = null;
-        window.cardClicked = (_tabname, textToAdd) => {
-            tag = textToAdd;
-        };
-        try {
-            card.click();
-        } finally {
-            window.cardClicked = original;
-        }
-        if (!tag) return;
-        const onPick = loraTarget;
-        closeLoraPicker();
-        onPick?.(tag);
-    }
-
-    function appendTag(field, tag) {
-        const current = field.value.trim();
-        field.value = current ? `${current} ${tag}` : tag;
-        field.dispatchEvent(new Event("input", { bubbles: true }));
-        autoGrow(field);
-    }
-
-    const loraObserver = new MutationObserver(() => {
-        if (!loraModal.classList.contains("jb-hidden")) renderLoraCards();
-    });
-
-    let loraTarget = null; // where the picked tag goes: the summary's Extra or an item's caption
-
-    function openLoraPicker(onPick) {
-        loraTarget = onPick;
-        syncLoraFolders();
-        renderLoraCards();
-        const cardsHtml = loraCardsHtml();
-        if (cardsHtml) loraObserver.observe(cardsHtml, { childList: true, subtree: true });
-        loraModal.classList.remove("jb-hidden");
-        loraSearch.focus();
-    }
-
-    function closeLoraPicker() {
-        loraObserver.disconnect();
-        loraTarget = null;
-        loraModal.classList.add("jb-hidden");
-    }
-
-    loraBtn.addEventListener("click", () =>
-        openLoraPicker((tag) => {
-            appendTag(sumExtra, tag);
-            state.summary.extra = sumExtra.value;
-            saveLayout();
-        }),
-    );
-    // shared by the list row and the canvas box; the row's input event keeps item.caption and the box in step
-    function pickLoraForItem(item) {
-        openLoraPicker((tag) => {
-            const input = listRefs.get(item.id)?.captionInput;
-            if (input) appendTag(input, tag);
-        });
-    }
-
-    loraClose.addEventListener("click", closeLoraPicker);
-    loraModal.addEventListener("click", (ev) => {
-        if (ev.target === loraModal) closeLoraPicker();
-    });
-    loraSearch.addEventListener("input", renderLoraCards);
-    loraFolder.addEventListener("change", () => {
-        const source = loraFolderSource();
-        if (!source) return;
-        source.value = loraFolder.value;
-        source.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-
     loadPromptBtn.addEventListener("click", openDialog);
-    // CUSTOM (Forge Neo)
-    fromT2IPromptBtn.addEventListener("click", () => {
-        const text = t2i_prompt.value.trim();
-        try {
-            if (!text.includes("{")) throw new Error(text ? "it isn't a layout prompt" : "it is empty");
-            loadDraft(decompilePrompt(text, jbSnap16(parseInt(t2i_width.value, 10)), jbSnap16(parseInt(t2i_height.value, 10))));
-            promptMessage("Loaded txt2img's prompt.");
-        } catch (e) {
-            flash(fromT2IPromptBtn);
-            promptMessage(`Couldn't load txt2img's prompt: ${e.message}`, true);
-        }
-    });
     dialogClose.addEventListener("click", closeDialog);
     dialogLoad.addEventListener("click", handleDialogLoad);
 
@@ -892,125 +272,12 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             try {
                 const draft = decompilePrompt(reader.result, NaN, NaN);
                 loadDraft(draft);
-                promptMessage("");
-            } catch (e) {
+            } catch {
                 loadJsonBtn.classList.add("jb-invalid");
-                promptMessage(`Couldn't load ${file.name}: ${e.message}`, true); // CUSTOM (Forge Neo)
             }
         });
         reader.readAsText(file);
     });
-
-    // ----- background image (CUSTOM (Forge Neo)) -----
-
-    // an <img> with a blob: URL, not a CSS data: URL, which Chrome silently drops past ~2 MB
-    const bgEl = h("img", { class: "jb-bg", alt: "", draggable: "false" });
-    let bgFile = null; // the loaded reference image, sent to img2img
-
-    function setBackground(file, url) {
-        if (bgEl.src.startsWith("blob:")) URL.revokeObjectURL(bgEl.src);
-        bgFile = file;
-        if (url) bgEl.src = url;
-        else bgEl.removeAttribute("src");
-        stage.classList.toggle("jb-has-image", !!file);
-        clearImageBtn.disabled = !file;
-        imageOpacity.disabled = !file;
-    }
-
-    // preview only; the image sent to img2img stays untouched
-    imageOpacity.addEventListener("input", () => {
-        bgEl.style.opacity = String(imageOpacity.value / 100);
-    });
-
-    loadImageBtn.addEventListener("click", () => {
-        loadImageBtn.classList.remove("jb-invalid");
-        imageInput.value = "";
-        imageInput.click();
-    });
-
-    // takes the image's resolution and scales the boxes with it; `button` turns red if it cannot be read
-    function loadBackground(file, button) {
-        [loadImageBtn, fromT2IBtn, fromI2IBtn].forEach((b) => b.classList.remove("jb-invalid"));
-        setBackground(null); // a new pick always replaces the last one, even if it fails to load
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            // the prompt format needs multiples of 16; the image stretches by at most 8 px a side
-            const width = round16(img.naturalWidth);
-            const height = round16(img.naturalHeight);
-            // boxes keep their place relative to the frame
-            const sx = width / state.width;
-            const sy = height / state.height;
-            for (const item of state.items) {
-                const [x1, y1, x2, y2] = item.bbox;
-                item.bbox = [Math.round(x1 * sx), Math.round(y1 * sy), Math.round(x2 * sx), Math.round(y2 * sy)];
-            }
-            setPinned(true);
-            widthInput.value = width;
-            heightInput.value = height;
-            setBackground(file, url);
-            applyResolution(width, height);
-            clampItemsToCanvas();
-            renderList();
-        };
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            button.classList.add("jb-invalid");
-        };
-        img.src = url;
-    }
-
-    imageInput.addEventListener("change", () => {
-        const file = imageInput.files?.[0];
-        if (file) loadBackground(file, loadImageBtn);
-    });
-
-    async function loadBackgroundFromUrl(src, button) {
-        button.classList.remove("jb-invalid");
-        if (!src) {
-            button.classList.add("jb-invalid");
-            return;
-        }
-        try {
-            const res = await fetch(src);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            loadBackground(await res.blob(), button);
-        } catch (e) {
-            console.error("[JSON Builder] could not grab the image:", e);
-            button.classList.add("jb-invalid");
-        }
-    }
-
-    // the result the txt2img gallery shows: the selected thumbnail, else the open preview, else the first result
-    function txt2imgImageSrc() {
-        const gallery = document.getElementById("txt2img_gallery");
-        if (!gallery) return null;
-        const img =
-            gallery.querySelector(".thumbnail-item.selected img") ??
-            gallery.querySelector(".preview img:not(.thumbnail-item img)") ??
-            gallery.querySelector(".thumbnail-item img, .grid-wrap img");
-        return img?.src || null;
-    }
-
-    function img2imgCanvas() {
-        const target = document.getElementById("img2img_image");
-        return Object.values(window.forgeCanvasInstances ?? {}).find((c) => target?.contains(document.getElementById(`drawingCanvas_${c.uuid}`)));
-    }
-
-    fromT2IBtn.addEventListener("click", () => loadBackgroundFromUrl(txt2imgImageSrc(), fromT2IBtn));
-    fromI2IBtn.addEventListener("click", () => loadBackgroundFromUrl(img2imgCanvas()?.img || null, fromI2IBtn));
-
-    clearImageBtn.addEventListener("click", () => setBackground(null));
-
-    // puts the reference image into img2img's input canvas
-    function sendImageToImg2img() {
-        if (!bgFile) return;
-        const canvas = img2imgCanvas();
-        if (!canvas) return;
-        const reader = new FileReader();
-        reader.addEventListener("load", () => canvas.loadImage(reader.result));
-        reader.readAsDataURL(bgFile);
-    }
 
     // ----- canvas sizing -----
 
@@ -1092,9 +359,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     stage.addEventListener(
         "wheel",
         (e) => {
-            // CUSTOM (Forge Neo): the selected box's text scrolls when it overflows, instead of zooming
-            const field = e.target.closest?.(".jb-box.jb-selected .jb-field, .jb-box.jb-active .jb-field");
-            if (field && field.scrollHeight > field.clientHeight + 1) return;
             e.preventDefault();
             zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.2 : 1 / 1.2);
         },
@@ -1142,7 +406,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         });
         ta.addEventListener("input", () => {
             item[field] = ta.value;
-            recordHistory(`${field}:${item.id}`); // CUSTOM (Forge Neo)
             const ref = listRefs.get(item.id);
             if (!ref) return;
             const inp = field === "caption" ? ref.captionInput : ref.textInput;
@@ -1152,22 +415,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             }
         });
         return ta;
-    }
-
-    // CUSTOM (Forge Neo): snap guides
-    const guideV = h("div", { class: "jb-guide jb-guide-v jb-hidden" });
-    const guideH = h("div", { class: "jb-guide jb-guide-h jb-hidden" });
-    const SNAP_PX = 6; // on screen
-
-    function showGuides(x, y) {
-        guideV.classList.toggle("jb-hidden", x === null);
-        guideH.classList.toggle("jb-hidden", y === null);
-        if (x !== null) guideV.style.left = (x / state.width) * 100 + "%";
-        if (y !== null) guideH.style.top = (y / state.height) * 100 + "%";
-    }
-
-    function snapTargetsFor(item) {
-        return jbSnapTargets(state.items.filter((it) => it !== item).map((it) => it.bbox), state.width, state.height);
     }
 
     function startDrag(item, e) {
@@ -1181,7 +428,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const w = x2 - x1;
         const hgt = y2 - y1;
         let moved = false;
-        const targets = snapTargetsFor(item); // CUSTOM (Forge Neo)
 
         function move(ev) {
             const dx = (ev.clientX - sx) * scaleX;
@@ -1189,18 +435,8 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             if (!moved && Math.hypot(dx, dy) < 3) return;
             moved = true;
             ref.el.classList.add("jb-active");
-            let nx1 = clamp(Math.round(x1 + dx), 0, state.width - w);
-            let ny1 = clamp(Math.round(y1 + dy), 0, state.height - hgt);
-            // CUSTOM (Forge Neo): edges and centre snap to the canvas and the other boxes; Alt places freely
-            let gx = null;
-            let gy = null;
-            if (!ev.altKey) {
-                const snapX = jbSnapOffset([nx1, nx1 + w / 2, nx1 + w], targets.x, SNAP_PX * scaleX);
-                const snapY = jbSnapOffset([ny1, ny1 + hgt / 2, ny1 + hgt], targets.y, SNAP_PX * scaleY);
-                if (snapX) [nx1, gx] = [clamp(Math.round(nx1 + snapX.delta), 0, state.width - w), snapX.at];
-                if (snapY) [ny1, gy] = [clamp(Math.round(ny1 + snapY.delta), 0, state.height - hgt), snapY.at];
-            }
-            showGuides(gx, gy);
+            const nx1 = clamp(Math.round(x1 + dx), 0, state.width - w);
+            const ny1 = clamp(Math.round(y1 + dy), 0, state.height - hgt);
             item.bbox = [nx1, ny1, nx1 + w, ny1 + hgt];
             updateBoxPosition(item);
             syncListNums(item);
@@ -1210,16 +446,13 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
             ref.el.classList.remove("jb-active");
-            showGuides(null, null); // CUSTOM (Forge Neo)
-            if (moved) recordHistory(); // CUSTOM (Forge Neo)
         }
 
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
     }
 
-    // CUSTOM (Forge Neo): resize from any side or corner (`dir`); Shift keeps the shape
-    function startResize(item, e, dir = "se") {
+    function startResize(item, e) {
         e.stopPropagation();
         const ref = canvasRefs.get(item.id);
         const rect = stage.getBoundingClientRect();
@@ -1229,35 +462,11 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const sy = e.clientY;
         const [x1, y1, x2, y2] = item.bbox;
         ref.el.classList.add("jb-active");
-        const targets = snapTargetsFor(item);
 
         function move(ev) {
-            item.bbox = jbResizeBox([x1, y1, x2, y2], dir, (ev.clientX - sx) * scaleX, (ev.clientY - sy) * scaleY, {
-                maxW: state.width,
-                maxH: state.height,
-                min: 16,
-                keepAspect: ev.shiftKey,
-            });
-            // the edge being dragged snaps too (not while Shift keeps the shape, or with Alt)
-            let gx = null;
-            let gy = null;
-            if (!ev.shiftKey && !ev.altKey) {
-                const b = item.bbox;
-                const xi = dir.includes("e") ? 2 : dir.includes("w") ? 0 : -1;
-                const yi = dir.includes("s") ? 3 : dir.includes("n") ? 1 : -1;
-                const snapEdge = (i, list, thr, other, lo, hi) => {
-                    const r = jbSnapOffset([b[i]], list, thr);
-                    const v = r && b[i] + r.delta;
-                    if (r && (i === other + 2 ? v - b[other] >= 16 : b[other] - v >= 16) && v >= lo && v <= hi) {
-                        b[i] = Math.round(v);
-                        return r.at;
-                    }
-                    return null;
-                };
-                if (xi >= 0) gx = snapEdge(xi, targets.x, SNAP_PX * scaleX, xi === 2 ? 0 : 2, 0, state.width);
-                if (yi >= 0) gy = snapEdge(yi, targets.y, SNAP_PX * scaleY, yi === 3 ? 1 : 3, 0, state.height);
-            }
-            showGuides(gx, gy);
+            const nx2 = clamp(Math.round(x2 + (ev.clientX - sx) * scaleX), x1 + 16, state.width);
+            const ny2 = clamp(Math.round(y2 + (ev.clientY - sy) * scaleY), y1 + 16, state.height);
+            item.bbox = [x1, y1, nx2, ny2];
             updateBoxPosition(item);
             syncListNums(item);
         }
@@ -1266,8 +475,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             window.removeEventListener("pointermove", move);
             window.removeEventListener("pointerup", up);
             ref.el.classList.remove("jb-active");
-            showGuides(null, null);
-            recordHistory();
         }
 
         window.addEventListener("pointermove", move);
@@ -1276,20 +483,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     function createBox(item) {
         const el = h("div", { class: "jb-box", dataset: { id: String(item.id) } });
-        // CUSTOM (Forge Neo): the tag is a dropdown to change the item's type
-        const tag = h(
-            "select",
-            { class: "jb-box-tag", title: "Item type" },
-            LABELS.map((label) => h("option", { value: label }, [label])),
-        );
-        tag.value = item.label;
-        tag.addEventListener("change", () => {
-            item.label = tag.value;
-            renderAll();
-        });
-        // CUSTOM (Forge Neo): the item's number, as the prompt counts them (regional LoRA "item N")
-        const num = h("span", { class: "jb-box-tag jb-box-num", title: "Item number in the prompt" }, [`#${state.items.indexOf(item) + 1}`]);
-        el.appendChild(h("div", { class: "jb-box-head" }, [num, tag]));
+        el.appendChild(h("div", { class: "jb-box-tag" }, [item.label]));
 
         const caption = makeEditable(item, "caption");
         el.appendChild(caption);
@@ -1301,97 +495,30 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             el.appendChild(text);
         }
 
-        // CUSTOM (Forge Neo): delete button in the top-right corner
-        const trash = h("button", { type: "button", class: "jb-box-trash", title: "Delete this box" });
-        trash.innerHTML =
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
-        trash.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-        trash.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            removeItem(item.id);
+        const handle = h("div", { class: "jb-box-handle" });
+        handle.addEventListener("pointerdown", (ev) => {
+            if (ev.button !== 0) return;
+            startResize(item, ev);
         });
-        el.appendChild(trash);
-
-        // CUSTOM (Forge Neo): duplicate button, left of the trash button
-        const copy = h("button", { type: "button", class: "jb-box-copy", title: "Duplicate this box" });
-        copy.innerHTML =
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
-        copy.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-        copy.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            duplicateItem(item.id);
-        });
-        el.appendChild(copy);
-
-        // CUSTOM (Forge Neo): LoRA picker along the box's bottom edge, same as the row's button
-        const boxLora = h("button", { type: "button", class: "jb-box-lora", title: "Add a LoRA to this item's caption" }, ["+ LoRA"]);
-        boxLora.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-        boxLora.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            pickLoraForItem(item);
-        });
-        el.appendChild(boxLora);
-
-        // CUSTOM (Forge Neo): a handle on every side and corner
-        for (const dir of ["n", "s", "e", "w", "ne", "nw", "se", "sw"]) {
-            const handle = h("div", { class: `jb-box-handle jb-h-${dir}` });
-            handle.addEventListener("pointerdown", (ev) => {
-                if (ev.button !== 0) return;
-                bringToFront(item.id);
-                selectBox(item.id);
-                startResize(item, ev, dir);
-            });
-            el.appendChild(handle);
-        }
+        el.appendChild(handle);
 
         el.addEventListener("pointerdown", (ev) => {
             if (ev.button !== 0) return;
-            bringToFront(item.id); // CUSTOM (Forge Neo)
-            selectBox(item.id); // CUSTOM (Forge Neo)
-            if (ev.target.classList.contains("jb-box-handle")) return; // CUSTOM (Forge Neo)
-            if (ev.target === tag) return; // CUSTOM (Forge Neo)
+            if (ev.target === handle) return;
             if (ev.target.tagName === "TEXTAREA" && !ev.target.readOnly) return;
             ev.preventDefault();
             startDrag(item, ev);
         });
 
-        if (item.id === selectedId) el.classList.add("jb-selected"); // CUSTOM (Forge Neo)
         canvasRefs.set(item.id, { el, caption, text });
         updateBoxPosition(item);
         return el;
     }
 
-    // CUSTOM (Forge Neo): the clicked box goes on top of the others, so its text can be
-    // reached when boxes overlap. z-index stays 1..n (below the builder's modals).
-    function applyStacking() {
-        const ids = new Set(state.items.map((it) => it.id));
-        stackOrder = stackOrder.filter((id) => ids.has(id));
-        for (const it of state.items) if (!stackOrder.includes(it.id)) stackOrder.push(it.id);
-        stackOrder.forEach((id, i) => {
-            const ref = canvasRefs.get(id);
-            if (ref) ref.el.style.zIndex = String(i + 1);
-        });
-    }
-
-    // CUSTOM (Forge Neo): the box the keyboard shortcuts act on
-    function selectBox(id) {
-        selectedId = id;
-        for (const [rid, ref] of canvasRefs) ref.el.classList.toggle("jb-selected", rid === id);
-    }
-
-    function bringToFront(id) {
-        stackOrder = stackOrder.filter((x) => x !== id);
-        stackOrder.push(id);
-        applyStacking();
-    }
-
     function renderCanvas() {
         stage.textContent = "";
-        stage.appendChild(bgEl); // CUSTOM (Forge Neo)
         canvasRefs.clear();
         for (const item of state.items) stage.appendChild(createBox(item));
-        stage.append(guideV, guideH); // CUSTOM (Forge Neo)
-        applyStacking(); // CUSTOM (Forge Neo)
     }
 
     // ----- list -----
@@ -1417,59 +544,28 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             });
             return h("label", { class: "jb-radio", for: id }, [radio, label]);
         });
-        top.append(h("span", { class: "jb-item-num", title: "Item number in the prompt" }, [`#${state.items.indexOf(item) + 1}`])); // CUSTOM (Forge Neo)
         top.append(...radios);
 
         const remove = h("button", { type: "button", class: "jb-remove", title: "Remove" }, ["\u00D7"]);
         remove.addEventListener("click", () => removeItem(item.id));
-        // CUSTOM (Forge Neo): LoRA picker for this item's caption
-        const itemLoraBtn = h("button", { type: "button", class: "jb-item-lora", title: "Add a LoRA to this item's caption" }, ["+ LoRA"]);
-        // CUSTOM (Forge Neo): MOSS tags and palette for this box, each behind a toggle (lit when the list has entries)
-        const fieldBtns = [];
-        const fieldPanels = [];
-        for (const [key, label, make] of [["tags", "Tags", chipEditor], ["palette", "Palette", paletteEditor]]) {
-            const btn = h("button", { type: "button", class: `jb-item-field jb-item-${key}`, "aria-pressed": "false" }, [label]);
-            const editor = make(item[key], (list) => {
-                item[key] = list;
-                btn.classList.toggle("jb-has", list.length > 0);
-                recordHistory(); // each tag / colour change is its own undo step
-            });
-            const panel = h("div", { class: `jb-item-fieldpanel jb-item-${key}-panel` }, [h("span", { class: "jb-fld-label" }, [label]), editor.el]);
-            const openKey = `${item.id}:${key}`;
-            const show = (open) => {
-                panel.classList.toggle("jb-hidden", !open);
-                btn.setAttribute("aria-pressed", String(open));
-                if (open) openFields.add(openKey);
-                else openFields.delete(openKey);
-            };
-            show(openFields.has(openKey) || item[key].length > 0);
-            btn.classList.toggle("jb-has", item[key].length > 0);
-            btn.addEventListener("click", () => show(panel.classList.contains("jb-hidden")));
-            fieldBtns.push(btn);
-            fieldPanels.push(panel);
-        }
-        top.append(...fieldBtns, itemLoraBtn, remove);
+        top.appendChild(remove);
         row.appendChild(top);
 
         const caption = h("textarea", { class: "jb-item-caption", placeholder: "caption", rows: "1", value: item.caption });
         caption.addEventListener("input", () => {
             item.caption = caption.value;
-            recordHistory(`caption:${item.id}`); // CUSTOM (Forge Neo)
             autoGrow(caption);
             const ref = canvasRefs.get(item.id);
             if (ref && document.activeElement !== ref.caption) ref.caption.value = caption.value;
         });
         row.appendChild(caption);
-        row.append(...fieldPanels); // CUSTOM (Forge Neo)
         addGrowable(caption);
-        itemLoraBtn.addEventListener("click", () => pickLoraForItem(item)); // CUSTOM (Forge Neo)
 
         let textInput = null;
         if (item.label === "text") {
             textInput = h("input", { type: "text", class: "jb-item-text", placeholder: "text", value: item.text });
             textInput.addEventListener("input", () => {
                 item.text = textInput.value;
-                recordHistory(`text:${item.id}`); // CUSTOM (Forge Neo)
                 const ref = canvasRefs.get(item.id);
                 if (ref?.text && document.activeElement !== ref.text) ref.text.value = textInput.value;
             });
@@ -1485,15 +581,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
                 if (!Number.isNaN(v)) {
                     item.bbox[i] = v;
                     updateBoxPosition(item);
-                    recordHistory(`bbox:${item.id}`); // CUSTOM (Forge Neo)
                 }
-            });
-            // CUSTOM (Forge Neo): on leaving the field, put corners in order and the box inside the canvas
-            inp.addEventListener("change", () => {
-                item.bbox = jbFixBox(item.bbox, state.width, state.height, 16);
-                numInputs.forEach((n, j) => (n.value = item.bbox[j]));
-                updateBoxPosition(item);
-                recordHistory(`bbox:${item.id}`);
             });
             nums.appendChild(inp);
             return inp;
@@ -1514,37 +602,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     function renderAll() {
         renderList();
         renderCanvas();
-        recordHistory(); // CUSTOM (Forge Neo)
     }
-
-    // CUSTOM (Forge Neo): undo / redo
-    function updateUndoButtons() {
-        undoBtn.disabled = !undoHistory.canUndo();
-        redoBtn.disabled = !undoHistory.canRedo();
-    }
-
-    function restoreItems(snap) {
-        if (snap === null) return;
-        restoring = true;
-        const saved = JSON.parse(snap);
-        state.items = saved.items;
-        if (saved.width !== state.width || saved.height !== state.height) {
-            setPinned(true);
-            widthInput.value = saved.width;
-            heightInput.value = saved.height;
-            state.width = saved.width;
-            state.height = saved.height;
-            fitStage();
-        }
-        idCounter = Math.max(idCounter, ...state.items.map((it) => it.id));
-        if (!state.items.some((it) => it.id === selectedId)) selectedId = null;
-        renderAll();
-        restoring = false;
-        updateUndoButtons();
-    }
-
-    undoBtn.addEventListener("click", () => restoreItems(undoHistory.undo()));
-    redoBtn.addEventListener("click", () => restoreItems(undoHistory.redo()));
 
     function addItem() {
         state.items.push(newItem());
@@ -1558,58 +616,12 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         renderAll();
     }
 
-    // CUSTOM (Forge Neo): copy a box (type, caption, text, size), offset so it doesn't sit on top
-    function duplicateItem(id) {
-        const index = state.items.findIndex((it) => it.id === id);
-        if (index < 0) return;
-        const src = state.items[index];
-        const [x1, y1, x2, y2] = src.bbox;
-        const w = x2 - x1;
-        const ht = y2 - y1;
-        const off = Math.max(16, Math.round(Math.min(state.width, state.height) * 0.04));
-        const nx1 = clamp(x1 + off, 0, Math.max(0, state.width - w));
-        const ny1 = clamp(y1 + off, 0, Math.max(0, state.height - ht));
-        const copy = { ...src, tags: [...src.tags], palette: [...src.palette], id: ++idCounter, // CUSTOM (Forge Neo): own lists
-            bbox: [nx1, ny1, nx1 + w, ny1 + ht] };
-        state.items.splice(index + 1, 0, copy);
-        selectedId = copy.id; // CUSTOM (Forge Neo): the copy is the one the keys move next
-        bringToFront(copy.id);
-        renderAll();
-    }
-
     function clearItems() {
         state.items = [newItem()];
         renderAll();
     }
 
     // ----- inputs -----
-
-    // CUSTOM (Forge Neo): default to the txt2img resolution until the user sets one here
-    let resPinned = false;
-
-    // CUSTOM (Forge Neo): every change of the follow state goes through here, so the marker is always right
-    function setPinned(pinned) {
-        resPinned = pinned;
-        followMark.textContent = pinned ? "pinned" : "following txt2img";
-        followMark.classList.toggle("jb-pinned", pinned);
-        followBtn.classList.toggle("jb-hidden", !pinned);
-    }
-    setPinned(false);
-    followBtn.addEventListener("click", () => {
-        setPinned(false);
-        syncFromTxt2img();
-    });
-
-    function syncFromTxt2img() {
-        if (resPinned) return;
-        const w = jbSnap16(parseInt(t2i_width.value, 10)); // txt2img allows multiples of 8; the prompt needs 16
-        const hgt = jbSnap16(parseInt(t2i_height.value, 10));
-        if (w === null || hgt === null || (w === state.width && hgt === state.height)) return;
-        widthInput.value = w;
-        heightInput.value = hgt;
-        applyResolution(w, hgt);
-        clampItemsToCanvas();
-    }
 
     function applyResolution(w, h) {
         state.width = w;
@@ -1628,46 +640,23 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             syncListNums(item);
         }
         renderCanvas();
-        recordHistory(); // CUSTOM (Forge Neo)
     }
 
     widthInput.addEventListener("input", () => {
-        setPinned(true); // CUSTOM (Forge Neo)
         const v = parseInt(widthInput.value, 10);
         if (v > 0) applyResolution(v, state.height);
     });
-    widthInput.addEventListener("change", () => snapResolution(widthInput));
+    widthInput.addEventListener("change", clampItemsToCanvas);
 
     heightInput.addEventListener("input", () => {
-        setPinned(true); // CUSTOM (Forge Neo)
         const v = parseInt(heightInput.value, 10);
         if (v > 0) applyResolution(state.width, v);
     });
-    heightInput.addEventListener("change", () => snapResolution(heightInput));
-
-    // CUSTOM (Forge Neo): the prompt needs multiples of 16, so a typed 1000 becomes 1008 (it would fail at Send)
-    function snapResolution(input) {
-        const v = jbSnap16(parseInt(input.value, 10));
-        input.value = v === null ? (input === widthInput ? state.width : state.height) : v;
-        applyResolution(parseInt(widthInput.value, 10), parseInt(heightInput.value, 10));
-        clampItemsToCanvas();
-    }
-
-    // CUSTOM (Forge Neo): swap width and height
-    swapResBtn.addEventListener("click", () => {
-        setPinned(true);
-        const w = state.width;
-        const hgt = state.height;
-        widthInput.value = hgt;
-        heightInput.value = w;
-        applyResolution(hgt, w);
-        clampItemsToCanvas();
-    });
+    heightInput.addEventListener("change", clampItemsToCanvas);
 
     setResBtn.addEventListener("click", () => {
         const mp = parseFloat(mpInput.value);
         if (!(mp > 0)) return;
-        setPinned(true); // CUSTOM (Forge Neo)
         const [aw, ah] = arSelect.value.split(":").map(Number);
         const area = mp * MP_PIXELS;
         const w = Math.sqrt((area * aw) / ah);
@@ -1683,16 +672,12 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     sumCaption.addEventListener("input", () => {
         state.summary.caption = sumCaption.value;
         autoGrow(sumCaption);
-        saveLayout(); // CUSTOM (Forge Neo)
     });
     sumMeta.addEventListener("input", () => {
         state.summary.meta = sumMeta.value;
-        saveLayout(); // CUSTOM (Forge Neo)
     });
     sumExtra.addEventListener("input", () => {
         state.summary.extra = sumExtra.value;
-        autoGrow(sumExtra); // CUSTOM (Forge Neo)
-        saveLayout(); // CUSTOM (Forge Neo)
     });
 
     addBtn.addEventListener("click", addItem);
@@ -1709,7 +694,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         if (meta.length) summary.meta = meta;
         summary.canvas = state.summary.canvas;
         summary.caption = state.summary.caption;
-        if (state.summary.palette.length) summary.palette = state.summary.palette; // CUSTOM (Forge Neo)
         return {
             width: state.width,
             height: state.height,
@@ -1719,8 +703,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
             items: state.items.map((item) => {
                 const out = { label: item.label, caption: item.caption, bbox: item.bbox.map((n) => Math.round(n)) };
                 if (item.label === "text") out.text = item.text;
-                if (item.tags.length) out.tags = item.tags; // CUSTOM (Forge Neo): MOSS reads these per box
-                if (item.palette.length) out.palette = item.palette;
                 return out;
             }),
         };
@@ -1779,13 +761,9 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         updateInput(promptEl);
         updateInput(widthEl);
         updateInput(heightEl);
-        if (which === "t2i") setPinned(false); // CUSTOM (Forge Neo): sizes match again, resume following txt2img
 
         if (which === "t2i") switch_to_txt2img();
-        else {
-            switch_to_img2img();
-            sendImageToImg2img(); // CUSTOM (Forge Neo)
-        }
+        else switch_to_img2img();
     }
 
     sendT2I.addEventListener("click", () => submit("t2i"));
@@ -1793,93 +771,8 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     // ----- init -----
 
-    // CUSTOM (Forge Neo): open blank; Restore last session brings back the layout saved before this page
-    // loaded (read once here, so autosaves made since don't change what it restores)
-    const lastSession = jbSavedLayout(storeGet(LAYOUT_KEY));
-    restoreBtn.disabled = !lastSession;
-    restoreBtn.addEventListener("click", () => {
-        if (!lastSession) return;
-        const meta = lastSession.summary.meta.trim();
-        selectedId = null;
-        loadDraft({ ...lastSession, summary: { ...lastSession.summary, meta: meta ? [meta] : [] }, extra: lastSession.summary.extra }); // renders, and is one undo step
-    });
     renderAll();
-    undoHistory.reset(itemsSnapshot()); // CUSTOM (Forge Neo): the starting boxes are not an undo step
-    updateUndoButtons();
-    syncFromTxt2img(); // CUSTOM (Forge Neo)
-
-    // CUSTOM (Forge Neo): keyboard shortcuts while the JSON Builder is showing and no field is being typed in
-    stage.addEventListener("pointerdown", (ev) => {
-        if (ev.button === 0 && !ev.target.closest(".jb-box")) selectBox(null);
-    });
-
-    function isTyping(t) {
-        if (t.isContentEditable || t.tagName === "SELECT") return true;
-        if (t.tagName === "TEXTAREA") return !t.readOnly;
-        if (t.tagName === "INPUT") return !["radio", "checkbox", "range", "button", "file"].includes(t.type);
-        return false;
-    }
-
-    let lastPointerInPanel = false; // CUSTOM (Forge Neo): where the last click was, side panel or elsewhere
-    document.addEventListener("pointerdown", (ev) => (lastPointerInPanel = side.contains(ev.target)), true);
-
-    document.addEventListener("keydown", (ev) => {
-        if (!root.isConnected || root.offsetParent === null) return;
-        // CUSTOM (Forge Neo): Esc closes an open window, even while typing in it
-        if (ev.key === "Escape" && !loraModal.classList.contains("jb-hidden")) {
-            closeLoraPicker();
-            ev.preventDefault();
-            return;
-        }
-        if (ev.key === "Escape" && !modal.classList.contains("jb-hidden")) {
-            closeDialog();
-            ev.preventDefault();
-            return;
-        }
-        if (!modal.classList.contains("jb-hidden") || !loraModal.classList.contains("jb-hidden")) return;
-        const t = ev.target;
-        if (!(t === document.body || root.contains(t)) || isTyping(t)) return;
-        const ctrl = ev.ctrlKey || ev.metaKey;
-        const key = ev.key.toLowerCase();
-        // CUSTOM (Forge Neo): after a click in the side panel (a button, a tag ✕ or a colour swatch, which may
-        // vanish and leave the focus on the page), Delete / arrows / Ctrl+D must not act on the canvas box
-        const fromPanel = side.contains(t) || (t === document.body && lastPointerInPanel);
-        const item = fromPanel ? null : state.items.find((it) => it.id === selectedId);
-
-        if (ctrl && key === "z") {
-            restoreItems(ev.shiftKey ? undoHistory.redo() : undoHistory.undo());
-        } else if (ctrl && key === "y") {
-            restoreItems(undoHistory.redo());
-        } else if (ctrl && key === "d" && item) {
-            duplicateItem(item.id);
-        } else if (ev.key === "Delete" && item && !ctrl) {
-            selectedId = null;
-            removeItem(item.id);
-        } else if (ev.key === "Escape" && selectedId !== null) {
-            selectBox(null);
-        } else if (ev.key.startsWith("Arrow") && item && !ctrl) {
-            const step = ev.shiftKey ? 64 : 8;
-            const dx = ev.key === "ArrowLeft" ? -step : ev.key === "ArrowRight" ? step : 0;
-            const dy = ev.key === "ArrowUp" ? -step : ev.key === "ArrowDown" ? step : 0;
-            item.bbox = jbMoveBox(item.bbox, dx, dy, state.width, state.height);
-            updateBoxPosition(item);
-            syncListNums(item);
-            recordHistory(`move:${item.id}`);
-        } else {
-            return;
-        }
-        ev.preventDefault();
-    });
-    addGrowable(charDesc); // CUSTOM (Forge Neo): characters
-    setFolded(storeGet("jb-char-folded") === "1");
-    setAdvOpen(storeGet("jb-char-adv-open") === "1"); // CUSTOM (Forge Neo)
-    loadCharFiles();
     fitStage();
     requestAnimationFrame(fitStage);
-    // CUSTOM (Forge Neo): re-read txt2img's resolution each time this tab is shown
-    if (window.IntersectionObserver)
-        new IntersectionObserver((entries) => {
-            if (entries.some((e) => e.isIntersecting)) syncFromTxt2img();
-        }).observe(tab);
     if (window.ResizeObserver) new ResizeObserver(fitStage).observe(canvasSection);
 });

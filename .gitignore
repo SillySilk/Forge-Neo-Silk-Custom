@@ -65,7 +65,3 @@ civitai_token.txt
 /*.zip
 /config.json.bak*
 
-# CUSTOM (Forge Neo): JSON Builder character files are personal; only the examples ship
-/extensions-builtin/sd_forge_json_builder/characters/*.jbcast
-!/extensions-builtin/sd_forge_json_builder/characters/examples.jbcast
-/extensions-builtin/sd_forge_json_builder/characters/deleted/

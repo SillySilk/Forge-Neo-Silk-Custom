@@ -51,8 +51,7 @@ function decompilePrompt(input, width, height) {
             require(box.every((v) => typeof v === "number" && Number.isFinite(v)), `${location}.bbox must contain four finite numbers`);
             require(box[0] < box[2] && box[1] < box[3], `${location}.bbox must have positive width and height`);
 
-            // CUSTOM (Forge Neo): keep MOSS tags and palette (fields.js), as empty lists when absent
-            const clean = { label: item.label, caption: item.caption, bbox: box.slice(), tags: jbCleanTags(item.tags), palette: jbCleanPalette(item.palette) };
+            const clean = { label: item.label, caption: item.caption, bbox: box.slice() };
 
             if (item.label === "text") {
                 require(typeof item.text === "string" && item.text.trim().length > 0, `${location}.text must be nonempty text`);
@@ -65,48 +64,22 @@ function decompilePrompt(input, width, height) {
         return {
             width: draftWidth,
             height: draftHeight,
-            summary: { caption: summary.caption, meta, canvas, palette: jbCleanPalette(summary.palette) }, // CUSTOM (Forge Neo): + palette
+            summary: { caption: summary.caption, meta, canvas },
             items: cleanItems,
         };
     }
 
     // escaped parenthesis is not valid JSON
-    // CUSTOM (Forge Neo): unescape to the bracket itself (was "\\(", which left "\(" in every caption on load);
-    // compile escapes it again on Send, so a loaded prompt sends back unchanged
     function restoreJsonParens(prompt) {
-        return prompt.replace(/(?<!\\)((?:\\\\)*)\\([()])/g, (match, runs, paren) => runs + paren);
+        return prompt.replace(/(?<!\\)((?:\\\\)*)\\([()])/g, (match, runs, paren) => runs + "\\\\" + paren);
     }
 
-    // CUSTOM (Forge Neo): the compiled prompt is the JSON object, then "\n" + Extra; split the two
-    function splitExtra(prompt) {
-        const start = prompt.indexOf("{");
-        if (start < 0) return [prompt, ""];
-        let depth = 0;
-        let inString = false;
-        for (let i = start; i < prompt.length; i++) {
-            const c = prompt[i];
-            if (inString) {
-                if (c === "\\") i++;
-                else if (c === '"') inString = false;
-            } else if (c === '"') inString = true;
-            else if (c === "{") depth++;
-            else if (c === "}" && --depth === 0) return [prompt.slice(0, i + 1), prompt.slice(i + 1).trim()];
-        }
-        return [prompt, ""];
-    }
-
-    let extra = "";
-    let draft = input;
-    if (typeof input === "string") {
-        let json;
-        [json, extra] = splitExtra(input);
-        draft = JSON.parse(restoreJsonParens(json));
-    }
+    const draft = typeof input === "string" ? JSON.parse(restoreJsonParens(input)) : input;
 
     require(draft !== null && typeof draft === "object" && !Array.isArray(draft), "Prompt must be a JSON object");
 
     if (typeof draft.width === "number" && typeof draft.height === "number") {
-        return { ...normalizeDraft(draft), extra };
+        return normalizeDraft(draft);
     }
 
     require(Number.isFinite(width) && width > 0, "A valid width is required to decompile a prompt");
@@ -129,7 +102,7 @@ function decompilePrompt(input, width, height) {
         return { ...item, bbox: [x1 + halfWidth, y1 + halfHeight, x2 + halfWidth, y2 + halfHeight] };
     });
 
-    const result = normalizeDraft({
+    return normalizeDraft({
         width,
         height,
         bbox_coord_space: "abs",
@@ -137,5 +110,4 @@ function decompilePrompt(input, width, height) {
         summary: draft.summary,
         items,
     });
-    return { ...result, extra }; // CUSTOM (Forge Neo)
 }

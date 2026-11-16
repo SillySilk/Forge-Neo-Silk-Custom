@@ -327,7 +327,7 @@ onUiLoaded(() => {
     function renderCharacters(selectAbbr) {
         const sorted = [...charState.characters].sort((a, b) => a.abbr.localeCompare(b.abbr, undefined, { sensitivity: "base" }));
         charSelect.textContent = "";
-        if (!sorted.length) charSelect.appendChild(h("option", { value: "" }, ["(no characters yet)"]));
+        if (!sorted.length) charSelect.appendChild(h("option", { value: "" }, [charState.file ? "(no characters yet)" : "(choose a character list first)"])); // CUSTOM (Forge Neo)
         for (const c of sorted) charSelect.appendChild(h("option", { value: c.abbr }, [`${c.abbr} — ${c.name}`]));
         if (selectAbbr && sorted.some((c) => c.abbr === selectAbbr)) charSelect.value = selectAbbr;
         charAddBtn.disabled = !sorted.length;
@@ -356,7 +356,6 @@ onUiLoaded(() => {
         charState.example = data.example;
         charState.characters = data.characters;
         charFileSelect.value = data.name;
-        storeSet("jb-char-file", data.name);
         renderCharacters(selectAbbr);
     }
 
@@ -375,10 +374,21 @@ onUiLoaded(() => {
         }
     }
 
+    // CUSTOM (Forge Neo): no list is open until one is picked (the builder used to reopen the last one)
+    function closeCharFile() {
+        charMessage("");
+        charState.file = null;
+        charState.example = false;
+        charState.characters = [];
+        charFileSelect.value = "";
+        renderCharacters();
+    }
+
     async function loadCharFiles(selectName) {
         try {
             const { files } = await charRequest("/files");
             charFileSelect.textContent = "";
+            charFileSelect.appendChild(h("option", { value: "" }, ["Choose character list"]));
             for (const f of files) charFileSelect.appendChild(h("option", { value: f }, [f]));
             if (!files.length) {
                 charState.file = null;
@@ -388,14 +398,14 @@ onUiLoaded(() => {
                 charMessage("No character files. Use New file.", true);
                 return;
             }
-            const wanted = [selectName, storeGet("jb-char-file")].find((f) => f && files.includes(f));
-            await openCharFile(wanted || files[0]);
+            if (selectName && files.includes(selectName)) await openCharFile(selectName); // just made, imported or saved
+            else closeCharFile();
         } catch (e) {
             charMessage(e.message, true);
         }
     }
 
-    charFileSelect.addEventListener("change", () => openCharFile(charFileSelect.value));
+    charFileSelect.addEventListener("change", () => (charFileSelect.value ? openCharFile(charFileSelect.value) : closeCharFile()));
     charSelect.addEventListener("change", fillEditor);
     charFoldBtn.addEventListener("click", () => setFolded(!charEditor.classList.contains("jb-hidden")));
 

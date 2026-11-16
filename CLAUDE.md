@@ -310,6 +310,8 @@ abbreviation (1-5 letters/digits), a full name and a description; **Add to capti
 `LS waving` drew that character). The brackets reach the model as `\(LS\)` via `compile.js escapeParens()`.
 Characters live in **`.jbcast`** files (JSON) in `characters/`; only `examples.jbcast` (read-only, `"example": true`)
 is tracked, every other `.jbcast` there is gitignored so personal casts never reach this public repo.
+The file select **opens on "Choose character list"** (2026-11-15, user choice; it used to reopen the last file):
+no list is open until one is picked (`closeCharFile`); New file / Import / Save still open the file they touched.
 A trash button beside the file select (2026-11-15, `/delete_file`, `CharacterStore.delete_file`) moves the file into
 `characters/deleted/` (gitignored; same name again gets a timestamp) after a confirm. Disabled for examples, and the server refuses them too. Store:
 `lib_json_builder/characters.py`; routes `/json_builder/characters/*` in `scripts/builder.py`; caption logic in

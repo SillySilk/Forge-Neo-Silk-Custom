@@ -533,6 +533,63 @@ function extraNetworksControlFolderOnChange(event, tabname, extra_networks_tabna
     gradioApp().getElementById(prefix + "_set_active_dir").dispatchEvent(new Event("click"));
 }
 
+// CUSTOM (Forge Neo): the Lora folder follows the UI Preset, since a Lora only works on its own
+// model family (a mismatch is skipped with just a console warning). A preset with no folder of
+// its own shows them all. Picking a folder by hand still works, until the next preset change or page load.
+const LORA_FOLDER_BY_PRESET = { anima: "Anima", klein: "Klein", krea: "krea2", moss: "Moss", qwen21: "Qwen2.1" };
+
+function syncLoraFolderToPreset() {
+    const TABS = ["txt2img", "img2img"];
+    // the control row exists twice: the pane's copy and the one moved into the tab bar
+    const selects = (tab) => Array.from(gradioApp().querySelectorAll(`[id="${tab}_lora_folder_select"]`));
+
+    // one tab at a time: each redraw re-scans the shared Lora list, and two at once could collide
+    function applyInOrder(tabs, folder) {
+        if (!tabs.length) return;
+        const [tab, ...rest] = tabs;
+        const redrawn = gradioApp().getElementById(tab + "_lora");
+        if (rest.length && redrawn) {
+            let done = false;
+            const next = () => {
+                if (done) return;
+                done = true;
+                observer.disconnect();
+                applyInOrder(rest, folder);
+            };
+            const observer = new MutationObserver(next);
+            observer.observe(redrawn, { childList: true, subtree: true });
+            setTimeout(next, 15000);
+        } else if (rest.length) {
+            setTimeout(() => applyInOrder(rest, folder), 3000);
+        }
+        extraNetworksControlFolderOnChange({ target: { value: folder } }, tab, "lora");
+    }
+
+    function attempt(triesLeft) {
+        const preset = gradioApp().querySelector("#forge_ui_preset input")?.value;
+        const missing = TABS.some((tab) => !selects(tab).length);
+        // on page load the panes can arrive after this runs
+        if ((!preset || missing) && triesLeft > 0) {
+            setTimeout(() => attempt(triesLeft - 1), 250);
+            return;
+        }
+        if (!preset) return;
+
+        const present = TABS.filter((tab) => selects(tab).length);
+        if (!present.length) return;
+
+        const wanted = LORA_FOLDER_BY_PRESET[preset] ?? "All";
+        const exists = Array.from(selects(present[0])[0].options).some((o) => o.value === wanted);
+        const folder = exists ? wanted : "All";
+
+        const stale = present.filter((tab) => selects(tab).some((s) => s.value !== folder));
+        present.forEach((tab) => selects(tab).forEach((s) => (s.value = folder)));
+        applyInOrder(stale, folder);
+    }
+
+    attempt(40);
+}
+
 function extraNetworksControlRefreshOnClick(event, tabname, extra_networks_tabname) {
     /**
      * Handles `onclick` events for the Refresh Page button.

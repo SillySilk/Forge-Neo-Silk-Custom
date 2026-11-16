@@ -211,6 +211,13 @@ All edits are marked `# CUSTOM (Forge Neo)`:
 - ⚠ `javascript/extraNetworks.js` — `extraNetworksControlFolderOnChange()`; `style.css` —
   `.extra-network-control--folder`.
 
+**The folder follows the UI Preset (2026-11-15).** `syncLoraFolderToPreset()` in `javascript/extraNetworks.js`
+(`LORA_FOLDER_BY_PRESET`: anima→Anima, klein→Klein, krea→krea2, moss→Moss, qwen21→Qwen2.1; any other preset → All)
+runs on page load and on every preset change, wired in ⚠ `modules_forge/main_entry.py`. A folder picked by hand
+holds until the next preset change or reload. **Gradio never fires a `.then()` chained after a js-only step**, so
+the preset-change hook calls `clickLoraRefresh(); syncLoraFolderToPreset();` in one js step; a second
+`.then(js=...)` silently never runs. Verified live: moss 62, krea 536, wan → All 733, both tabs.
+
 Gotchas:
 - **Turn `lora_preset_filter` OFF.** It compounds with the folder picker: with folder=`Anima`
   and UI Preset `krea` it hid 121 of 129 cards. The picker replaces it and needs no tagging.

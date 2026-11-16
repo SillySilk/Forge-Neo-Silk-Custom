@@ -296,12 +296,14 @@ def forge_main_entry():
         inputs=[ui_checkpoint, ui_vae, ui_forge_unet_dtype, ui_forge_preset],
         queue=False,
         show_progress=False,
-    ).then(js="clickLoraRefresh", fn=None, queue=False, show_progress=False)
+    # CUSTOM (Forge Neo): the Lora folder follows the preset. One js step: Gradio never fires a .then()
+    # chained after a js-only step, so a separate .then(js="syncLoraFolderToPreset") never ran.
+    ).then(js="() => { clickLoraRefresh(); syncLoraFolderToPreset(); }", fn=None, queue=False, show_progress=False)
     # CUSTOM (Forge Neo): chained after the page-load model-list refresh instead of a second,
     # parallel load event -- otherwise the preset's values could land before the dropdown
     # choices existed (and race refresh_models() clearing module_list), so the first preset
     # after a launch sometimes did not apply.
-    _event_load.then(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False)
+    _event_load.then(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False).then(js="syncLoraFolderToPreset", fn=None, queue=False, show_progress=False)
 
     refresh_model_loading_parameters()
     _refreshed_callback()

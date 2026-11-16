@@ -143,6 +143,7 @@ The AI can read files in the directory, run commands, and troubleshoot errors as
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md): what changed in this fork, newest first
 - [Canvas Enhancements](docs/canvas-enhancements.md) — brush shape, rotation, straight-line drawing
 - [Custom Stamp Shapes](docs/canvas-custom-shapes.md) — full shape library reference
 - [Z-Image + ControlNet Guide](docs/zimage-controlnet-port.md) — working configuration for Z-Image with ControlNet

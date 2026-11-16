@@ -212,11 +212,13 @@ onUiLoaded(() => {
     const setResBtn = h("button", { type: "button", class: "jb-set-res" }, ["Set Resolution"]);
     const swapResBtn = h("button", { type: "button", class: "jb-swap-res", title: "Swap width and height" }, ["\u21C4"]); // CUSTOM (Forge Neo)
 
-    const resolutionSection = h("div", { class: "jb-section jb-sec-res" }, [ // CUSTOM (Forge Neo): jb-sec-* = section tint
-        h("div", { class: "jb-section-title" }, ["Resolution"]),
-        h("div", { class: "jb-row" }, [h("label", {}, ["Width"]), widthInput, swapResBtn, h("label", {}, ["Height"]), heightInput]),
-        h("div", { class: "jb-row" }, [h("label", {}, ["MP"]), mpInput, h("label", {}, ["AR"]), arSelect, setResBtn]),
-    ]);
+    // CUSTOM (Forge Neo): the size follows txt2img until it is set here; the marker says which, the button resumes following
+    const followMark = h("span", { class: "jb-follow", role: "status" });
+    const followBtn = h("button", { type: "button", class: "jb-follow-btn", title: "Take txt2img's size again and keep following it" }, ["Follow txt2img"]);
+    const resolutionRows = [
+        h("div", { class: "jb-row jb-res-row" }, [h("label", {}, ["W"]), widthInput, swapResBtn, h("label", {}, ["H"]), heightInput, followMark, followBtn]),
+        h("div", { class: "jb-row jb-res-row" }, [h("label", {}, ["MP"]), mpInput, h("label", {}, ["AR"]), arSelect, setResBtn]),
+    ];
 
     const sumCaption = h("textarea", { class: "jb-sum-caption", placeholder: "global caption", rows: "1" });
     const sumMeta = h("input", { type: "text", class: "jb-sum-meta", placeholder: "meta tags (comma separated)" });
@@ -239,7 +241,7 @@ onUiLoaded(() => {
     });
 
     const summarySection = h("div", { class: "jb-section jb-sec-summary" }, [ // CUSTOM (Forge Neo): jb-sec-* = section tint
-        h("div", { class: "jb-section-title" }, ["Summary"]),
+        h("div", { class: "jb-section-title jb-ornate" }, ["Summary"]), // CUSTOM (Forge Neo): jb-ornate = fleuron title
         h("div", { class: "jb-row" }, canvasRadios),
         h("label", { class: "jb-fld-label", for: "jb-sum-caption" }, ["Caption"]),
         sumCaption,
@@ -267,8 +269,9 @@ onUiLoaded(() => {
     const listToolbar = h("div", { class: "jb-list-toolbar" }, [addBtn, clearBtn, undoBtn, redoBtn, restoreBtn]); // CUSTOM (Forge Neo): top of the side panel
     const listSection = h("div", { class: "jb-section jb-list-section" }, [listEl]);
 
-    const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, ["Send to txt2img"]);
-    const sendI2I = h("button", { type: "button", class: "jb-send-i2i" }, ["Send to img2img"]);
+    // CUSTOM (Forge Neo): the go buttons, large, with a small line under the label
+    const sendT2I = h("button", { type: "button", class: "jb-send-t2i" }, [h("span", { class: "jb-send-label" }, ["Send to txt2img"]), h("span", { class: "jb-send-sub" }, ["pull the lever"])]);
+    const sendI2I = h("button", { type: "button", class: "jb-send-i2i" }, [h("span", { class: "jb-send-label" }, ["Send to img2img"]), h("span", { class: "jb-send-sub" }, ["rework the plate"])]);
     const submitSection = h("div", { class: "jb-section jb-submit" }, [sendT2I, sendI2I]);
 
     // ----- save / load -----
@@ -285,11 +288,11 @@ onUiLoaded(() => {
     const fromI2IBtn = h("button", { type: "button", class: "jb-from-i2i", title: "Use img2img's input image as the reference image" }, ["From img2img"]); // CUSTOM (Forge Neo)
     const imageOpacity = h("input", { type: "range", class: "jb-image-opacity", min: "0", max: "100", step: "1", value: "100", disabled: "", title: "Image opacity (preview only)" }); // CUSTOM (Forge Neo)
     // CUSTOM (Forge Neo): Save/Load split into Prompt (beside Resolution) and Reference image (full width below)
-    const promptSection = h("div", { class: "jb-section jb-save" }, [
-        h("div", { class: "jb-section-title" }, ["Prompt"]),
-        h("div", { class: "jb-row" }, [loadPromptBtn, fromT2IPromptBtn]), // CUSTOM (Forge Neo): + From txt2img
-        h("div", { class: "jb-row" }, [saveJsonBtn, loadJsonBtn]),
+    const promptSection = h("div", { class: "jb-section jb-save jb-prompt-size" }, [
+        h("div", { class: "jb-section-title" }, ["Prompt & size"]), // CUSTOM (Forge Neo): resolution folded in here
+        h("div", { class: "jb-row" }, [loadPromptBtn, fromT2IPromptBtn, saveJsonBtn, loadJsonBtn]), // CUSTOM (Forge Neo): + From txt2img
         promptMsg,
+        ...resolutionRows,
     ]);
     const imageSection = h("div", { class: "jb-section jb-save jb-image" }, [
         h("div", { class: "jb-section-title" }, ["Reference image"]),
@@ -648,22 +651,13 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         }
     });
 
-    // CUSTOM (Forge Neo): Resolution mostly follows txt2img, so it sits folded at the bottom behind a small button
-    const resFoldBtn = h("button", { type: "button", class: "jb-res-fold", title: "Show or hide the resolution settings" });
-    const resFoldRow = h("div", { class: "jb-res-fold-row" }, [resFoldBtn]);
-    function updateResFold() {
-        const open = !resolutionSection.classList.contains("jb-hidden");
-        resFoldBtn.textContent = `Resolution ${state.width} × ${state.height} ${open ? "▾" : "▸"}`;
-    }
-    function setResOpen(open) {
-        resolutionSection.classList.toggle("jb-hidden", !open);
-        storeSet("jb-res-open", open ? "1" : "0");
-        updateResFold();
-    }
-    resFoldBtn.addEventListener("click", () => setResOpen(resolutionSection.classList.contains("jb-hidden")));
-    setResOpen(storeGet("jb-res-open") === "1");
-
-    const side = h("div", { class: "jb-side" }, [listToolbar, submitSection, promptSection, imageSection, charactersSection, summarySection, listSection, resFoldRow, resolutionSection]); // CUSTOM (Forge Neo): Send sits at the top, used every time
+    // CUSTOM (Forge Neo): workflow order: go buttons, Summary, the boxes and who is in them, then the rarely used parts
+    const objectsSection = h("div", { class: "jb-section jb-objects" }, [
+        h("div", { class: "jb-section-title jb-ornate" }, ["Objects & Characters"]),
+        listSection,
+        charactersSection,
+    ]);
+    const side = h("div", { class: "jb-side" }, [listToolbar, submitSection, summarySection, objectsSection, imageSection, promptSection]);
     // CUSTOM (Forge Neo): LoRA picker, mirroring the txt2img LoRA tab's cards
     const loraSearch = h("input", { type: "text", class: "jb-lora-search", placeholder: "Search..." });
     const loraFolder = h("select", { class: "jb-lora-folder", title: "Active Lora folder" });
@@ -685,7 +679,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     addGrowable(sumExtra); // CUSTOM (Forge Neo)
 
     function loadDraft(draft) {
-        resPinned = true; // CUSTOM (Forge Neo)
+        setPinned(true); // CUSTOM (Forge Neo)
         state.width = draft.width;
         state.height = draft.height;
         state.summary.caption = draft.summary.caption;
@@ -949,7 +943,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
                 const [x1, y1, x2, y2] = item.bbox;
                 item.bbox = [Math.round(x1 * sx), Math.round(y1 * sy), Math.round(x2 * sx), Math.round(y2 * sy)];
             }
-            resPinned = true;
+            setPinned(true);
             widthInput.value = width;
             heightInput.value = height;
             setBackground(file, url);
@@ -1031,7 +1025,6 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         }
         stage.style.width = w + "px";
         stage.style.height = hgt + "px";
-        updateResFold(); // CUSTOM (Forge Neo): the folded button shows the size
         clampPan();
         resetView();
     }
@@ -1534,7 +1527,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         const saved = JSON.parse(snap);
         state.items = saved.items;
         if (saved.width !== state.width || saved.height !== state.height) {
-            resPinned = true;
+            setPinned(true);
             widthInput.value = saved.width;
             heightInput.value = saved.height;
             state.width = saved.width;
@@ -1592,6 +1585,19 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     // CUSTOM (Forge Neo): default to the txt2img resolution until the user sets one here
     let resPinned = false;
 
+    // CUSTOM (Forge Neo): every change of the follow state goes through here, so the marker is always right
+    function setPinned(pinned) {
+        resPinned = pinned;
+        followMark.textContent = pinned ? "pinned" : "following txt2img";
+        followMark.classList.toggle("jb-pinned", pinned);
+        followBtn.classList.toggle("jb-hidden", !pinned);
+    }
+    setPinned(false);
+    followBtn.addEventListener("click", () => {
+        setPinned(false);
+        syncFromTxt2img();
+    });
+
     function syncFromTxt2img() {
         if (resPinned) return;
         const w = jbSnap16(parseInt(t2i_width.value, 10)); // txt2img allows multiples of 8; the prompt needs 16
@@ -1624,14 +1630,14 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     }
 
     widthInput.addEventListener("input", () => {
-        resPinned = true; // CUSTOM (Forge Neo)
+        setPinned(true); // CUSTOM (Forge Neo)
         const v = parseInt(widthInput.value, 10);
         if (v > 0) applyResolution(v, state.height);
     });
     widthInput.addEventListener("change", () => snapResolution(widthInput));
 
     heightInput.addEventListener("input", () => {
-        resPinned = true; // CUSTOM (Forge Neo)
+        setPinned(true); // CUSTOM (Forge Neo)
         const v = parseInt(heightInput.value, 10);
         if (v > 0) applyResolution(state.width, v);
     });
@@ -1647,7 +1653,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
 
     // CUSTOM (Forge Neo): swap width and height
     swapResBtn.addEventListener("click", () => {
-        resPinned = true;
+        setPinned(true);
         const w = state.width;
         const hgt = state.height;
         widthInput.value = hgt;
@@ -1659,7 +1665,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
     setResBtn.addEventListener("click", () => {
         const mp = parseFloat(mpInput.value);
         if (!(mp > 0)) return;
-        resPinned = true; // CUSTOM (Forge Neo)
+        setPinned(true); // CUSTOM (Forge Neo)
         const [aw, ah] = arSelect.value.split(":").map(Number);
         const area = mp * MP_PIXELS;
         const w = Math.sqrt((area * aw) / ah);
@@ -1771,7 +1777,7 @@ It is moved to the characters/deleted folder, so it can be put back by hand.`)) 
         updateInput(promptEl);
         updateInput(widthEl);
         updateInput(heightEl);
-        if (which === "t2i") resPinned = false; // CUSTOM (Forge Neo): sizes match again, resume following txt2img
+        if (which === "t2i") setPinned(false); // CUSTOM (Forge Neo): sizes match again, resume following txt2img
 
         if (which === "t2i") switch_to_txt2img();
         else {

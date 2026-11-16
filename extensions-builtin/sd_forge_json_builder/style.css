@@ -970,7 +970,7 @@ button.jb-remove:hover {
 }
 
 /* the swap button must not push Height onto a second line */
-.jb-sec-res .jb-row {
+.jb-res-row {
     gap: 6px;
 }
 
@@ -1077,18 +1077,7 @@ button.jb-remove:hover {
     scrollbar-width: thin;
 }
 
-/* CUSTOM (Forge Neo): Resolution folds away at the bottom of the side panel behind a small button */
-.jb-res-fold-row {
-    display: flex;
-}
-
-.jb-root .jb-res-fold {
-    padding: 2px 10px;
-    font-size: 11px;
-    letter-spacing: 0;
-}
-
-.jb-sec-res .jb-row label {
+.jb-res-row label {
     width: 32px;
 }
 
@@ -1210,4 +1199,289 @@ button.jb-remove:hover {
 .jb-item-fieldpanel.jb-hidden,
 .jb-char-adv-body.jb-hidden {
     display: none;
+}
+
+/* =====================================================================
+   CUSTOM (Forge Neo): Thing-o-Matic side panel (2026-11-15)
+   Scoped to the side panel. Fonts and --tom-* colours come from Forge's user.css theme;
+   every value has a fallback so the panel still reads without it.
+   ===================================================================== */
+.jb-root .jb-side {
+    --jb-gold: var(--tom-gold-400, #dcac2e);
+    --jb-gold-deep: var(--tom-gold-700, #8a5a12);
+    --jb-ink: var(--tom-ink-800, #101013);
+    --jb-parch: var(--tom-parch-200, #e9e0cc);
+    --jb-muted: var(--tom-parch-400, #a89c7e);
+    --jb-display: "Pirata One", "Old English Text MT", Georgia, serif;
+    --jb-type: "Special Elite", "Courier New", monospace;
+    --jb-serif: "Crimson Pro", Georgia, serif;
+    gap: 16px;
+    font-family: var(--jb-serif);
+}
+
+/* labels and buttons in typewriter caps */
+.jb-root .jb-side button,
+.jb-root .jb-side .jb-fld-label,
+.jb-root .jb-side label,
+.jb-root .jb-side .jb-subpanel-title {
+    font-family: var(--jb-type);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.jb-root .jb-side button {
+    border-radius: 3px;
+    font-weight: 400;
+}
+
+/* section titles in blackletter */
+.jb-root .jb-side .jb-section > .jb-section-title {
+    font-family: var(--jb-display);
+    font-size: 21px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--jb-parch);
+}
+.jb-root .jb-side .jb-section > .jb-section-title::before {
+    display: none;
+}
+/* the two big panels: centred gold title between fleurons and fading rules */
+.jb-root .jb-side .jb-section > .jb-section-title.jb-ornate {
+    justify-content: center;
+    gap: 12px;
+    font-size: 27px;
+    line-height: 1.1;
+    color: var(--jb-gold);
+}
+.jb-root .jb-side .jb-section > .jb-section-title.jb-ornate::before,
+.jb-root .jb-side .jb-section > .jb-section-title.jb-ornate::after {
+    display: block;
+    content: "";
+    flex: 1;
+    width: auto;
+    height: 1px;
+    border-radius: 0;
+}
+.jb-root .jb-side .jb-section > .jb-section-title.jb-ornate::before {
+    background: linear-gradient(90deg, transparent, var(--jb-gold-deep));
+}
+.jb-root .jb-side .jb-section > .jb-section-title.jb-ornate::after {
+    background: linear-gradient(90deg, var(--jb-gold-deep), transparent);
+}
+.jb-root .jb-side .jb-sec-summary > .jb-section-title.jb-ornate {
+    font-size: 30px;
+}
+
+/* Summary and Objects: dark lit panels, gold rule on top, gold corner brackets */
+.jb-root .jb-side .jb-section.jb-sec-summary,
+.jb-root .jb-side .jb-section.jb-objects {
+    position: relative;
+    padding: 18px 18px 16px;
+    --jb-bracket: linear-gradient(var(--jb-gold-deep), var(--jb-gold-deep));
+    background:
+        var(--jb-bracket) 6px 6px / 14px 2px no-repeat,
+        var(--jb-bracket) 6px 6px / 2px 14px no-repeat,
+        var(--jb-bracket) calc(100% - 6px) 6px / 14px 2px no-repeat,
+        var(--jb-bracket) calc(100% - 6px) 6px / 2px 14px no-repeat,
+        var(--jb-bracket) 6px calc(100% - 6px) / 14px 2px no-repeat,
+        var(--jb-bracket) 6px calc(100% - 6px) / 2px 14px no-repeat,
+        var(--jb-bracket) calc(100% - 6px) calc(100% - 6px) / 14px 2px no-repeat,
+        var(--jb-bracket) calc(100% - 6px) calc(100% - 6px) / 2px 14px no-repeat,
+        var(--jb-ink);
+    border: 1px solid var(--tom-soot, #34323a);
+    border-radius: 4px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.jb-root .jb-side .jb-section.jb-sec-summary::before,
+.jb-root .jb-side .jb-section.jb-objects::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #8a5a12 12%, #d4972b 50%, #8a5a12 88%, transparent);
+}
+
+/* sections inside Objects lose their own frame */
+.jb-root .jb-side .jb-objects > .jb-section {
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+}
+.jb-root .jb-side .jb-objects > .jb-chars {
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--tom-soot, #34323a);
+}
+
+/* box rows: gold edge, big # number */
+.jb-root .jb-side .jb-item {
+    border-left: 3px solid var(--tom-gold-500, #caa02e);
+    border-radius: 3px;
+}
+.jb-root .jb-side .jb-item-num {
+    font-family: var(--jb-display);
+    font-size: 20px;
+    color: var(--jb-gold);
+}
+
+/* the go buttons: gold ingot and ember, large */
+.jb-root .jb-side .jb-submit {
+    position: relative;
+    padding: 16px;
+    border: 1px solid #5e3a0a;
+    border-radius: 4px;
+    background: linear-gradient(180deg, rgba(202, 160, 46, 0.08), transparent);
+}
+.jb-root .jb-side .jb-submit::before {
+    content: "\25C6  \25CE  \25C6";
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0 10px;
+    background: var(--body-background-fill, #0a0a0c);
+    color: var(--jb-gold);
+    font-size: 13px;
+    line-height: 1.2;
+}
+.jb-root .jb-side .jb-submit .jb-send-t2i,
+.jb-root .jb-side .jb-submit .jb-send-i2i {
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border-width: 2px;
+    text-transform: none;
+    letter-spacing: 0;
+    transition: filter 0.12s ease, transform 0.12s ease;
+}
+.jb-root .jb-side .jb-submit .jb-send-t2i {
+    background: linear-gradient(180deg, #f0cd5a 0%, #caa02e 55%, #a9781c 100%);
+    border-color: var(--jb-gold-deep);
+    color: #0a0a0c;
+    box-shadow: 0 0 0 1px rgba(230, 178, 44, 0.35), 0 0 26px rgba(230, 178, 44, 0.32), inset 0 1px 0 rgba(255, 240, 190, 0.6);
+}
+.jb-root .jb-side .jb-submit .jb-send-i2i {
+    background: linear-gradient(180deg, #d9613f 0%, #a8311e 58%, #842316 100%);
+    border-color: #5e160d;
+    color: #f1ead8;
+    box-shadow: 0 0 0 1px rgba(230, 178, 44, 0.3), 0 0 26px rgba(168, 49, 30, 0.55), inset 0 1px 0 rgba(255, 200, 170, 0.35);
+}
+.jb-root .jb-side .jb-submit .jb-send-t2i:hover,
+.jb-root .jb-side .jb-submit .jb-send-i2i:hover {
+    filter: brightness(1.08);
+}
+.jb-root .jb-side .jb-submit .jb-send-t2i:active,
+.jb-root .jb-side .jb-submit .jb-send-i2i:active {
+    transform: translateY(1px) scale(0.99);
+    filter: brightness(0.95);
+}
+.jb-root .jb-side .jb-send-label {
+    font-family: var(--jb-display);
+    font-size: 29px;
+    line-height: 1;
+}
+.jb-root .jb-side .jb-send-sub {
+    font-family: var(--jb-type);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+/* Reference image: quiet midnight panel; Prompt & size: plain ink */
+.jb-root .jb-side .jb-section.jb-image {
+    background: var(--tom-midnight-800, #0c1530);
+    border-color: var(--tom-midnight-700, #122146);
+    border-radius: 4px;
+}
+.jb-root .jb-side .jb-section.jb-prompt-size {
+    background: var(--jb-ink);
+    border-color: var(--tom-soot, #34323a);
+    border-radius: 4px;
+}
+.jb-root .jb-side .jb-res-row {
+    flex-wrap: wrap;
+}
+.jb-root .jb-side .jb-prompt-size > .jb-res-row:nth-child(4) {
+    padding-top: 8px;
+    border-top: 1px dashed var(--tom-soot, #34323a);
+}
+.jb-root .jb-side .jb-follow {
+    margin-left: auto;
+    font-family: "Permanent Marker", cursive;
+    font-size: 13px;
+    color: var(--jb-muted);
+    transform: rotate(-1.5deg);
+}
+.jb-root .jb-side .jb-follow.jb-pinned {
+    color: var(--tom-ember-300, #d9613f);
+}
+.jb-root .jb-side .jb-follow-btn.jb-hidden {
+    display: none;
+}
+.jb-root .jb-side .jb-char-adv-btn {
+    color: var(--jb-gold);
+}
+
+/* ornament under the last panel */
+.jb-root .jb-side::after {
+    content: "\2619  \25CE  \2767";
+    flex: 0 0 auto;
+    text-align: center;
+    color: var(--jb-gold-deep);
+    font-size: 16px;
+    padding-bottom: 6px;
+}
+
+/* compact caps: labels and small buttons stay on one line */
+.jb-root .jb-side label,
+.jb-root .jb-side .jb-fld-label {
+    font-size: 11px;
+}
+.jb-root .jb-side .jb-item-top button,
+.jb-root .jb-side .jb-char-title-btns button,
+.jb-root .jb-side .jb-list-toolbar > button {
+    font-size: 11px;
+    padding: 5px 9px;
+}
+/* inside the Objects panel the list grows with its boxes; the side panel scrolls instead */
+.jb-root .jb-side .jb-objects > .jb-list-section {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+.jb-root .jb-side .jb-objects .jb-list {
+    flex: 0 0 auto;
+    overflow: visible;
+}
+.jb-root .jb-side .jb-objects > .jb-chars {
+    border-radius: 0;
+}
+
+/* every small button on one line in a narrow panel */
+.jb-root .jb-side .jb-section:not(.jb-submit) button {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 6px 8px;
+    white-space: nowrap;
+}
+
+/* size row: fixed small inputs so the marker and Follow button fit beside them */
+.jb-root .jb-side .jb-res-row > input,
+.jb-root .jb-side .jb-res-row > select {
+    flex: 0 0 76px;
+    width: 76px;
+    min-width: 0;
+}
+.jb-root .jb-side .jb-res-row > label {
+    width: auto;
+}
+.jb-root .jb-side .jb-res-row > .jb-swap-res {
+    flex: 0 0 auto;
+}
+.jb-root .jb-side .jb-res-row > .jb-set-res {
+    margin-left: auto;
 }

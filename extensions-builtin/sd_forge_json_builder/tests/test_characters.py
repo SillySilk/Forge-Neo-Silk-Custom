@@ -73,6 +73,13 @@ class StoreTest(unittest.TestCase):
         with self.assertRaises(CharacterError):
             self.store.import_file("b", json.dumps(bad))
 
+    def test_tags_or_palette_not_a_list_rejected(self):
+        for key, value in [("tags", "hat"), ("tags", 5), ("palette", "#ABCDEF"), ("palette", {"a": 1})]:
+            data = cast(("MR", "Example: Mira", "x"))
+            data["characters"][0][key] = value
+            with self.assertRaises(CharacterError, msg=f"{key}={value!r}"):
+                self.store.import_file(f"bad {key} {type(value).__name__}", json.dumps(data))
+
     def test_save_validates(self):
         self.store.create("c")
         for abbr in ["", "ABCDEF", "L S", "L-S"]:

@@ -50,6 +50,9 @@ def _check_character(c: dict) -> dict:
     if not description:
         raise CharacterError(f"{abbr}: the description is empty.")
     out = {"abbr": abbr, "name": name, "description": description}
+    for key in OPTIONAL_KEYS:
+        if c.get(key) is not None and not isinstance(c[key], list):
+            raise CharacterError(f"{abbr}: '{key}' must be a list.")
     tags = _unique([_clean(t) for t in c.get("tags") or [] if isinstance(t, str)], MAX_TAGS)
     palette = _unique([p.strip().upper() for p in c.get("palette") or [] if isinstance(p, str) and COLOUR_RE.match(p.strip())], MAX_COLOURS)
     if tags:

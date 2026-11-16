@@ -16,7 +16,7 @@ listed only as merges; see that repo for their details.
 - **Thing-o-Matic look** for the panel: blackletter section titles, typewriter labels, gold corner brackets.
 - **Tags and Palette on every box.** MOSS-Image reads a short keyword list and a colour list for each box.
   In a same-seed test on MOSS, **tags changed the picture strongly** (a red umbrella, a top hat, a sleeping cat on
-  the bench, each in its own box, even with no caption), while **palette had only a weak effect**.
+  the bench, each in its own box), while **palette had only a weak effect**.
 - **Palette for the whole image**, beside **Meta**. Meta sets the medium: `watercolor illustration` alone turned a
   photo into a painting.
 - **Characters can carry tags and a palette** (the **Advanced** fold in Edit roster). **Add to box** copies them

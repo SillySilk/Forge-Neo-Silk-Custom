@@ -102,24 +102,26 @@ onUiLoaded(() => {
             }
             el.appendChild(input);
         }
-        function commit() {
+        // keepFocus: only when typing (Enter / ","); a blur commit must let the focus go where the user clicked
+        function commit(keepFocus) {
             const next = jbMergeList(cur, jbParseTags(input.value), JB_MAX_TAGS);
             input.value = "";
             if (next.length === cur.length) return;
             cur = next;
             render();
-            input.focus();
+            if (keepFocus) input.focus();
             onChange(cur.slice());
         }
         input.addEventListener("keydown", (ev) => {
             if (ev.key === "Enter" || ev.key === ",") {
                 ev.preventDefault();
-                commit();
+                commit(true);
             }
         });
-        input.addEventListener("blur", () => input.value.trim() && commit());
+        input.addEventListener("blur", () => input.value.trim() && commit(false));
         render();
-        return { el, get: () => cur.slice(), set: (list) => ((cur = list.slice()), render()) };
+        // set() also drops half-typed text, so it can't be saved onto the next character
+        return { el, get: () => cur.slice(), set: (list) => ((cur = list.slice()), (input.value = ""), render()) };
     }
 
     // colour swatches (click one to remove it) and a + that opens the colour picker

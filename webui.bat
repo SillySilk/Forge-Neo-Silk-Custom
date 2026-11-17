@@ -1,5 +1,9 @@
 @echo off
 
+:: CUSTOM (Forge Neo): note who started Forge and what was already running, in ..\forge-starts.log
+:: (shared with Forge Remote and the forge-neo Claude plugin). Logging only; never stops a start.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0silk-start-log.ps1"
+
 :: One Forge Neo at a time: a second copy loads its own model and runs the PC out of memory.
 :: The newest launch wins: close the running copy, wait for its port to free up, then start.
 :: Also stop the CivitAI Browser's aria2 download helpers, which outlive a killed Forge and pile up.

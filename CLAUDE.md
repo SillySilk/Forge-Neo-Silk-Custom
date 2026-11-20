@@ -890,6 +890,15 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** Krea 2 GGUF (`Krea Sick Ollie`) 512², 8 steps, seed 777 → clean image; MOSS Moody 512²,
       12 steps, CFG 3, batch 2 → 2 clean images; **0 tracebacks**. Unit tests pass: JSON Builder (21 + 2 JS),
       MOSS regional LoRA, Couple Krea. PDF report at `docs/updates/forge-neo-update-2026-11-15-2.32-15-g8406f5d0.pdf`.
+26. Latest merge: **2026-11-20** (unattended dashboard run): upstream/neo, **6 commits, UNTAGGED**, `2.32-15` →
+    **`2.32-21-gdb117cb2`**. **Clean merge, zero conflicts**; canvas markers (1887 lines) and all 28 CUSTOM-marked files intact.
+    - **Upstream content:** GGUF pin-memory / state-dict fixes (GGUF layers no longer dequantized on load), `operations.py`
+      rework, unreadable checkpoints skipped instead of crashing the list, `on_preset_change` ignores modules no longer on disk
+      (auto-merged beside our checkpoint filter), JSON Builder rewrite (built-in stays disabled; MOSS Layout replaces it).
+    - **Dependency:** `spandrel-extra-arches` dropped from requirements; only CodeFormer imports it now (lazily). Still installed.
+    - **Verified live:** Krea 2 GGUF (`Krea Sick Ollie`) 512², 8 steps and MOSS Moody 512², 12 steps CFG 3 → clean images,
+      **0 tracebacks**. Unit tests pass: MOSS regional LoRA, Couple Krea. PDF report at
+      `docs/updates/forge-neo-update-2026-11-20-2.32-21-gdb117cb2.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

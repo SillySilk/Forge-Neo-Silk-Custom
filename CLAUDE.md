@@ -262,6 +262,12 @@ so it runs beside the stock builder. Personal `.jbcast` casts live in its `chara
   work with MOSS Layout prompts exactly as before.
 - Upstream PRs #1591-1593 (from the built-in era) may still be open; if they merge, nothing here changes.
 
+### Wrong-model LoRA pop-up (added 2026-11-20) ⚠ `networks.py`, `extra_networks_lora.py`, `main_thread.py`
+A LoRA that patches nothing into the loaded model (e.g. a MOSS LoRA on Krea 2) is listed in `mismatched_networks`
+with a plain reason (`mismatch_reason()`: model name + the LoRA's own architecture or its `G:\LORAS` folder), and a
+15 s browser pop-up says `LoRA skipped, wrong model: ...`. `main_thread.py` runs each task in the caller's
+`contextvars` context, or `gr.Warning` never reaches the browser. Skipped for nunchaku. Marked `# CUSTOM (Forge Neo)`.
+
 ### `backend/loader.py` — Qwen3 fp8 upcast ⚠
 Keep the separate `elif state_dict_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:`
 branch that upcasts fp8 text-encoder weights to float16 (fp8 loses text-comprehension

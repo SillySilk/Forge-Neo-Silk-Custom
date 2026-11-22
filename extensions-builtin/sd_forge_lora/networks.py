@@ -123,6 +123,31 @@ def load_lora_for_models(model: "UnetPatcher", clip: "CLIP", lora: dict[str, tor
     return model, clip
 
 
+# CUSTOM (Forge Neo): plain-English reason for a LoRA that does not fit the loaded model
+def mismatch_reason(current_sd, filename: str) -> str:
+    try:
+        model = current_sd.forge_objects.unet.model.config.huggingface_repo.split("/")[-1]
+    except Exception:
+        model = "the loaded model"
+    lora_type = ""
+    try:
+        meta = sd_models.read_metadata_from_safetensors(filename) or {}
+        lora_type = (meta.get("modelspec.architecture") or meta.get("ss_base_model_version") or "").split("/")[0]
+    except Exception:
+        pass
+    if not lora_type:
+        for root in lora_root_dirs():
+            try:
+                rel = os.path.relpath(filename, root)
+            except ValueError:
+                continue
+            if not rel.startswith(".."):
+                lora_type = f'{rel.split(os.sep)[0]} folder' if os.sep in rel else ""
+                break
+    made_for = f", made for {lora_type}" if lora_type else ""
+    return f"does not match {model}{made_for}"
+
+
 def load_network(name: str, network_on_disk: network.NetworkOnDisk):
     net = network.Network(name, network_on_disk)
     net.mtime = os.path.getmtime(network_on_disk.filename)
@@ -185,9 +210,11 @@ def load_networks(names: list[str], te_multipliers: list[float] = None, unet_mul
 
     compiled_lora_targets_hash = str(compiled_lora_targets)
     if current_sd.current_lora_hash == compiled_lora_targets_hash:
+        failed.update(mismatched_networks)  # CUSTOM (Forge Neo): keep warning on cached reuse
         return failed
 
     current_sd.current_lora_hash = compiled_lora_targets_hash
+    mismatched_networks.clear()  # CUSTOM (Forge Neo)
     current_sd.forge_objects.unet = current_sd.forge_objects_original.unet
     current_sd.forge_objects.clip = current_sd.forge_objects_original.clip
 
@@ -204,7 +231,12 @@ def load_networks(names: list[str], te_multipliers: list[float] = None, unet_mul
             continue
         if any(key.startswith("lora_unet__") for key in lora_sd):
             lora_sd = state_dict_prefix_replace(lora_sd, {"lora_unet__": "lora_unet_"})
+        unet_before, clip_before = current_sd.forge_objects.unet, current_sd.forge_objects.clip  # CUSTOM (Forge Neo)
         current_sd.forge_objects.unet, current_sd.forge_objects.clip = load_lora_for_models(current_sd.forge_objects.unet, current_sd.forge_objects.clip, lora_sd, strength_model, strength_clip, filename=filename, online_mode=online_mode)
+        # CUSTOM (Forge Neo): nothing was patched in, so the LoRA does not fit this model
+        # (nunchaku models queue LoRAs on the model itself and never return new objects, so skip them)
+        if not dynamic_args.nunchaku and current_sd.forge_objects.unet is unet_before and current_sd.forge_objects.clip is clip_before:
+            failed[name] = mismatched_networks[name] = mismatch_reason(current_sd, filename)
 
     current_sd.forge_objects_after_applying_lora = current_sd.forge_objects.shallow_copy()
 
@@ -334,6 +366,7 @@ def infotext_pasted(infotext, params: dict):
 extra_network_lora = None
 
 failed_networks: dict[str, str] = {}
+mismatched_networks: dict[str, str] = {}  # CUSTOM (Forge Neo): LoRAs skipped because they don't fit the loaded model
 available_networks: dict[str, "network.NetworkOnDisk"] = {}
 available_network_aliases: dict[str, "network.NetworkOnDisk"] = {}
 available_network_hash_lookup: dict[bytes, "network.NetworkOnDisk"] = {}

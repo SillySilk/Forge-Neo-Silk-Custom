@@ -58,4 +58,13 @@ class ExtraNetworkLora(extra_networks.ExtraNetwork):
             summary = ", ".join(f"{k} ({v})" for k, v in self.errors.items())
             networks.logger.warning(f"Skipped LoRAs: {summary}")
             p.comment(f"LoRAs with Error: {summary}")
+            # CUSTOM (Forge Neo): pop-up in the browser for LoRAs that don't fit the loaded model
+            mismatched = [f"{k} ({v})" for k, v in self.errors.items() if k in networks.mismatched_networks]
+            if mismatched:
+                try:
+                    import gradio as gr
+
+                    gr.Warning("LoRA skipped, wrong model: " + ", ".join(mismatched), duration=15)
+                except Exception:
+                    pass
             self.errors.clear()

@@ -2,6 +2,7 @@
 # Other Gradio calls (e.g. those from Extensions) are not influenced
 # By using one single thread to process all major calls, model moving is significantly faster
 
+import contextvars
 import threading
 import traceback
 from collections import deque
@@ -23,11 +24,13 @@ class Task:
         self.args = args
         self.kwargs = kwargs
         self.result = None
+        # CUSTOM (Forge Neo): carry the caller's context so gr.Warning / gr.Info reach the browser
+        self.context = contextvars.copy_context()
 
     def work(self):
         global last_exception
         try:
-            self.result = self.func(*self.args, **self.kwargs)
+            self.result = self.context.run(self.func, *self.args, **self.kwargs)
             last_exception = None
         except Exception as e:
             from backend.memory_management import is_oom, logger

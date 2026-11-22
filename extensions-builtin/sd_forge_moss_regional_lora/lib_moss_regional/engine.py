@@ -104,7 +104,7 @@ def _strip_networks(text: str) -> str:
     return _EXTRA_NET.sub("", text)
 
 
-def build_layout(tagged_prompt: str, width: int, height: int, engine) -> tuple[int, _Layout] | None:
+def build_layout(tagged_prompt: str, width: int, height: int, engine, char_lines: bool = True) -> tuple[int, _Layout] | None:
     """(cond token count, layout) for one prompt as Forge will encode it, or None if it is not a layout."""
     tagged_items = _layout.parse_items(tagged_prompt)
     if not tagged_items:
@@ -128,16 +128,24 @@ def build_layout(tagged_prompt: str, width: int, height: int, engine) -> tuple[i
         return None
     spans = [(index[prefix + it.start], index[prefix + it.end]) for it in items]
     tokens = _layout.token_spans(enc["offset_mapping"], spans)
+    if char_lines:
+        # an item naming "(MR)" also owns the summary's "(MR) Name, description" line, so its LoRA
+        # reaches the words that describe the character (the image side still stays inside the box)
+        for i, lines in enumerate(_layout.character_lines(text, items)):
+            if not lines:
+                continue
+            extra = _layout.token_spans(enc["offset_mapping"], [(index[prefix + a], index[prefix + b]) for a, b in lines])
+            tokens[i] = sorted(set(tokens[i]).union(*extra))
 
     boxes = [_layout.box_fraction(it.bbox, width, height) if it.bbox else None for it in items]
     return len(enc["input_ids"]), _Layout(boxes, tokens, [it.loras for it in tagged_items])
 
 
-def collect_layouts(prompts: list[str], width: int, height: int, engine) -> tuple[dict[int, _Layout], set[str]]:
+def collect_layouts(prompts: list[str], width: int, height: int, engine, char_lines: bool = True) -> tuple[dict[int, _Layout], set[str]]:
     layouts: dict[int, _Layout] = {}
     global_names: set[str] = set()
     for prompt in dict.fromkeys(prompts):
-        built = build_layout(prompt, width, height, engine)
+        built = build_layout(prompt, width, height, engine, char_lines)
         if built is None:
             continue
         length, lay = built

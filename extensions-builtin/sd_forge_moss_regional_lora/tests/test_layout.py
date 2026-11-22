@@ -65,6 +65,32 @@ class TestParse(unittest.TestCase):
             self.assertEqual(layout.unescape_with_map(t)[0], comfy(t))
 
 
+# MOSS Layout's character lines: "(ABBR) Name, description" in the summary caption, split by the JSON \n escape
+CHAR_PROMPT = (
+    r'{"summary":{"caption":"a park\n\(MR\) Mira Reed, green scarf\n  \(OB\) Old Bram, white beard","canvas":"single"},'
+    r'"items":[{"label":"character","caption":"\(MR\) waving <lora:mira:1>","bbox":[-512,-512,512,0]},'
+    r'{"label":"character","caption":"\(ob\) and \(MR\) sitting","bbox":[-512,0,512,512]},'
+    r'{"label":"object","caption":"a bench \(XX\)","bbox":[0,0,10,10]}],'
+    r'"bbox_coord_space":"abs_centralized","bbox_format":"yxyx"}'
+)
+
+
+class TestCharacterLines(unittest.TestCase):
+    def test_lines(self):
+        items = layout.parse_items(CHAR_PROMPT)
+        got = [[CHAR_PROMPT[a:b] for a, b in spans] for spans in layout.character_lines(CHAR_PROMPT, items)]
+        self.assertEqual(got[0], [r"\(MR\) Mira Reed, green scarf"])
+        self.assertEqual(got[1], [r"\(OB\) Old Bram, white beard", r"\(MR\) Mira Reed, green scarf"])
+        self.assertEqual(got[2], [], "no summary line for (XX)")
+
+    def test_unescaped_and_none(self):
+        p = '{"summary":{"caption":"(MR) Mira"},"items":[{"caption":"(MR) hi","bbox":[0,0,1,1]}]}'
+        items = layout.parse_items(p)
+        self.assertEqual([[p[a:b] for a, b in s] for s in layout.character_lines(p, items)], [["(MR) Mira"]])
+        p = '{"summary":{"canvas":"single"},"items":[{"caption":"(MR) hi","bbox":[0,0,1,1]}]}'
+        self.assertEqual(layout.character_lines(p, layout.parse_items(p)), [[]])
+
+
 class TestTokens(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -92,6 +118,19 @@ class TestTokens(unittest.TestCase):
             self.assertEqual(s, list(range(s[0], s[-1] + 1)))
         self.assertLess(spans[0][-1], spans[1][0])
         self.assertLess(spans[1][-1], spans[2][0])
+
+    def test_character_line_tokens(self):
+        stripped = layout._NET_RE.sub("", CHAR_PROMPT).strip()
+        items = layout.parse_items(stripped)
+        escaped, index = layout.unescape_with_map(TEMPLATE.format(stripped))
+        enc = self.tok(escaped, return_offsets_mapping=True)
+        prefix = TEMPLATE.index("{}")
+        lines = layout.character_lines(stripped, items)
+        spans = layout.token_spans(enc["offset_mapping"], [(index[prefix + a], index[prefix + b]) for a, b in lines[0]])
+        decoded = self.tok.decode([enc["input_ids"][t] for t in spans[0]])
+        self.assertIn("Mira Reed, green scarf", decoded)
+        self.assertNotIn("Bram", decoded)
+        self.assertNotIn("park", decoded)
 
 
 if __name__ == "__main__":

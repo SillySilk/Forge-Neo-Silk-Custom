@@ -18,6 +18,15 @@ def _settings():
             category_id="sd",
         ).info("MOSS-Image only; LoRAs in the summary caption or Extra stay global"),
     )
+    opts.add_option(
+        "moss_regional_lora_char_lines",
+        OptionInfo(
+            True,
+            "Also apply an item's LoRA to its characters' lines in the summary caption",
+            section=("moss_regional_lora", "MOSS Regional LoRA"),
+            category_id="sd",
+        ).info('an item naming "(MR)" also gets the summary line that starts with "(MR)"; the picture outside the box is unaffected'),
+    )
 
 
 on_ui_settings(_settings)
@@ -58,7 +67,8 @@ class MossRegionalLora(scripts.Script):
         prompts = source[start : start + p.batch_size] or source
 
         # the boxes are written against the first-pass size; hires keeps the aspect, so the fractions hold
-        layouts, global_names = engine.collect_layouts(prompts, p.width, p.height, p.sd_model.text_processing_engine_qwen)
+        char_lines = bool(getattr(opts, "moss_regional_lora_char_lines", True))
+        layouts, global_names = engine.collect_layouts(prompts, p.width, p.height, p.sd_model.text_processing_engine_qwen, char_lines)
         specs = engine.patch(p.sd_model.forge_objects.unet, layouts, global_names)
         if specs:
             p.extra_generation_params["MOSS regional LoRA"] = "; ".join(f"{s.name}: item {'+'.join(str(i + 1) for i in s.items)}" for s in specs)

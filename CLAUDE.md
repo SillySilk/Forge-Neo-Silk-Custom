@@ -272,7 +272,9 @@ Our own add-on, no upstream files touched. A `<lora:...>` tag inside a JSON Buil
 (the per-item **+ LoRA** button) acts only inside that item's box; tags in the summary caption or
 Extra stay global. Same subtraction as the Couple Krea 2 fork's `krea_lora.py`: Forge merges the LoRA
 everywhere, then its low-rank delta is subtracted from every token outside the item's box, and from
-every text token outside that item's `{...}`. No attention bias: MOSS already places items from
+every text token outside that item's `{...}` and outside the Summary-caption lines of the characters the item names
+(an item with `(MR)` also owns the line starting `(MR) Name, description`, added 2026-11-22; toggle
+`moss_regional_lora_char_lines`, on). No attention bias: MOSS already places items from
 the bboxes. On/off: Settings → MOSS Regional LoRA (`moss_regional_lora`, on). Infotext:
 `MOSS regional LoRA: name: item N`. Tests: run `tests/test_*.py` directly with the venv python.
 - Patches swap `MOSSImage._forward` and `moss_image.linear_input_act` (the int8 `ffn_down` path never

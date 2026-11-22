@@ -144,48 +144,6 @@ def parse_items(prompt: str) -> list[Item] | None:
     return items
 
 
-# "(ABBR)" as the compiled prompt writes it: parentheses escaped for Forge's emphasis parser, or not
-_ABBR_RE = re.compile(r"\\?\(([A-Za-z0-9]{1,5})\\?\)")
-
-
-def character_lines(prompt: str, items: list[Item]) -> list[list[tuple[int, int]]]:
-    """For each item, the char spans of the summary caption lines that describe the characters it
-    names: an item caption with "(MR)" claims the summary line starting with "(MR) Name, description"
-    (MOSS Layout's character line). Lines are split on the JSON "\\n" escape."""
-    start = prompt.find("{")
-    sc = _Scanner(prompt)
-    sc.i = start
-    try:
-        root, _, _ = sc.value()
-        caption = root["summary"][0]["caption"]
-    except (ValueError, IndexError, KeyError, TypeError):
-        return [[] for _ in items]
-    if not isinstance(caption[0], str):
-        return [[] for _ in items]
-    cs, ce = caption[1] + 1, caption[2] - 1  # inside the quotes
-
-    lines: dict[str, tuple[int, int]] = {}  # abbr (lower) -> span of its line
-    pos = cs
-    while pos <= ce:
-        nl = prompt.find("\\n", pos, ce)
-        end = ce if nl < 0 else nl
-        a = pos
-        while a < end and prompt[a] in " \t":
-            a += 1
-        m = _ABBR_RE.match(prompt, a, end)
-        if m and m.group(1).lower() not in lines:
-            lines[m.group(1).lower()] = (a, end)
-        if nl < 0:
-            break
-        pos = nl + 2
-
-    out = []
-    for it in items:
-        named = dict.fromkeys(m.group(1).lower() for m in _ABBR_RE.finditer(it.caption))
-        out.append([lines[a] for a in named if a in lines])
-    return out
-
-
 def global_loras(prompt: str, items: list[Item]) -> set[str]:
     """LoRAs mentioned anywhere outside the items (summary, Extra): those stay global."""
     outside, last = [], 0

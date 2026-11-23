@@ -905,6 +905,15 @@ Re-apply the item below on every upstream sync — a plain re-sync silently reve
     - **Verified live:** Krea 2 GGUF (`Krea Sick Ollie`) 512², 8 steps and MOSS Moody 512², 12 steps CFG 3 → clean images,
       **0 tracebacks**. Unit tests pass: MOSS regional LoRA, Couple Krea. PDF report at
       `docs/updates/forge-neo-update-2026-11-20-2.32-21-gdb117cb2.pdf`.
+27. Latest merge: **2026-11-22** (unattended dashboard run): upstream/neo, **2 commits**, `2.32-21` → **`2.33-1-g6d5aa3bc`**
+    (crosses the new tag **2.33**). **1 conflict:** README (kept ours). All canvas markers (1887 lines) and CUSTOM markers intact.
+    - **Upstream dropped ERNIE-Image entirely** (`ernie.py` engine + nn, `Ministral3_3B`, Mistral3 TE loader, `PresetArch.ernie`,
+      `backend/huggingface/baidu/ERNIE-Image/`). The "ERNIE = upstream" note above is now obsolete: ERNIE checkpoints and
+      `TE (ERNIE)` no longer load. Our `checkpoint_arch.py` `ErnieImage` mapping was removed to match. Stale `ernie` keys in
+      `config.json` are ignored.
+    - No dependency changes.
+    - **Verified live:** MOSS Moody 512², 12 steps, CFG 3, seed 777 → image, **0 tracebacks**. Unit tests pass: MOSS regional
+      LoRA, Couple Krea. PDF report at `docs/updates/forge-neo-update-2026-11-22-2.33-1-g6d5aa3bc.pdf`.
 
 ## Krea 2 — Reference / Edit / "ControlNet" (tested 2026-08-20)
 

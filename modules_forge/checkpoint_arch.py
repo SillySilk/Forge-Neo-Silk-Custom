@@ -31,7 +31,6 @@ _CLASS_TO_PRESET: dict[str, str] = {
     "QwenImage21": "qwen21",
     "MOSSImage": "moss",
     "Krea2": "krea",
-    "ErnieImage": "ernie",
     "PiD": "pid",
 }
 

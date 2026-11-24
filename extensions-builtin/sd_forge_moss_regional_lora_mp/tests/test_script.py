@@ -126,11 +126,32 @@ class TestScriptFlow(unittest.TestCase):
     def test_patch_error_goes_to_infotext(self):
         p = fake_p()
         self.s.before_process_batch(p)
-        with mock.patch.object(script.MossRegionalLoraMP, "_patch", side_effect=RuntimeError("boom")),                 self.assertLogs(script.logger, "WARNING") as logs:
+        with (
+            mock.patch.object(script.MossRegionalLoraMP, "_patch", side_effect=RuntimeError("boom")),
+            self.assertLogs(script.logger, "WARNING") as logs,
+        ):
             self.s.process_before_every_sampling(p)
         self.assertTrue(any("ERROR" in line for line in logs.output))
         text = p.extra_generation_params[script.INFOTEXT_KEY]()
         self.assertIn("skipped: box LoRAs not applied: boom", text)
+
+    def test_infotext_cleared_per_batch(self):
+        p = fake_p()
+        self.s.before_process_batch(p)
+        with mock.patch.object(script.MossRegionalLoraMP, "_patch", return_value=[]):
+            self.s.process_before_every_sampling(p)
+        p.extra_generation_params[script.INFOTEXT_KEY] = "moonpack-style; homer: item 1 x1.0"  # as iteration 0 wrote it
+        p.iteration, p.prompts = 1, ["a cat"]
+        self.s.before_process_batch(p)
+        self.s.process_before_every_sampling(p)
+        self.assertNotIn(script.INFOTEXT_KEY, p.extra_generation_params)
+
+    def test_infotext_kept_when_engine_not_chosen(self):
+        p = fake_p()
+        p._moss_regional_engine = "Original"
+        p.extra_generation_params[script.INFOTEXT_KEY] = "homer: item 1"  # the Original engine's line
+        self.s.before_process_batch(p)
+        self.assertEqual(p.extra_generation_params[script.INFOTEXT_KEY], "homer: item 1")
 
 
 if __name__ == "__main__":

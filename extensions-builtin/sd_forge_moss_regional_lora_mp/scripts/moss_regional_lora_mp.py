@@ -175,6 +175,7 @@ class MossRegionalLoraMP(scripts.Script):
         p._mrl_mp_notes = []
         if not _gate(p):
             return
+        p.extra_generation_params.pop(INFOTEXT_KEY, None)  # the last batch's line; after the gate, so the Original's stays
 
         try:
             plan = plan_batch(p.prompts)

@@ -315,6 +315,9 @@ GPL-3.0; credit header on each ported file). Package `lib_moss_regional_mp`, scr
 - **Hires pass:** start/end map onto the full sigma schedule, not the hires slice.
 - **Infotext:** key shared with the Original ("MOSS regional LoRA"); this engine's line starts with "moonpack-style".
   Cleared per batch (after the gate, so the Original's line stays). Every skip logs `[MOSS Regional LoRA mp]` and adds its reason to the infotext.
+- **Engine-side skips drop the box LoRA, they do not make it global:** tokenizer mismatch, not a layout at encode time,
+  references in the sequence, batch mismatch, and LoKr / LoHa / OFT layers (only plain LoRA layers can be masked). The tag was already
+  taken out of the prompt, so that LoRA is simply absent for the skipped part.
 - **Tests:** from the forge-neo root, `venv/Scripts/python.exe extensions-builtin/sd_forge_moss_regional_lora_mp/tests/<file>.py`
   for each `test_*.py`; Original: `extensions-builtin/sd_forge_moss_regional_lora/tests/test_*.py` (includes `test_engine_switch.py`).
 

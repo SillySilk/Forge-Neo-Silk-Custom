@@ -290,6 +290,29 @@ the bboxes. On/off: Settings → MOSS Regional LoRA (`moss_regional_lora`, on). 
 - sd-dynamic-prompts used to strip every `{ }` from a JSON Builder prompt (its variant syntax), breaking
   the layout. **Fixed 2026-10-30** in its `silk-custom` branch (`_protect_layout` in `dynamic_prompting.py`):
   the layout's own braces are hidden from the parser, so `{a|b}` and `@@wildcards@@` inside captions still work.
+
+### MOSS regional LoRA, Moonpack-style engine — `extensions-builtin/sd_forge_moss_regional_lora_mp` (added 2026-11-23)
+A second box-LoRA engine next to the Original, ported from moonwhaler/comfyui-moonpack 0.4.0 (commit `d4ce788`,
+GPL-3.0; credit header on each ported file). Package `lib_moss_regional_mp`, script `moss_regional_lora_mp.py`.
+- **Not yet tried live** (the owner was using Forge). Verified by unit tests and a tiny CPU model test only.
+- **Switch:** accordion "MOSS regional LoRA" in the txt2img/img2img panel, **Engine** = Original (default) /
+  Moonpack-style / Off. `process()` sets `p._moss_regional_engine`. Original runs as before; Off = plain Forge
+  (LoRAs global); Moonpack-style = this engine. Sliders: feather, skirt, text tokens, ownership, measure until, spill, start, end, strength multiplier.
+- **Gate in the Original:** `process_before_every_sampling` in `sd_forge_moss_regional_lora/scripts/moss_regional_lora.py`
+  returns right after `engine.unpatch()` unless `_moss_regional_engine` is "Original" (absent counts as Original). Keep that line.
+- **Faithful port:** add-only (zero LoRA outside the mask); item 1 is front-most and takes any overlap; layers with no
+  token axis (vec) get no box LoRA; text modes: masked (none), own caption (box caption tokens, positive rows only,
+  text embedder weight 0), global (all text, negative rows too); ownership boxes or attention (measured over the first steps).
+- **Prompt handling:** box `<lora:...>` tags are taken out of the prompt only when the engine is Moonpack-style, so Forge
+  never merges them; the Original's behaviour is untouched. Hires prompts are stripped for the batch and restored in `process_batch`.
+  If the hires prompts plan other box LoRAs, the hires pass runs with none. Off leaves the tags in, so LoRAs go global.
+- **Swaps** (restored in `postprocess`): `MOSSImage._forward`, `moss_image.linear_input_act`, and `MOSSImage.preprocess_refs`
+  (reference blocks see only reference tokens, so no box LoRA there).
+- **Hires pass:** start/end map onto the full sigma schedule, not the hires slice.
+- **Infotext:** key shared with the Original ("MOSS regional LoRA"); this engine's line starts with "moonpack-style".
+  Cleared per batch (after the gate, so the Original's line stays). Every skip logs `[MOSS Regional LoRA mp]` and adds its reason to the infotext.
+- **Tests:** from the forge-neo root, `venv/Scripts/python.exe extensions-builtin/sd_forge_moss_regional_lora_mp/tests/<file>.py`
+  for each `test_*.py`; Original: `extensions-builtin/sd_forge_moss_regional_lora/tests/test_*.py` (includes `test_engine_switch.py`).
   If that extension is ever reset to upstream, the bug comes back.
 - Verified 2026-10-30 (Artius 8 steps and Base CFG 3): Homer + plain woman, ComicMIX on one person,
   Homer + Marge each in its box; no tracebacks, no slowdown.

@@ -47,6 +47,8 @@ class MossRegionalLora(scripts.Script):
 
     def process_before_every_sampling(self, p, *args, **kwargs):
         engine.unpatch()
+        if getattr(p, "_moss_regional_engine", "Original") != "Original":
+            return  # the engine switch (sd_forge_moss_regional_lora_mp)
         if not getattr(opts, "moss_regional_lora", True) or not _is_moss(p):
             return
         if getattr(p, "_ad_inner", False):  # ADetailer crops: the boxes no longer line up

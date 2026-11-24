@@ -349,6 +349,9 @@ def _dit_forward(self, x, timestep, context, transformer_options={}):
         state.warn_once("len", f"the positive prompt has {text_len} tokens, expected {state.info.n_tokens}; "
                                "'own caption' falls back to the box masks")
     sigmas = transformer_options.get("sigmas")
+    if sigmas is None and any(b is not None for b in state.sigma_bounds):
+        state.warn_once("nosigmas", "the sampler passes no sigmas; the LoRA start / end are ignored and "
+                                    "box LoRAs apply at every step")
     active = sigmas is None or ops.schedule_active(float(sigmas.max()), *state.sigma_bounds)
     state.ctx = _CallContext((H, W), text_len, active, cond_rows, B, spans_valid,
                              state.image_masks(H, W, x.device, x.dtype) if active else {})
@@ -373,7 +376,11 @@ def _preprocess_refs(self, refs, transformer_options={}):
 def _apply(path, out, x):
     ctx = state.ctx
     entries = state.module_entries.get(path)
-    if ctx is None or not ctx.active or not entries or x.dim() != 3 or x.shape[0] != ctx.batch:
+    if ctx is None or not ctx.active or not entries or x.dim() != 3:
+        return out
+    if x.shape[0] != ctx.batch:
+        state.warn_once(f"batch{path}", f"layer '{path}' ran on a batch of {x.shape[0]}, not the call's {ctx.batch}; "
+                                        "no box LoRA there")
         return out
     kind = state.module_kinds[path]
     length = x.shape[1]

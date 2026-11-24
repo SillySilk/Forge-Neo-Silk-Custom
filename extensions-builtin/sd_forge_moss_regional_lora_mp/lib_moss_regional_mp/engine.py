@@ -199,12 +199,16 @@ def build_layout_info(prompt: str, width: int, height: int, engine) -> LayoutInf
 # ---------------------------------------------------------------- LoRA files
 
 
-# per-file cache of low-rank layers (CPU) for the session: filename -> (layers, skipped)
-_LOWRANK_CACHE: dict[str, tuple[dict[str, _lora.LowRank], int]] = {}
+# per-file cache of low-rank layers (CPU) for the session: filename -> (layers, skipped, other kinds)
+_LOWRANK_CACHE: dict[str, tuple[dict[str, _lora.LowRank], int, dict[str, int]]] = {}
+
+# display names of Forge's non-LoRA weight adapters (modules_forge/packages/comfy/weight_adapter, `name`)
+ADAPTER_NAMES = {"lokr": "LoKr", "loha": "LoHa", "oft": "OFT", "oftv2": "OFT", "boft": "BOFT", "glora": "GLoRA"}
 
 
-def load_lora_layers(filename: str, unet_model) -> tuple[dict[str, _lora.LowRank], int]:
-    """(module path -> LowRank, number of unsupported layers) of one LoRA file, cached."""
+def load_lora_layers(filename: str, unet_model) -> tuple[dict[str, _lora.LowRank], int, dict[str, int]]:
+    """(module path -> LowRank, number of unsupported LoRA layers, {adapter kind: layers}) of one file, cached.
+    Only plain LoRA adapters can be masked; LoKr / LoHa / OFT / ... layers are counted per kind and left out."""
     if filename not in _LOWRANK_CACHE:
         sd = load_torch_file(filename, safe_load=True)
         if any(k.startswith("lora_unet__") for k in sd):
@@ -214,11 +218,17 @@ def load_lora_layers(filename: str, unet_model) -> tuple[dict[str, _lora.LowRank
             patches = patches[0]
         pieces: dict[str, list] = {}
         skipped = 0
+        other: dict[str, int] = {}
         for key, adapter in patches.items():
             # a tuple key is (fused weight, (dim, start, size)): a separate q / k / v LoRA on MOSS's fused qkv
             name, offset = key if isinstance(key, tuple) else (key, None)
             if not (isinstance(name, str) and name.startswith("diffusion_model.") and name.endswith(".weight")) or not hasattr(adapter, "weights"):
                 skipped += 1
+                continue
+            kind = getattr(adapter, "name", None)
+            if kind != "lora":  # LoKr / LoHa / OFT weights are not an (up, down) pair
+                label = ADAPTER_NAMES.get(kind, str(kind))
+                other[label] = other.get(label, 0) + 1
                 continue
             lr = _lora.extract_lowrank(adapter.weights, 1.0)
             if lr is None or (offset is not None and offset[0] != 0):
@@ -244,7 +254,7 @@ def load_lora_layers(filename: str, unet_model) -> tuple[dict[str, _lora.LowRank
                 up[start : start + size, r : r + k] = lr.up * lr.scale
                 r += k
             layers[path] = _lora.LowRank(up, torch.cat([lr.down for _, lr in parts], dim=0), 1.0)
-        _LOWRANK_CACHE[filename] = (layers, skipped)
+        _LOWRANK_CACHE[filename] = (layers, skipped, other)
     return _LOWRANK_CACHE[filename]
 
 

@@ -72,6 +72,18 @@ def resolve(names: list[str], aliases: dict, by_name: dict) -> tuple[dict[str, o
     return found, problems
 
 
+def lora_problems(name: str, layers: dict, skipped: int, other: dict[str, int]) -> list[str]:
+    """What to report about one box LoRA file: layers of other adapter kinds, unsupported layers,
+    or no usable layer at all."""
+    problems = [f"'{name}': {n} {kind} layer(s) cannot be masked; skipped" for kind, n in sorted(other.items())]
+    if not layers:
+        if not other:
+            problems.append(f"'{name}' matches no layer of this model")
+    elif skipped:
+        problems.append(f"'{name}': {skipped} unsupported layer(s) not applied")
+    return problems
+
+
 def _num(v: float) -> str:
     return repr(round(float(v), 3))
 
@@ -251,13 +263,11 @@ class MossRegionalLoraMP(scripts.Script):
         unet = p.sd_model.forge_objects.unet
         layers_by_name = {}
         for name, net in found.items():
-            layers, skipped = engine.load_lora_layers(net.filename, unet.model)
-            if not layers:
-                _problem(p, f"'{name}' matches no layer of this model")
-                continue
-            if skipped:
-                _problem(p, f"'{name}': {skipped} unsupported layer(s) not applied")
-            layers_by_name[name] = layers
+            layers, skipped, other = engine.load_lora_layers(net.filename, unet.model)
+            for msg in lora_problems(name, layers, skipped, other):
+                _problem(p, msg)
+            if layers:
+                layers_by_name[name] = layers
 
         entries = [
             engine.Entry(e.item, e.name, e.strength * settings.multiplier, layers_by_name[e.name])

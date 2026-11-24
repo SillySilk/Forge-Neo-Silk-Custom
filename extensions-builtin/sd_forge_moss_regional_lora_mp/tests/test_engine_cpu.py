@@ -4,6 +4,7 @@ Runs the engine on a tiny MOSSImage on the CPU (Forge's real backend.nn.moss_ima
 
 import os
 import sys
+import types
 import unittest
 from unittest import mock
 
@@ -309,10 +310,37 @@ class TestEngineCPU(unittest.TestCase):
             dynamic_args.ref_latents, dynamic_args.moss_reference_method = saved
 
 
+class TestLoadLoraLayers(unittest.TestCase):
+    def test_other_adapter_kinds_are_skipped(self):
+        dit = make_dit()
+        path = o_path(dit)
+        out_dim, in_dim = dit.get_submodule(path).weight.shape
+        plain = types.SimpleNamespace(name="lora", weights=(torch.randn(out_dim, 2), torch.randn(2, in_dim), None, None, None, None))
+        lokr = types.SimpleNamespace(name="lokr", weights=tuple(range(9)))  # 9 weights: would break a 6-way unpack
+        patches = {
+            f"diffusion_model.{path}.weight": plain,
+            "diffusion_model.layers.1.proj.o.weight": lokr,
+            "diffusion_model.layers.2.proj.o.weight": lokr,
+        }
+        unet_model = types.SimpleNamespace(diffusion_model=dit)
+        filename = "fake-mixed-adapters.safetensors"
+        engine._LOWRANK_CACHE.pop(filename, None)
+        try:
+            with (
+                mock.patch.object(engine, "load_torch_file", return_value={"x": torch.zeros(1)}),
+                mock.patch.object(engine, "model_lora_keys_unet", return_value={}),
+                mock.patch.object(engine, "load_lora", return_value=patches),
+            ):
+                layers, skipped, other = engine.load_lora_layers(filename, unet_model)
+        finally:
+            engine._LOWRANK_CACHE.pop(filename, None)
+        self.assertEqual(list(layers), [path])  # the plain LoRA layer still applies
+        self.assertEqual(skipped, 0)
+        self.assertEqual(other, {"LoKr": 2})
+
+
 class TestLayoutInfo(unittest.TestCase):
     def test_spans_are_the_captions(self):
-        import types
-
         from transformers import AutoTokenizer
 
         slow = AutoTokenizer.from_pretrained(os.path.join(FORGE, "backend/huggingface/OpenMOSS-Team/MOSS-Image-SFT/tokenizer"), use_fast=False)

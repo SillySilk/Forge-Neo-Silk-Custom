@@ -80,6 +80,13 @@ class TestScript(unittest.TestCase):
         obj = object()
         self.assertEqual(script.resolve(["homer", "ghost"], {"homer": obj}, {}), ({"homer": obj}, ["'ghost' not found"]))
 
+    def test_lora_problems_name_other_adapter_kinds(self):
+        self.assertEqual(script.lora_problems("lk", {}, 0, {"LoKr": 12}), ["'lk': 12 LoKr layer(s) cannot be masked; skipped"])
+        self.assertEqual(script.lora_problems("mix", {"a": 1}, 3, {"LoHa": 1}),
+                         ["'mix': 1 LoHa layer(s) cannot be masked; skipped", "'mix': 3 unsupported layer(s) not applied"])
+        self.assertEqual(script.lora_problems("none", {}, 0, {}), ["'none' matches no layer of this model"])
+        self.assertEqual(script.lora_problems("ok", {"a": 1}, 0, {}), [])
+
     def test_infotext(self):
         entries = [BoxEntry(0, "homer", 1.0), BoxEntry(1, "marge", 0.8)]
         self.assertEqual(

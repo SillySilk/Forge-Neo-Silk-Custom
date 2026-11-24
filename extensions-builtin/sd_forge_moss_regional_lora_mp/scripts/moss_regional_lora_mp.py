@@ -48,7 +48,7 @@ def strip_hr(p, plan_fn, entries=None) -> list[str] | None:
     originals = list(p.all_hr_prompts[lo:hi])
     plan = plan_fn(originals)
     if entries is not None and (plan.skip_reason or plan.entries != entries):
-        raise ValueError(plan.skip_reason or "the hires prompt has other box LoRAs than the prompt")
+        raise ValueError(plan.skip_reason or "the hires prompts plan different box LoRAs than the prompt")
     p.all_hr_prompts[lo:hi] = plan.stripped
     return originals
 
@@ -196,7 +196,7 @@ class MossRegionalLoraMP(scripts.Script):
             p._mrl_mp_hr_saved = strip_hr(p, plan_batch, plan.entries)
         except ValueError as e:
             p._mrl_mp_hr_ok = False
-            _problem(p, f"hires pass: {e}; no box LoRA there")
+            _problem(p, f"hires pass: {e}; the hires pass applies its LoRA tags globally")
 
     def process_batch(self, p, *args, **kwargs):
         restore_hr(p, getattr(p, "_mrl_mp_hr_saved", None))

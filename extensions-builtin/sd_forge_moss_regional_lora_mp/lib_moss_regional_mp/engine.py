@@ -106,7 +106,10 @@ class _State:
         self.wrapped: list[torch.nn.Module] = []
         self.ctx: _CallContext | None = None
         self.in_lia: bool = False
+        self.seen_call: bool = False  # a MOSSImage._forward call ran since patch()
         self.warned: set[str] = set()
+        self.layer_issues: dict[str, set[str]] = {}  # warn key -> layer paths it covers
+        self.layer_notes: dict[str, str] = {}  # warn key -> its current note text
         self.mask_cache: dict = {}  # (H, W, device, dtype) -> {item: (hw,) tensor}
 
     def warn_once(self, key: str, msg: str):
@@ -114,6 +117,21 @@ class _State:
             self.warned.add(key)
             logger.warning(msg)
             self.notes.append(msg)
+
+    def warn_layers(self, key: str, path: str, msg) -> None:
+        """One shared warning per kind of layer problem: logged once, its note says how many layers.
+        msg(n) builds the text for n layers."""
+        paths = self.layer_issues.setdefault(key, set())
+        if path in paths:
+            return
+        paths.add(path)
+        new = msg(len(paths))
+        old = self.layer_notes.get(key)
+        if old is None:
+            self.warn_once(key, new)
+        elif old in self.notes:
+            self.notes[self.notes.index(old)] = new
+        self.layer_notes[key] = new
 
     def image_masks(self, gh: int, gw: int, device, dtype) -> dict[int, torch.Tensor]:
         key = (gh, gw, str(device), dtype)
@@ -389,6 +407,10 @@ def _dit_forward(self, x, timestep, context, transformer_options={}):
 
     # attention ownership (moonpack diffusion_wrapper): measure while sigma > ms, then own from the scores
     measuring = attention and spans_valid and bool(cond_rows) and sigma is not None and ms is not None and sigma > ms
+    if (attention and not state.seen_call and not measuring and state.scores is None
+            and sigma is not None and ms is not None and sigma <= ms):
+        state.warn_once("late", "attention ownership: this pass starts after the measuring window; using the box masks")
+    state.seen_call = True
     if (attention and not measuring and not state.owned_ready and state.scores is not None
             and sigma is not None and ms is not None and sigma <= ms):
         _finish_measurement()
@@ -418,10 +440,14 @@ def _measuring_attention(real, grid, text_len, cond_rows):
         to = kwargs.get("transformer_options") or {}
         block = to.get("block_index")
         # ctx is None inside preprocess_refs, whose blocks see only reference tokens
-        if (block is not None and state.ctx is not None and not state.attention_off
-                and block in ops.measured_layers(to["total_blocks"])):
+        if block is not None and state.ctx is not None and not state.attention_off:
             try:
-                _accumulate(q, k, heads, grid, text_len, cond_rows)
+                total = to.get("total_blocks")
+                if total is None:
+                    state.warn_once("noblocks", "attention ownership: the model passes no block count; "
+                                                "not measured, using the box masks")
+                elif block in ops.measured_layers(total):
+                    _accumulate(q, k, heads, grid, text_len, cond_rows)
             except Exception as e:  # measurement must never break sampling
                 state.warn_once("measure", f"attention measurement failed ({e}); using the box masks")
                 state.attention_off = True
@@ -483,8 +509,8 @@ def _apply(path, out, x):
     if ctx is None or not ctx.active or not entries or x.dim() != 3:
         return out
     if x.shape[0] != ctx.batch:
-        state.warn_once(f"batch{path}", f"layer '{path}' ran on a batch of {x.shape[0]}, not the call's {ctx.batch}; "
-                                        "no box LoRA there")
+        state.warn_layers("batch", path, lambda n: f"{n} layer(s) ran on a batch other than the call's; no box LoRA there "
+                                                   f"(e.g. '{path}': {x.shape[0]}, not {ctx.batch})")
         return out
     kind = state.module_kinds[path]
     length = x.shape[1]
@@ -494,7 +520,8 @@ def _apply(path, out, x):
         if w is None:
             continue
         if lr.up.device != x.device or lr.up.dtype != x.dtype:
-            state.warn_once(f"cast{path}", f"layer '{path}' runs in {x.dtype} on {x.device}, not the patch dtype/device; casting its box LoRA")
+            state.warn_layers("cast", path, lambda n: f"{n} layer(s) run in another dtype / device than the patch "
+                                                      f"(e.g. {x.dtype} on {x.device}); casting their box LoRA")
             moved = lr.to(x.device, x.dtype)
             lr.up, lr.down = moved.up, moved.down  # patch-local copies, safe to cast in place
         pairs.append((lr, w))

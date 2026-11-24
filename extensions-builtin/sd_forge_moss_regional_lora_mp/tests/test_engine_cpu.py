@@ -197,6 +197,36 @@ class TestEngineCPU(unittest.TestCase):
         self.assertEqual(len(logs.records), 1)
         self.assertIn("batch", logs.output[0])
 
+    def test_batch_mismatch_one_note_for_many_layers(self):
+        paths = ["layers.0.proj.o", "layers.1.proj.o"]
+        engine.patch(self.dit, [engine.Entry(0, "a", 1.0, {p: lr_for(self.dit, p) for p in paths})],
+                     self.info({0: (0.0, 0.0, 0.5, 0.5)}), self.settings, self.device, torch.float32)
+        with torch.no_grad():
+            engine.state.ctx = engine._CallContext((4, 4), TEXT, True, [0], 2, True,
+                                                   engine.state.image_masks(4, 4, self.device, torch.float32))
+            try:
+                with self.assertLogs(engine.logger, "WARNING") as logs:
+                    for p in paths:
+                        layer = self.dit.get_submodule(p)
+                        layer(torch.randn(3, HW + TEXT, layer.weight.shape[1]))
+            finally:
+                engine.state.ctx = None
+        self.assertEqual(len(logs.records), 1)
+        self.assertEqual(len(engine.state.notes), 1)
+        self.assertTrue(engine.state.notes[0].startswith("2 layer(s) ran on a batch other than the call's"))
+
+    def test_cast_one_note_for_many_layers(self):
+        paths = ["layers.0.proj.o", "layers.1.proj.o"]
+        # patch copies in float64 while the model runs float32: every hooked layer casts
+        engine.patch(self.dit, [engine.Entry(0, "a", 1.0, {p: lr_for(self.dit, p) for p in paths})],
+                     self.info({0: (0.0, 0.0, 0.5, 0.5)}), self.settings, self.device, torch.float64)
+        with self.assertLogs(engine.logger, "WARNING") as logs:
+            self.run_dit()
+        self.assertEqual(len(logs.records), 1)
+        cast = [n for n in engine.state.notes if "casting their box LoRA" in n]
+        self.assertEqual(len(cast), 1)
+        self.assertTrue(cast[0].startswith("2 layer(s) run in another dtype / device"))
+
     # ---- attention ownership
 
     def patch_attention(self):
@@ -238,6 +268,8 @@ class TestEngineCPU(unittest.TestCase):
         self.assert_masks_equal(self.masks_now(), owned)
         self.assertNotEqual(owned, geo)  # the contested overlap is decided by attention, not the drawing
 
+        self.assertFalse(any("measuring window" in n for n in engine.state.notes))
+
         # a new sampling run measures afresh
         self.patch_attention()
         self.assertIsNone(engine.state.scores)
@@ -259,6 +291,40 @@ class TestEngineCPU(unittest.TestCase):
         # one call per measured block, all on the joint [image | text] sequence: never the text embedder
         self.assertEqual(seen, [HW + TEXT] * len(engine.ops.measured_layers(len(self.dit.layers))))
         self.assertFalse(engine.state.attention_off)
+
+    def test_pass_after_measuring_window_warns(self):
+        boxes, s = self.patch_attention()  # measures while sigma > 0.5
+        self.opts["sigmas"] = torch.tensor([0.3, 0.3])  # e.g. a hires pass that starts late
+        with self.assertLogs(engine.logger, "WARNING") as logs:
+            self.run_dit()
+            self.run_dit()
+        self.assertEqual(len(logs.records), 1)
+        self.assertIn("attention ownership: this pass starts after the measuring window; using the box masks",
+                      engine.state.notes)
+        self.assertIsNone(engine.state.scores)
+        self.assert_masks_equal(self.masks_now(), masks.geometric_masks(boxes, 4, 4, s.feather, s.skirt))
+
+    def test_measuring_without_block_count(self):
+        self.patch_attention()
+        calls = []
+
+        def real(q, k, v, heads, *args, **kwargs):
+            calls.append(heads)
+            return q
+
+        fn = engine._measuring_attention(real, (4, 4), TEXT, [0])
+        q = torch.randn(2, HW + TEXT, 8)
+        engine.state.ctx = object()
+        try:
+            with mock.patch.object(engine, "_accumulate") as acc, self.assertLogs(engine.logger, "WARNING"):
+                out = fn(q, q, q, 2, transformer_options={"block_index": 1})
+        finally:
+            engine.state.ctx = None
+        self.assertIs(out, q)
+        self.assertEqual(calls, [2])
+        acc.assert_not_called()
+        self.assertFalse(engine.state.attention_off)
+        self.assertTrue(any("no block count" in n for n in engine.state.notes))
 
     def test_measure_restores_attention_function(self):
         original = moss_image.attention_function

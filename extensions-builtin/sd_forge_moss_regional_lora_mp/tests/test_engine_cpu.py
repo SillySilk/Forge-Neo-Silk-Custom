@@ -196,6 +196,92 @@ class TestEngineCPU(unittest.TestCase):
         self.assertEqual(len(logs.records), 1)
         self.assertIn("batch", logs.output[0])
 
+    # ---- attention ownership
+
+    def patch_attention(self):
+        path = o_path(self.dit)
+        boxes = {0: (0.0, 0.0, 0.5, 0.5), 1: (0.25, 0.25, 0.75, 0.75)}
+        info = engine.LayoutInfo(boxes=boxes, spans={0: (0, 2), 1: (2, 4)}, n_tokens=TEXT)
+        settings = engine.Settings(feather=0.0, ownership="attention")
+        engine.patch(self.dit, [engine.Entry(0, "a", 1.0, {path: lr_for(self.dit, path)}),
+                                engine.Entry(1, "b", 1.0, {path: lr_for(self.dit, path)})],
+                     info, settings, self.device, torch.float32, measure_sigma=0.5)
+        return boxes, settings
+
+    def masks_now(self):
+        return engine.state.image_masks(4, 4, self.device, torch.float32)
+
+    def assert_masks_equal(self, got, want_lists):
+        self.assertEqual(set(got), set(want_lists))
+        for i, m in want_lists.items():
+            self.assertTrue(torch.allclose(got[i], torch.tensor(m, dtype=torch.float32)), i)
+
+    def test_measure_then_own(self):
+        boxes, s = self.patch_attention()
+        geo = masks.geometric_masks(boxes, 4, 4, s.feather, s.skirt)
+        self.run_dit()
+        self.run_dit()
+        self.assertIsNotNone(engine.state.scores)
+        self.assertEqual(set(engine.state.scores), {0, 1})
+        self.assertTrue(all(t.sum() > 0 for t in engine.state.scores.values()))
+        self.assertFalse(engine.state.owned_ready)
+        self.assert_masks_equal(self.masks_now(), geo)
+
+        self.opts["sigmas"] = torch.tensor([0.3, 0.3])
+        with self.assertLogs(engine.logger, "INFO") as logs:
+            self.run_dit()
+        self.assertTrue(engine.state.owned_ready)
+        self.assertTrue(any("box 1: +" in line and "box 2: +" in line for line in logs.output))
+        scores = {b: t.tolist() for b, t in engine.state.scores.items()}
+        owned = masks.ownership_image_masks(boxes, scores, 4, 4, s.feather, s.skirt, s.spill)
+        self.assert_masks_equal(self.masks_now(), owned)
+        self.assertNotEqual(owned, geo)  # the contested overlap is decided by attention, not the drawing
+
+        # a new sampling run measures afresh
+        self.patch_attention()
+        self.assertIsNone(engine.state.scores)
+        self.assertFalse(engine.state.owned_ready)
+
+    def test_measure_only_measured_blocks(self):
+        self.patch_attention()
+        seen = []
+        real = engine._accumulate
+
+        def spy(q, *args, **kwargs):
+            seen.append(q.shape[1])
+            return real(q, *args, **kwargs)
+
+        # what an earlier forward leaves in a reused transformer_options; the text embedder runs before the loop
+        self.opts.update(block_index=1, total_blocks=len(self.dit.layers))
+        with mock.patch.object(engine, "_accumulate", side_effect=spy):
+            self.run_dit()
+        # one call per measured block, all on the joint [image | text] sequence: never the text embedder
+        self.assertEqual(seen, [HW + TEXT] * len(engine.ops.measured_layers(len(self.dit.layers))))
+        self.assertFalse(engine.state.attention_off)
+
+    def test_measure_restores_attention_function(self):
+        original = moss_image.attention_function
+        self.patch_attention()
+        self.run_dit()
+        self.assertIs(moss_image.attention_function, original)
+        self.opts["sigmas"] = torch.tensor([0.3, 0.3])
+        self.run_dit()
+        self.assertIs(moss_image.attention_function, original)
+
+    def test_measure_failure_falls_back_loudly(self):
+        boxes, s = self.patch_attention()
+        original = moss_image.attention_function
+        with mock.patch.object(engine, "_accumulate", side_effect=RuntimeError("boom")):
+            with self.assertLogs(engine.logger, "WARNING") as logs:
+                out = self.run_dit()
+        self.assertEqual(out.shape, self.x.shape)
+        self.assertTrue(any("attention measurement failed (boom); using the box masks" in line for line in logs.output))
+        self.assertIs(moss_image.attention_function, original)
+        self.opts["sigmas"] = torch.tensor([0.3, 0.3])
+        self.run_dit()
+        self.assertFalse(engine.state.owned_ready)
+        self.assert_masks_equal(self.masks_now(), masks.geometric_masks(boxes, 4, 4, s.feather, s.skirt))
+
     def test_unpatch_restores(self):
         original = moss_image.MOSSImage._forward
         base = self.run_dit()

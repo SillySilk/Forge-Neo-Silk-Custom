@@ -93,8 +93,14 @@ class _State:
         self.info: LayoutInfo | None = None
         self.settings: Settings = Settings()
         self.sigma_bounds: tuple[float | None, float | None] = (None, None)
-        self.measure_sigma: float | None = None  # attention ownership measures while sigma > this (Task 5)
+        self.measure_sigma: float | None = None  # attention ownership measures while sigma > this
         self.boxes: dict[int, tuple[float, float, float, float]] = {}  # items that carry an entry
+        self.spans: dict[int, tuple[int, int]] = {}  # caption token spans of those items
+        # attention ownership (moonpack RegionalLoraManager); reset per sampling run by patch()
+        self.attention_off: bool = False  # set when measurement failed
+        self.scores: dict[int, torch.Tensor] | None = None  # item -> (hw,) float32 attention mass
+        self.score_grid: tuple[int, int] | None = None
+        self.owned_ready: bool = False
         self.module_entries: dict[str, list[tuple[int, _lora.LowRank]]] = {}
         self.module_kinds: dict[str, str] = {}
         self.wrapped: list[torch.nn.Module] = []
@@ -114,12 +120,18 @@ class _State:
         cached = self.mask_cache.get(key)
         if cached is None:
             s = self.settings
-            lists = _masks.geometric_masks(self.boxes, gh, gw, s.feather, s.skirt)
+            if self.owned_ready and self.score_grid == (gh, gw):
+                lists = _masks.ownership_image_masks(self.boxes, self.score_lists(), gh, gw, s.feather, s.skirt, s.spill)
+            else:
+                lists = _masks.geometric_masks(self.boxes, gh, gw, s.feather, s.skirt)
             cached = {i: torch.tensor(m, device=device, dtype=dtype) for i, m in lists.items()}
             if len(self.mask_cache) > 4:
                 self.mask_cache.clear()
             self.mask_cache[key] = cached
         return cached
+
+    def score_lists(self) -> dict[int, list[float]]:
+        return {b: t.tolist() for b, t in self.scores.items()}
 
     def weight(self, index: int, kind: str, length: int, like: torch.Tensor) -> torch.Tensor | None:
         """strength * entry_weight for one entry in the running call, cached per (entry, kind, length)."""
@@ -291,6 +303,11 @@ def patch(dit, entries: list[Entry], info: LayoutInfo, settings: Settings, devic
         state.sigma_bounds = tuple(sigma_bounds)
         state.measure_sigma = measure_sigma
         state.boxes = {e.item: info.boxes[e.item] for e in kept}
+        state.spans = {i: info.spans[i] for i in state.boxes if i in info.spans}
+        if settings.ownership == "attention" and not state.spans:
+            state.warn_once("nospans", "attention ownership: no box with a LoRA has caption tokens; using the box masks")
+        elif settings.ownership == "attention" and measure_sigma is None:
+            state.warn_once("nomeasure", "attention ownership: no sigma to measure until; using the box masks")
         state.module_entries = module_entries
         state.module_kinds = kinds
 
@@ -347,18 +364,95 @@ def _dit_forward(self, x, timestep, context, transformer_options={}):
     spans_valid = state.info.n_tokens == text_len
     if cond_rows and not spans_valid:
         state.warn_once("len", f"the positive prompt has {text_len} tokens, expected {state.info.n_tokens}; "
-                               "'own caption' falls back to the box masks")
+                               "attention ownership and 'own caption' fall back to the box masks")
     sigmas = transformer_options.get("sigmas")
+    sigma = float(sigmas.max()) if sigmas is not None else None
+    attention = state.settings.ownership == "attention" and not state.attention_off and bool(state.spans)
+    ms = state.measure_sigma
     if sigmas is None and any(b is not None for b in state.sigma_bounds):
         state.warn_once("nosigmas", "the sampler passes no sigmas; the LoRA start / end are ignored and "
                                     "box LoRAs apply at every step")
-    active = sigmas is None or ops.schedule_active(float(sigmas.max()), *state.sigma_bounds)
+    if sigmas is None and attention and ms is not None:
+        state.warn_once("nosigmas_measure", "the sampler passes no sigmas; attention ownership is not measured, "
+                                            "using the box masks")
+    active = sigma is None or ops.schedule_active(sigma, *state.sigma_bounds)
+
+    # attention ownership (moonpack diffusion_wrapper): measure while sigma > ms, then own from the scores
+    measuring = attention and spans_valid and bool(cond_rows) and sigma is not None and ms is not None and sigma > ms
+    if (attention and not measuring and not state.owned_ready and state.scores is not None
+            and sigma is not None and ms is not None and sigma <= ms):
+        _finish_measurement()
+
     state.ctx = _CallContext((H, W), text_len, active, cond_rows, B, spans_valid,
                              state.image_masks(H, W, x.device, x.dtype) if active else {})
+    real_attention = _moss.attention_function
     try:
+        if measuring:
+            # a copy without a stale block_index, so the text embedder's attention is never measured
+            transformer_options = {k: v for k, v in transformer_options.items() if k != "block_index"}
+            _moss.attention_function = _measuring_attention(real_attention, (H, W), text_len, cond_rows)
         return orig(self, x, timestep, context, transformer_options)
     finally:
+        _moss.attention_function = real_attention
         state.ctx = None
+
+
+# ---------------------------------------------------------------- attention ownership
+
+
+def _measuring_attention(real, grid, text_len, cond_rows):
+    """moonpack _make_override: records image -> caption attention in the measured blocks, then runs
+    attention unchanged."""
+
+    def attention_function(q, k, v, heads, *args, **kwargs):
+        to = kwargs.get("transformer_options") or {}
+        block = to.get("block_index")
+        # ctx is None inside preprocess_refs, whose blocks see only reference tokens
+        if (block is not None and state.ctx is not None and not state.attention_off
+                and block in ops.measured_layers(to["total_blocks"])):
+            try:
+                _accumulate(q, k, heads, grid, text_len, cond_rows)
+            except Exception as e:  # measurement must never break sampling
+                state.warn_once("measure", f"attention measurement failed ({e}); using the box masks")
+                state.attention_off = True
+        return real(q, k, v, heads, *args, **kwargs)
+
+    return attention_function
+
+
+def _accumulate(q, k, heads, grid, text_len, cond_rows, chunk=1024):
+    """moonpack _accumulate: per box, the attention mass each image token puts on the box's caption."""
+    hw = grid[0] * grid[1]
+    rows = torch.tensor(cond_rows, device=q.device)
+    dh = q.shape[-1] // heads
+    qi = q.index_select(0, rows)[:, :hw].reshape(len(cond_rows), hw, heads, dh).transpose(1, 2)
+    kt = k.index_select(0, rows)[:, hw:hw + text_len].reshape(len(cond_rows), text_len, heads, dh).transpose(1, 2)
+    if state.scores is None or state.score_grid != grid:
+        state.scores = {b: torch.zeros(hw, device=q.device, dtype=torch.float32) for b in state.spans}
+        state.score_grid = grid
+    scale = dh ** -0.5
+    with torch.no_grad():
+        for s0 in range(0, hw, chunk):
+            logits = torch.matmul(qi[:, :, s0:s0 + chunk].float(), kt.float().transpose(-1, -2)) * scale
+            probs = logits.softmax(-1)  # over the text tokens: which part of the prompt each image token reads
+            for b, (t0, t1) in state.spans.items():
+                state.scores[b][s0:s0 + chunk] += probs[..., t0:t1].sum(-1).mean(dim=(0, 1))
+
+
+def _finish_measurement():
+    """moonpack _finish_measurement: switch to attention-owned masks and log how they moved."""
+    state.owned_ready = True
+    state.mask_cache.clear()
+    gh, gw = state.score_grid
+    s = state.settings
+    owned = _masks.ownership_image_masks(state.boxes, state.score_lists(), gh, gw, s.feather, s.skirt, s.spill)
+    parts = []
+    for b in sorted(owned):
+        geo = ops.box_mask(_masks.to_grid_box(state.boxes[b]), gh, gw, s.feather, s.skirt)
+        moved = sum(1 for i in range(gh * gw) if owned[b][i] > 0.5 and geo[i] <= 0.5)
+        lost = sum(1 for i in range(gh * gw) if owned[b][i] <= 0.5 and geo[i] > 0.5)
+        parts.append(f"box {b + 1}: +{moved}/-{lost} tokens")
+    logger.info(f"attention ownership vs. the drawn boxes: {', '.join(parts)}")
 
 
 def _preprocess_refs(self, refs, transformer_options={}):

@@ -153,6 +153,26 @@ class TestScriptFlow(unittest.TestCase):
         self.s.process_before_every_sampling(p)
         self.assertNotIn(script.INFOTEXT_KEY, p.extra_generation_params)
 
+    def test_hires_mismatch_keeps_first_pass_entries(self):
+        from lib_moss_regional_mp.engine import Entry
+
+        p = fake_p()
+        hr = PROMPT.replace("<lora:homer:1>", "")  # the hires prompt plans other box LoRAs
+        p.enable_hr, p.all_hr_prompts, p.hr_prompts = True, [hr], [hr]
+        with self.assertLogs(script.logger, "WARNING"):
+            self.s.before_process_batch(p)
+        self.assertFalse(p._mrl_mp_hr_ok)
+        applied = [Entry(0, "homer", 1.0, {}), Entry(1, "marge", 0.8, {})]
+        with mock.patch.object(script.MossRegionalLoraMP, "_patch", return_value=applied):
+            self.s.process_before_every_sampling(p)
+        p.is_hr_pass = True
+        with mock.patch.object(script.MossRegionalLoraMP, "_patch") as patch:
+            self.s.process_before_every_sampling(p)
+        patch.assert_not_called()
+        text = p.extra_generation_params[script.INFOTEXT_KEY]()
+        self.assertIn("homer: item 1 x1.0; marge: item 2 x0.8", text)
+        self.assertIn("hires pass:", text)
+
     def test_infotext_kept_when_engine_not_chosen(self):
         p = fake_p()
         p._moss_regional_engine = "Original"

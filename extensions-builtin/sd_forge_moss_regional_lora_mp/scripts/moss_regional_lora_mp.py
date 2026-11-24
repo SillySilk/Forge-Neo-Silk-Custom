@@ -40,7 +40,8 @@ def should_run(choice: str, is_moss: bool, ad_inner: bool) -> bool:
 
 def strip_hr(p, plan_fn, entries=None) -> list[str] | None:
     """Takes the box LoRA tags out of this batch's hires prompts; returns the originals, or None without hires.
-    With `entries`, raises ValueError (and changes nothing) when the hires prompts plan other box LoRAs."""
+    With `entries`, raises ValueError when the hires prompts plan different box LoRAs, leaving them untouched:
+    their tags stay in, so Forge applies those LoRAs globally in the hires pass."""
     if not getattr(p, "enable_hr", False) or getattr(p, "all_hr_prompts", None) is None:
         return None
     b = p.batch_size
@@ -181,6 +182,7 @@ class MossRegionalLoraMP(scripts.Script):
 
         engine.unpatch()
         p._mrl_mp_plan = None
+        p._mrl_mp_entries = []  # what the first pass applied; a mismatched hires pass keeps it in the infotext
         p._mrl_mp_hr_saved = None
         p._mrl_mp_hr_ok = True
         p._mrl_mp_problems = []
@@ -229,7 +231,7 @@ class MossRegionalLoraMP(scripts.Script):
 
         is_hr = getattr(p, "is_hr_pass", False)
         if is_hr and not getattr(p, "_mrl_mp_hr_ok", True):
-            _write_infotext(p, [])
+            _write_infotext(p, getattr(p, "_mrl_mp_entries", []))  # keep the first pass's line
             return
         try:
             entries = self._patch(p, plan, is_hr)
@@ -238,6 +240,8 @@ class MossRegionalLoraMP(scripts.Script):
             logger.exception("box LoRAs not applied")
             _problem(p, f"box LoRAs not applied: {e}")
             entries = []
+        if not is_hr:
+            p._mrl_mp_entries = entries
         _write_infotext(p, entries)
 
     def _patch(self, p, plan, is_hr):
